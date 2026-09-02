@@ -12,10 +12,11 @@ import {
   Platform,
 } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { useRoutines } from '@/lib/hooks/useWorkout'
+import { useRoutines, getExerciseRecordData } from '@/lib/hooks/useWorkout'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/hooks/useAuth'
+import CreateRoutineModal from '@/components/workout/CreateRoutineModal'
 
 const muscleGroupColor: Record<string, string> = {
   'Pecho': '#60A5FA',
@@ -37,6 +38,7 @@ export default function RoutineDetailScreen() {
   const routine = routines.find((r) => r.id === routineId)
 
   const [modalVisible, setModalVisible] = useState(false)
+  const [showEditRoutineModal, setShowEditRoutineModal] = useState(false)
   const [name, setName] = useState('')
   const [muscleGroup, setMuscleGroup] = useState('')
   const [sets, setSets] = useState('3')
@@ -112,6 +114,15 @@ export default function RoutineDetailScreen() {
           headerStyle: { backgroundColor: '#0A0A0A' },
           headerTintColor: '#FFFFFF',
           headerShadowVisible: false,
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => setShowEditRoutineModal(true)}
+              style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: '#38BDF8', fontWeight: '800', fontSize: 14 }}>Editar</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -119,15 +130,28 @@ export default function RoutineDetailScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {/* Header Card */}
           <View style={styles.heroCard}>
-            <Text style={styles.routineCategory}>RUTINA</Text>
-            <Text style={styles.routineTitle}>{routine?.name || 'Cargando...'}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.routineCategory}>RUTINA</Text>
+                <Text style={styles.routineTitle}>{routine?.name || 'Cargando...'}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.editHeroBtn}
+                onPress={() => setShowEditRoutineModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={16} color="#38BDF8" />
+                <Text style={styles.editHeroBtnText}>Editar Rutina</Text>
+              </TouchableOpacity>
+            </View>
+
             {routine?.description && (
               <Text style={styles.routineDescription}>{routine.description}</Text>
             )}
 
             <View style={styles.metaPillsRow}>
               <View style={styles.metaPill}>
-                <Ionicons name="barbell-outline" size={13} color="#3B82F6" />
+                <Ionicons name="barbell-outline" size={13} color="#38BDF8" />
                 <Text style={styles.metaPillText}>
                   {routine?.exercises?.length || 0} ejercicios
                 </Text>
@@ -149,7 +173,7 @@ export default function RoutineDetailScreen() {
               onPress={() => setModalVisible(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="add" size={16} color="#3B82F6" />
+              <Ionicons name="add" size={16} color="#38BDF8" />
               <Text style={styles.addExerciseBtnText}>Añadir</Text>
             </TouchableOpacity>
           </View>
@@ -173,6 +197,7 @@ export default function RoutineDetailScreen() {
             <View style={styles.exerciseList}>
               {routine?.exercises?.map((exercise, index) => {
                 const color = muscleGroupColor[exercise.name.split(' ')[0]] || '#60A5FA'
+                const record = getExerciseRecordData(exercise.name)
                 return (
                   <View key={exercise.id} style={styles.exerciseCard}>
                     <View style={[styles.sideIndicator, { backgroundColor: color }]} />
@@ -224,6 +249,12 @@ export default function RoutineDetailScreen() {
                           <Text style={styles.specVal}>{exercise.rest_seconds}s</Text>
                           <Text style={styles.specLabel}>DESCANSO</Text>
                         </View>
+                        {record.maxWeightOverall > 0 && (
+                          <View style={[styles.specBox, { backgroundColor: 'rgba(56, 189, 248, 0.1)' }]}>
+                            <Text style={[styles.specVal, { color: '#38BDF8' }]}>{record.maxWeightOverall}kg</Text>
+                            <Text style={[styles.specLabel, { color: '#38BDF8' }]}>RÉCORD</Text>
+                          </View>
+                        )}
                       </View>
 
                       {exercise.notes && (
@@ -373,6 +404,13 @@ export default function RoutineDetailScreen() {
             </View>
           </View>
         </Modal>
+        {/* Edit Routine Full Modal */}
+        <CreateRoutineModal
+          visible={showEditRoutineModal}
+          routineToEdit={routine}
+          onClose={() => setShowEditRoutineModal(false)}
+          onRoutineCreated={() => refetch()}
+        />
       </View>
     </>
   )
@@ -395,6 +433,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     gap: 4,
+  },
+  editHeroBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  editHeroBtnText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
   },
   routineCategory: {
     color: 'rgba(255,255,255,0.35)',

@@ -21,7 +21,12 @@ import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
 import PainAdaptorModal from '@/components/workout/PainAdaptorModal'
 import VoiceSetLoggerModal from '@/components/workout/VoiceSetLoggerModal'
 import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
-import { DEFAULT_STARTER_ROUTINES, recordWorkoutSession } from '@/lib/hooks/useWorkout'
+import {
+  DEFAULT_STARTER_ROUTINES,
+  recordWorkoutSession,
+  getSetPlaceholder,
+  discardWorkoutSession,
+} from '@/lib/hooks/useWorkout'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import Svg, { Circle } from 'react-native-svg'
@@ -35,16 +40,21 @@ import {
   NOTIFICATION_ACTIONS,
 } from '@/lib/services/notifications'
 
-interface SetRowData {
+export type SetType = 'normal' | 'warmup' | 'dropset' | 'failure'
+
+export interface SetRowData {
   id: string
   setNum: number
+  setType: SetType
   previous: string
   weightKg: string
   reps: string
+  placeholderWeight: string
+  placeholderReps: string
   completed: boolean
 }
 
-interface SessionExercise {
+export interface SessionExercise {
   id: string
   exercise: ExerciseDefinition
   sets: SetRowData[]
@@ -68,6 +78,7 @@ export default function LiveWorkoutSessionScreen() {
   const [finishEditedMinutes, setFinishEditedMinutes] = useState(45)
   const [saving, setSaving] = useState(false)
   const [showFinishModal, setShowFinishModal] = useState(false)
+  const [showDiscardModal, setShowDiscardModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPainModal, setShowPainModal] = useState(false)
   const [showVoiceModal, setShowVoiceModal] = useState(false)
@@ -102,17 +113,22 @@ export default function LiveWorkoutSessionScreen() {
           ) || EXERCISE_DATABASE[idx % EXERCISE_DATABASE.length]
 
           const setsCount = exItem.target_sets || 3
-          const defaultWeight = matchedDb.records?.maxWeight ? String(Math.round(matchedDb.records.maxWeight * 0.75)) : '50'
-          const defaultReps = exItem.target_reps.split('-')[0] || '10'
+          const targetReps = exItem.target_reps || '8-10'
 
-          const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => ({
-            id: `s-${idx}-${sIdx + 1}`,
-            setNum: sIdx + 1,
-            previous: `${defaultWeight} kg x ${defaultReps}`,
-            weightKg: defaultWeight,
-            reps: defaultReps,
-            completed: sIdx === 0, // first set ready
-          }))
+          const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => {
+            const ph = getSetPlaceholder(exItem.name || matchedDb.name, sIdx + 1, targetReps)
+            return {
+              id: `s-${idx}-${sIdx + 1}`,
+              setNum: sIdx + 1,
+              setType: 'normal',
+              previous: ph.previousSummary,
+              weightKg: '',
+              reps: '',
+              placeholderWeight: ph.placeholderWeight,
+              placeholderReps: ph.placeholderReps,
+              completed: false,
+            }
+          })
 
           return {
             id: `ex-${idx + 1}`,
@@ -144,17 +160,22 @@ export default function LiveWorkoutSessionScreen() {
             ) || EXERCISE_DATABASE[idx % EXERCISE_DATABASE.length]
 
             const setsCount = exItem.target_sets || 3
-            const defaultWeight = '50'
-            const defaultReps = (exItem.target_reps || '10').split('-')[0] || '10'
+            const targetReps = exItem.target_reps || '8-10'
 
-            const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => ({
-              id: `s-${idx}-${sIdx + 1}`,
-              setNum: sIdx + 1,
-              previous: `${defaultWeight} kg x ${defaultReps}`,
-              weightKg: defaultWeight,
-              reps: defaultReps,
-              completed: false,
-            }))
+            const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => {
+              const ph = getSetPlaceholder(exItem.name || matchedDb.name, sIdx + 1, targetReps)
+              return {
+                id: `s-${idx}-${sIdx + 1}`,
+                setNum: sIdx + 1,
+                setType: 'normal',
+                previous: ph.previousSummary,
+                weightKg: '',
+                reps: '',
+                placeholderWeight: ph.placeholderWeight,
+                placeholderReps: ph.placeholderReps,
+                completed: false,
+              }
+            })
 
             return {
               id: `ex-${idx + 1}`,
@@ -171,26 +192,29 @@ export default function LiveWorkoutSessionScreen() {
 
       // Fallback default exercises
       setRoutineTitle('Pecho - Hipertrofia')
-      setExercises([
-        {
-          id: 'ex-1',
-          exercise: EXERCISE_DATABASE[0],
-          sets: [
-            { id: 's1', setNum: 1, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: true },
-            { id: 's2', setNum: 2, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: false },
-            { id: 's3', setNum: 3, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: false },
-          ],
-        },
-        {
-          id: 'ex-2',
-          exercise: EXERCISE_DATABASE[1],
-          sets: [
-            { id: 's1', setNum: 1, previous: '30 kg x 10', weightKg: '32', reps: '10', completed: false },
-            { id: 's2', setNum: 2, previous: '30 kg x 10', weightKg: '32', reps: '10', completed: false },
-            { id: 's3', setNum: 3, previous: '30 kg x 8', weightKg: '34', reps: '8', completed: false },
-          ],
-        },
-      ])
+      const defaultExList = [EXERCISE_DATABASE[0], EXERCISE_DATABASE[1]]
+      const builtFallback: SessionExercise[] = defaultExList.map((exDef, idx) => {
+        const initialSets: SetRowData[] = [1, 2, 3].map((setNum) => {
+          const ph = getSetPlaceholder(exDef.name, setNum, '8-10')
+          return {
+            id: `s-${idx}-${setNum}`,
+            setNum,
+            setType: 'normal',
+            previous: ph.previousSummary,
+            weightKg: '',
+            reps: '',
+            placeholderWeight: ph.placeholderWeight,
+            placeholderReps: ph.placeholderReps,
+            completed: false,
+          }
+        })
+        return {
+          id: `ex-${idx + 1}`,
+          exercise: exDef,
+          sets: initialSets,
+        }
+      })
+      setExercises(builtFallback)
     }
 
     loadRoutine()
@@ -306,8 +330,8 @@ export default function LiveWorkoutSessionScreen() {
       exerciseName: activeEx.exercise.name,
       currentSet: currentSetNum,
       totalSets: activeEx.sets.length,
-      targetWeight: currentSetData?.weightKg || '0',
-      targetReps: currentSetData?.reps || '10',
+      targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '0',
+      targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
       durationFormatted: formatChronometer(elapsedSeconds),
       isResting,
       restSecondsLeft: restSeconds,
@@ -340,6 +364,9 @@ export default function LiveWorkoutSessionScreen() {
           sets: ex.sets.map((st) => {
             if (st.id === setId) {
               const nextState = !st.completed
+              const effectiveWeight = st.weightKg.trim() || st.placeholderWeight || '50'
+              const effectiveReps = st.reps.trim() || st.placeholderReps || '10'
+
               if (nextState && restTimerEnabled && defaultRestSeconds > 0) {
                 // Trigger rest timer with configured seconds & schedule notification
                 setRestSeconds(defaultRestSeconds)
@@ -350,11 +377,48 @@ export default function LiveWorkoutSessionScreen() {
                   defaultRestSeconds
                 )
               }
-              return { ...st, completed: nextState }
+              return {
+                ...st,
+                weightKg: nextState ? effectiveWeight : st.weightKg,
+                reps: nextState ? effectiveReps : st.reps,
+                completed: nextState,
+              }
             }
             return st
           }),
         }
+      })
+    )
+  }
+
+  const cycleSetType = (setId: string) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+        return {
+          ...ex,
+          sets: ex.sets.map((st) => {
+            if (st.id === setId) {
+              const order: SetType[] = ['normal', 'warmup', 'dropset', 'failure']
+              const currentIdx = order.indexOf(st.setType || 'normal')
+              const nextType = order[(currentIdx + 1) % order.length]
+              return { ...st, setType: nextType }
+            }
+            return st
+          }),
+        }
+      })
+    )
+  }
+
+  const deleteSet = (setId: string) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+        if (ex.sets.length <= 1) return ex
+        const filtered = ex.sets.filter((s) => s.id !== setId)
+        const reindexed = filtered.map((s, idx) => ({ ...s, setNum: idx + 1 }))
+        return { ...ex, sets: reindexed }
       })
     )
   }
@@ -364,12 +428,19 @@ export default function LiveWorkoutSessionScreen() {
       prev.map((ex, exIdx) => {
         if (exIdx !== activeExerciseIndex) return ex
         const last = ex.sets[ex.sets.length - 1]
+        const newSetNum = ex.sets.length + 1
+        const ph = getSetPlaceholder(ex.exercise.name, newSetNum)
         const newSet: SetRowData = {
-          id: `s-${Date.now()}`,
-          setNum: ex.sets.length + 1,
-          previous: last ? `${last.weightKg} kg x ${last.reps}` : '60 kg x 10',
-          weightKg: last?.weightKg || '60',
-          reps: last?.reps || '10',
+          id: `s-${Date.now()}-${newSetNum}`,
+          setNum: newSetNum,
+          setType: 'normal',
+          previous: last
+            ? `${last.weightKg || last.placeholderWeight} kg x ${last.reps || last.placeholderReps}`
+            : ph.previousSummary,
+          weightKg: '',
+          reps: '',
+          placeholderWeight: last?.weightKg || last?.placeholderWeight || ph.placeholderWeight || '50',
+          placeholderReps: last?.reps || last?.placeholderReps || ph.placeholderReps || '10',
           completed: false,
         }
         return { ...ex, sets: [...ex.sets, newSet] }
@@ -390,15 +461,19 @@ export default function LiveWorkoutSessionScreen() {
   }
 
   const handleAddExerciseToSession = (newEx: ExerciseDefinition) => {
+    const s1Ph = getSetPlaceholder(newEx.name, 1, '8-10')
+    const s2Ph = getSetPlaceholder(newEx.name, 2, '8-10')
+    const s3Ph = getSetPlaceholder(newEx.name, 3, '8-10')
+
     setExercises((prev) => [
       ...prev,
       {
         id: `sess-ex-${Date.now()}`,
         exercise: newEx,
         sets: [
-          { id: `s1-${Date.now()}`, setNum: 1, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
-          { id: `s2-${Date.now()}`, setNum: 2, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
-          { id: `s3-${Date.now()}`, setNum: 3, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
+          { id: `s1-${Date.now()}`, setNum: 1, setType: 'normal', previous: s1Ph.previousSummary, weightKg: '', reps: '', placeholderWeight: s1Ph.placeholderWeight, placeholderReps: s1Ph.placeholderReps, completed: false },
+          { id: `s2-${Date.now()}`, setNum: 2, setType: 'normal', previous: s2Ph.previousSummary, weightKg: '', reps: '', placeholderWeight: s2Ph.placeholderWeight, placeholderReps: s2Ph.placeholderReps, completed: false },
+          { id: `s3-${Date.now()}`, setNum: 3, setType: 'normal', previous: s3Ph.previousSummary, weightKg: '', reps: '', placeholderWeight: s3Ph.placeholderWeight, placeholderReps: s3Ph.placeholderReps, completed: false },
         ],
       },
     ])
@@ -414,14 +489,20 @@ export default function LiveWorkoutSessionScreen() {
     setExercises((prev) => {
       const next = [...prev]
       if (next[activeExerciseIndex]) {
-        const remainingSets: SetRowData[] = Array.from({ length: sets || 3 }).map((_, sIdx) => ({
-          id: `s-pain-${Date.now()}-${sIdx + 1}`,
-          setNum: sIdx + 1,
-          previous: `Variante Segura (${reps} reps)`,
-          weightKg: '20',
-          reps: reps.split('-')[0] || '10',
-          completed: false,
-        }))
+        const remainingSets: SetRowData[] = Array.from({ length: sets || 3 }).map((_, sIdx) => {
+          const ph = getSetPlaceholder(newExercise.name, sIdx + 1, reps)
+          return {
+            id: `s-pain-${Date.now()}-${sIdx + 1}`,
+            setNum: sIdx + 1,
+            setType: 'normal',
+            previous: `Variante Segura (${reps} reps)`,
+            weightKg: '',
+            reps: '',
+            placeholderWeight: ph.placeholderWeight,
+            placeholderReps: reps.split('-')[0] || '10',
+            completed: false,
+          }
+        })
         next[activeExerciseIndex] = {
           id: `ex-pain-${Date.now()}`,
           exercise: newExercise,
@@ -458,9 +539,12 @@ export default function LiveWorkoutSessionScreen() {
         const targetSet: SetRowData = setsCopy[targetIndex] || {
           id: `s-voice-${Date.now()}`,
           setNum: targetIndex + 1,
+          setType: 'normal',
           previous: `${data.weightKg} kg x ${data.reps}`,
           weightKg: String(data.weightKg),
           reps: String(data.reps),
+          placeholderWeight: String(data.weightKg),
+          placeholderReps: String(data.reps),
           completed: true,
         }
 
@@ -488,6 +572,20 @@ export default function LiveWorkoutSessionScreen() {
     setShowVoiceModal(false)
   }
 
+  const handlePromptDiscard = () => {
+    setShowDiscardModal(true)
+  }
+
+  const handleConfirmDiscard = async () => {
+    setShowDiscardModal(false)
+    if (params.id) {
+      await discardWorkoutSession(params.id, user?.id)
+      await AsyncStorage.removeItem(`@workout_session_start_${params.id || 'current'}`)
+    }
+    await clearAllWorkoutNotifications()
+    router.back()
+  }
+
   // Calculate real metrics and finish workout
   const handleInitiateFinish = async () => {
     const durationMins = Math.max(1, Math.round(elapsedSeconds / 60))
@@ -496,16 +594,19 @@ export default function LiveWorkoutSessionScreen() {
     const mins = durationMins % 60
     const durationFormatted = hours > 0 ? (mins > 0 ? `${hours}h ${mins}min` : `${hours}h`) : `${mins} min`
 
-    // Calculate real volume from completed sets (or all if user finished)
+    // Calculate real volume from completed sets
     let totalVol = 0
     let completedCount = 0
     let recordsAchieved = 0
 
     const exerciseDataForSave = exercises.map((ex) => {
       const setsData = ex.sets.map((s) => {
-        const w = parseFloat(s.weightKg.replace(',', '.')) || 0
-        const r = parseInt(s.reps, 10) || 0
-        const isDone = s.completed || true
+        const wStr = s.weightKg.trim() || s.placeholderWeight || '0'
+        const rStr = s.reps.trim() || s.placeholderReps || '0'
+        const w = parseFloat(wStr.replace(',', '.')) || 0
+        const r = parseInt(rStr, 10) || 0
+        const isDone = s.completed
+
         if (isDone) {
           totalVol += w * r
           completedCount += 1
@@ -558,9 +659,12 @@ export default function LiveWorkoutSessionScreen() {
 
     const exerciseDataForSave = exercises.map((ex) => {
       const setsData = ex.sets.map((s) => {
-        const w = parseFloat(s.weightKg.replace(',', '.')) || 0
-        const r = parseInt(s.reps, 10) || 0
-        const isDone = s.completed || true
+        const wStr = s.weightKg.trim() || s.placeholderWeight || '0'
+        const rStr = s.reps.trim() || s.placeholderReps || '0'
+        const w = parseFloat(wStr.replace(',', '.')) || 0
+        const r = parseInt(rStr, 10) || 0
+        const isDone = s.completed
+
         if (isDone) {
           totalVol += w * r
         }
@@ -634,14 +738,15 @@ export default function LiveWorkoutSessionScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ── Top Bar with Live Chronometer & Rest Settings ── */}
+      {/* ── Top Bar with Live Chronometer, Discard & Rest Settings ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.iconBtn}
+          onPress={handlePromptDiscard}
+          style={styles.discardTopBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-down" size={26} color="#FFFFFF" />
+          <Ionicons name="close" size={20} color="rgba(255,255,255,0.8)" />
+          <Text style={styles.discardTopText}>Descartar</Text>
         </TouchableOpacity>
 
         {/* Live Running Stopwatch Chronometer Pill (Tap to Edit Duration) */}
@@ -811,18 +916,47 @@ export default function LiveWorkoutSessionScreen() {
           </View>
         </View>
 
-        {/* ── Table Header: SERIE | PREVIA | KG | REPES ── */}
+        {/* ── Table Header: SET | PREVIA | KG | REPES | ✓ ── */}
         <View style={styles.tableHeaderRow}>
-          <Text style={[styles.tableHeadCol, { width: 44 }]}>SERIE</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1 }]}>PREVIA</Text>
+          <Text style={[styles.tableHeadCol, { width: 38, textAlign: 'center' }]}>SET</Text>
+          <Text style={[styles.tableHeadCol, { flex: 1, paddingLeft: 4 }]}>ANTERIOR</Text>
           <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>KG</Text>
           <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>REPES</Text>
-          <View style={{ width: 42 }} />
+          <View style={{ width: 44, alignItems: 'center' }}>
+            <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.3)" />
+          </View>
         </View>
 
-        {/* ── Table Rows ── */}
+        {/* ── Hevy Style Table Rows ── */}
         <View style={styles.tableBody}>
           {(activeSessionExercise?.sets || []).map((row) => {
+            const setTypeLabel =
+              row.setType === 'warmup'
+                ? 'W'
+                : row.setType === 'dropset'
+                ? 'D'
+                : row.setType === 'failure'
+                ? 'F'
+                : String(row.setNum)
+
+            const setTypeBadgeStyle =
+              row.setType === 'warmup'
+                ? styles.badgeWarmup
+                : row.setType === 'dropset'
+                ? styles.badgeDropset
+                : row.setType === 'failure'
+                ? styles.badgeFailure
+                : styles.badgeNormal
+
+            const setTypeTextStyle =
+              row.setType === 'warmup'
+                ? styles.badgeTextWarmup
+                : row.setType === 'dropset'
+                ? styles.badgeTextDropset
+                : row.setType === 'failure'
+                ? styles.badgeTextFailure
+                : styles.badgeTextNormal
+
             return (
               <View
                 key={row.id}
@@ -831,21 +965,27 @@ export default function LiveWorkoutSessionScreen() {
                   row.completed && styles.tableRowCompleted,
                 ]}
               >
-                {/* Serie Number */}
-                <View style={styles.serieNumBox}>
-                  <Text style={styles.serieNumText}>{row.setNum}</Text>
-                </View>
+                {/* Serie Number / Type Selector Button */}
+                <TouchableOpacity
+                  style={[styles.serieNumBox, setTypeBadgeStyle]}
+                  onPress={() => cycleSetType(row.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.serieNumText, setTypeTextStyle]}>{setTypeLabel}</Text>
+                </TouchableOpacity>
 
                 {/* Previa */}
                 <Text style={styles.previaText} numberOfLines={1}>
-                  {row.previous}
+                  {row.previous || '—'}
                 </Text>
 
                 {/* KG Input Box */}
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
                   <TextInput
-                    style={styles.tableInput}
+                    style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
                     value={row.weightKg}
+                    placeholder={row.placeholderWeight || '50'}
+                    placeholderTextColor="rgba(255,255,255,0.28)"
                     onChangeText={(val) => updateSetField(row.id, 'weightKg', val)}
                     keyboardType="decimal-pad"
                     selectTextOnFocus
@@ -853,10 +993,12 @@ export default function LiveWorkoutSessionScreen() {
                 </View>
 
                 {/* Reps Input Box */}
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
                   <TextInput
-                    style={styles.tableInput}
+                    style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
                     value={row.reps}
+                    placeholder={row.placeholderReps || '10'}
+                    placeholderTextColor="rgba(255,255,255,0.28)"
                     onChangeText={(val) => updateSetField(row.id, 'reps', val)}
                     keyboardType="number-pad"
                     selectTextOnFocus
@@ -874,10 +1016,21 @@ export default function LiveWorkoutSessionScreen() {
                 >
                   <Ionicons
                     name="checkmark"
-                    size={16}
-                    color={row.completed ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
+                    size={18}
+                    color={row.completed ? '#FFFFFF' : 'rgba(255,255,255,0.35)'}
                   />
                 </TouchableOpacity>
+
+                {/* Delete Set Icon if > 1 set */}
+                {activeSessionExercise?.sets.length > 1 && (
+                  <TouchableOpacity
+                    style={styles.deleteSetMiniBtn}
+                    onPress={() => deleteSet(row.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="rgba(255,255,255,0.25)" />
+                  </TouchableOpacity>
+                )}
               </View>
             )
           })}
@@ -1031,6 +1184,44 @@ export default function LiveWorkoutSessionScreen() {
         </View>
       </Modal>
 
+      {/* ── Discard Workout Modal ── */}
+      <Modal
+        visible={showDiscardModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDiscardModal(false)}
+      >
+        <View style={styles.finishOverlay}>
+          <View style={[styles.finishCard, { maxWidth: 360 }]}>
+            <View style={styles.discardIconCircle}>
+              <Ionicons name="alert-circle-outline" size={36} color="#EF4444" />
+            </View>
+            <Text style={styles.finishTitle}>¿Descartar entrenamiento?</Text>
+            <Text style={styles.finishSubtitle}>
+              Se cancelará la sesión actual y no se guardará ningún registro en tu historial.
+            </Text>
+
+            <View style={{ width: '100%', gap: 10, marginTop: 18 }}>
+              <TouchableOpacity
+                style={styles.discardConfirmBtn}
+                onPress={handleConfirmDiscard}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.discardConfirmBtnText}>DESCARTAR Y SALIR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.discardCancelBtn}
+                onPress={() => setShowDiscardModal(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.discardCancelBtnText}>Continuar entrenando</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Finish Session Modal with Editable Duration and Detailed Sharing */}
       <Modal
         visible={showFinishModal}
@@ -1141,6 +1332,56 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 52 : 36,
     paddingBottom: 8,
   },
+  discardTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  discardTopText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  discardIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  discardConfirmBtn: {
+    backgroundColor: '#EF4444',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discardConfirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  discardCancelBtn: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discardCancelBtnText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   iconBtn: {
     padding: 6,
   },
@@ -1168,7 +1409,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   finishTopBtn: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#10B981',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 12,
@@ -1232,7 +1473,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -1270,8 +1511,9 @@ const styles = StyleSheet.create({
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 6,
+    gap: 6,
   },
   tableHeadCol: {
     color: 'rgba(255,255,255,0.4)',
@@ -1288,56 +1530,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#101218',
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.04)',
-    gap: 8,
+    gap: 6,
   },
   tableRowCompleted: {
-    backgroundColor: 'rgba(37,99,235,0.18)',
-    borderColor: 'rgba(37,99,235,0.4)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   serieNumBox: {
-    width: 28,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badgeNormal: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  badgeWarmup: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  badgeDropset: {
+    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.35)',
+  },
+  badgeFailure: {
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
   serieNumText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
+  },
+  badgeTextNormal: {
+    color: '#FFFFFF',
+  },
+  badgeTextWarmup: {
+    color: '#F59E0B',
+  },
+  badgeTextDropset: {
+    color: '#A855F7',
+  },
+  badgeTextFailure: {
+    color: '#EF4444',
   },
   previaText: {
     flex: 1,
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingLeft: 2,
   },
   inputContainer: {
     width: 68,
     backgroundColor: '#161922',
     borderRadius: 10,
-    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 2,
     alignItems: 'center',
+  },
+  inputContainerCompleted: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   tableInput: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
-    padding: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    width: '100%',
+  },
+  tableInputCompleted: {
+    color: '#10B981',
   },
   checkCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1E2330',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#181C26',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkCircleBtnCompleted: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  deleteSetMiniBtn: {
+    padding: 4,
+    marginLeft: 2,
   },
   addSerieBtn: {
     backgroundColor: '#101218',

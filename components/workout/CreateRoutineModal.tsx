@@ -22,6 +22,7 @@ import {
   useRoutines,
   parseRoutineDays,
   cleanRoutineDescription,
+  getExerciseRecordData,
 } from '@/lib/hooks/useWorkout'
 import { Routine } from '@/types'
 import { useLanguage } from '@/lib/i18n'
@@ -458,9 +459,22 @@ export default function CreateRoutineModal({
                   <Text style={styles.exerciseCardName} numberOfLines={1}>
                     {item.exercise.name}
                   </Text>
-                  <Text style={styles.exerciseCardMeta}>
-                    {item.exercise.category || item.exercise.muscleGroup} · {item.exercise.equipment}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <Text style={styles.exerciseCardMeta} numberOfLines={1}>
+                      {item.exercise.category || item.exercise.muscleGroup} · {item.exercise.equipment}
+                    </Text>
+                    {(() => {
+                      const record = getExerciseRecordData(item.exercise.name)
+                      if (record.maxWeightOverall > 0) {
+                        return (
+                          <View style={styles.prMiniBadge}>
+                            <Text style={styles.prMiniBadgeText}>PR: {record.maxWeightOverall}kg</Text>
+                          </View>
+                        )
+                      }
+                      return null
+                    })()}
+                  </View>
                 </View>
 
                 {/* Info & Delete Buttons */}
@@ -844,6 +858,19 @@ const styles = StyleSheet.create({
   exerciseCardMeta: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
+  },
+  prMiniBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  prMiniBadgeText: {
+    color: '#38BDF8',
+    fontSize: 9,
+    fontWeight: '800',
   },
   exerciseActionBtns: {
     flexDirection: 'row',

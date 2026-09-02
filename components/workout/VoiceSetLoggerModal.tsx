@@ -31,6 +31,13 @@ interface VoiceSetLoggerModalProps {
   onClose: () => void
   currentExerciseName: string
   nextSetNumber: number
+  muscleGroup?: string
+  targetSets?: number
+  targetReps?: number | string
+  targetRpe?: number
+  previousWeightKg?: number
+  previousReps?: number
+  previousRpe?: number
   onLogVoiceSet: (data: {
     setNum?: number
     weightKg: number
@@ -52,6 +59,13 @@ export default function VoiceSetLoggerModal({
   onClose,
   currentExerciseName,
   nextSetNumber,
+  muscleGroup,
+  targetSets,
+  targetReps,
+  targetRpe,
+  previousWeightKg,
+  previousReps,
+  previousRpe,
   onLogVoiceSet,
 }: VoiceSetLoggerModalProps) {
   const [isListening, setIsListening] = useState(false)
@@ -159,7 +173,22 @@ export default function VoiceSetLoggerModal({
 
     setLoading(true)
     try {
-      const { data } = await aiService.parseVoiceLog(text, currentExerciseName)
+      const { data } = await aiService.parseVoiceLog(text, {
+        name: currentExerciseName,
+        muscleGroup,
+        targetSets,
+        targetReps,
+        targetRpe,
+        currentSetNumber: nextSetNumber,
+        previousSet:
+          previousWeightKg !== undefined && previousReps !== undefined
+            ? {
+                weightKg: previousWeightKg,
+                reps: previousReps,
+                rpe: previousRpe,
+              }
+            : undefined,
+      })
       setParsedResult(data)
       setEditedWeight(String(data.weightKg || 80))
       setEditedReps(String(data.reps || 10))

@@ -47,11 +47,16 @@ export function ExerciseSet({
   const [completed, setCompleted] = useState(isCompleted)
 
   function handleComplete() {
-    const w = parseFloat(weight)
-    const r = parseInt(reps, 10)
+    const effectiveWeight = weight.trim() || initialWeight?.toString() || previousSet?.weight_kg?.toString() || '50'
+    const effectiveReps = reps.trim() || initialReps?.toString() || previousSet?.reps?.toString() || targetReps.split('-')[0] || '10'
+
+    const w = parseFloat(effectiveWeight)
+    const r = parseInt(effectiveReps, 10)
 
     if (isNaN(w) || isNaN(r)) return
 
+    setWeight(effectiveWeight)
+    setReps(effectiveReps)
     setCompleted(true)
     onComplete({
       weightKg: w,
@@ -122,10 +127,9 @@ export function ExerciseSet({
         style={[
           styles.checkBtn,
           completed && styles.checkBtnCompleted,
-          (!weight || !reps) && !completed && styles.checkBtnDisabled,
         ]}
         onPress={handleComplete}
-        disabled={completed || !weight || !reps}
+        disabled={completed}
       >
         <Ionicons
           name={completed ? 'checkmark-sharp' : 'checkmark-outline'}

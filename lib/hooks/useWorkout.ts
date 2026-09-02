@@ -47,6 +47,7 @@ export interface UserWorkoutHistoryItem {
   volumeKg: number
   recordsCount: number
   exercises: PastWorkoutExerciseSummary[]
+  detailedSets?: SessionSet[]
   finishedAt?: string | null
   notes?: string | null
 }
@@ -84,6 +85,116 @@ export function updateLocalWorkoutInHistory(sessionId: string, updates: Partial<
     return w
   })
   notifyHistoryListeners()
+}
+
+export interface ExerciseRecordData {
+  maxWeightOverall: number
+  maxWeightPerSet: Record<number, number>
+  lastSessionSets: Array<{ setNum: number; weightKg: number; reps: number; isWarmup?: boolean }>
+  bestSetSummary: string
+}
+
+export function getExerciseRecordData(exerciseName: string): ExerciseRecordData {
+  const normName = (exerciseName || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+
+  const dbMatch = EXERCISE_DATABASE.find((e) => {
+    const eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    return eNorm === normName || normName.includes(eNorm) || eNorm.includes(normName)
+  })
+
+  let maxWeightOverall = dbMatch?.records?.maxWeight || 50
+  const maxWeightPerSet: Record<number, number> = {}
+  let lastSessionSets: Array<{ setNum: number; weightKg: number; reps: number; isWarmup?: boolean }> = []
+  let bestSetSummary = `${maxWeightOverall} kg`
+
+  // Look through history from newest to oldest
+  for (const session of localHistoryCache) {
+    if (!session.detailedSets || session.detailedSets.length === 0) continue
+
+    const matchingSets = session.detailedSets.filter((s) => {
+      const sNorm = (s.exercise_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+      return sNorm === normName || normName.includes(sNorm) || sNorm.includes(normName)
+    })
+
+    if (matchingSets.length > 0) {
+      if (lastSessionSets.length === 0) {
+        lastSessionSets = matchingSets.map((s) => ({
+          setNum: s.set_number,
+          weightKg: s.weight_kg,
+          reps: s.reps,
+          isWarmup: s.is_warmup || false,
+        }))
+      }
+
+      matchingSets.forEach((s) => {
+        if (s.weight_kg > maxWeightOverall) {
+          maxWeightOverall = s.weight_kg
+          bestSetSummary = `${s.weight_kg} kg × ${s.reps}`
+        }
+        if (!maxWeightPerSet[s.set_number] || s.weight_kg > maxWeightPerSet[s.set_number]) {
+          maxWeightPerSet[s.set_number] = s.weight_kg
+        }
+      })
+    }
+  }
+
+  // Fallback set weights if not found in history
+  if (Object.keys(maxWeightPerSet).length === 0 && dbMatch?.records?.maxWeight) {
+    maxWeightPerSet[1] = Math.round(dbMatch.records.maxWeight * 0.8)
+    maxWeightPerSet[2] = Math.round(dbMatch.records.maxWeight * 0.9)
+    maxWeightPerSet[3] = dbMatch.records.maxWeight
+  }
+
+  return {
+    maxWeightOverall,
+    maxWeightPerSet,
+    lastSessionSets,
+    bestSetSummary,
+  }
+}
+
+export function getSetPlaceholder(
+  exerciseName: string,
+  setNum: number,
+  targetReps?: string
+): { placeholderWeight: string; placeholderReps: string; previousSummary: string } {
+  const records = getExerciseRecordData(exerciseName)
+  const lastSet = records.lastSessionSets.find((s) => s.setNum === setNum)
+
+  const placeholderWeight = String(records.maxWeightPerSet[setNum] || records.maxWeightOverall || 50)
+  const placeholderReps = lastSet
+    ? String(lastSet.reps)
+    : targetReps
+    ? targetReps.split('-')[0].trim() || '10'
+    : '10'
+
+  const previousSummary = lastSet
+    ? `${lastSet.weightKg} kg × ${lastSet.reps}`
+    : records.maxWeightOverall > 0
+    ? `PR: ${records.maxWeightOverall} kg`
+    : `Obj: ${placeholderWeight} kg`
+
+  return {
+    placeholderWeight,
+    placeholderReps,
+    previousSummary,
+  }
+}
+
+export async function discardWorkoutSession(sessionId: string, userId?: string) {
+  try {
+    deleteLocalWorkoutFromHistory(sessionId)
+    if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      await supabase.from('session_sets').delete().eq('session_id', sessionId)
+      await supabase.from('workout_sessions').delete().eq('id', sessionId)
+    }
+  } catch (err) {
+    console.log('Error discarding workout session:', err)
+  }
 }
 
 export const DEFAULT_STARTER_ROUTINES = [
@@ -312,6 +423,7 @@ export function useWorkoutHistory() {
             volumeKg: volume,
             recordsCount: recordsCount || (volume > 5000 ? 2 : volume > 0 ? 1 : 0),
             exercises: exercisesSummary,
+            detailedSets: sessionSets,
             finishedAt: session.finished_at,
             notes: session.notes || null,
           }
@@ -973,6 +1085,18 @@ export async function recordWorkoutSession(params: {
       sets: e.sets.filter((s) => s.completed).length || e.sets.length,
       muscleGroup: e.muscleGroup || resolveMuscleGroup(e.name),
     })),
+    detailedSets: params.exercises.flatMap((ex) =>
+      ex.sets.map((s) => ({
+        id: `set-${Date.now()}-${s.setNum}`,
+        session_id: sessionId,
+        created_at: finishedAt,
+        exercise_name: ex.name,
+        set_number: s.setNum,
+        weight_kg: s.weightKg,
+        reps: s.reps,
+        is_warmup: false,
+      }))
+    ),
     finishedAt,
     notes: params.routineName,
   }
