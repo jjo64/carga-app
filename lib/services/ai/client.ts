@@ -8,6 +8,64 @@ import { recordApiCall } from './cache'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
+interface AnthropicModelItem {
+  id: string
+  display_name?: string
+  capabilities?: {
+    image_input?: { supported?: boolean }
+  }
+}
+
+let discoveredModels: string[] | null = null
+
+/**
+ * Consulta la API de Anthropic (GET /v1/models) para obtener la lista exacta de modelos
+ * habilitados en la cuenta y workspace del usuario.
+ */
+export async function getAvailableModelsList(apiKey?: string): Promise<string[]> {
+  if (discoveredModels && discoveredModels.length > 0) {
+    return discoveredModels
+  }
+
+  const resolvedApiKey = getAnthropicApiKey(apiKey)
+  if (!resolvedApiKey) return []
+
+  const workspaceId =
+    process.env.EXPO_PUBLIC_ANTHROPIC_WORKSPACE_ID ||
+    process.env.ANTHROPIC_WORKSPACE_ID ||
+    ''
+
+  const headers: Record<string, string> = {
+    'anthropic-version': ANTHROPIC_VERSION,
+    'x-api-key': resolvedApiKey,
+    'anthropic-dangerous-direct-browser-access': 'true',
+  }
+  if (workspaceId.trim()) {
+    headers['anthropic-workspace-id'] = workspaceId.trim()
+  }
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/models', {
+      method: 'GET',
+      headers,
+    })
+    if (res.ok) {
+      const data: { data?: AnthropicModelItem[] } = await res.json()
+      if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
+        discoveredModels = data.data.map((m) => m.id)
+        console.log('[AiClient] Modelos autorizados en tu cuenta de Claude:', discoveredModels)
+        return discoveredModels
+      }
+    } else {
+      const err = await res.text()
+      console.warn('[AiClient] Nota /v1/models:', err)
+    }
+  } catch (e) {
+    console.warn('[AiClient] Error al consultar /v1/models:', e)
+  }
+
+  return []
+}
 
 const SONNET_CANDIDATES = [
   process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL,
@@ -165,13 +223,36 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     headers['anthropic-workspace-id'] = workspaceId.trim()
   }
 
+  // Consultamos los modelos disponibles en la cuenta si aún no están cacheados
+  let knownRemoteModels: string[] = []
+  if (!activeWorkingSonnetModel && !activeWorkingHaikuModel) {
+    knownRemoteModels = await getAvailableModelsList(apiKey)
+  }
+
+  // Si /v1/models devolvió modelos, seleccionamos preferentemente los que existan en la cuenta
+  const dynamicCandidates: string[] = []
+  if (knownRemoteModels.length > 0) {
+    if (modelTier === 'sonnet') {
+      const sonnets = knownRemoteModels.filter((m) => m.includes('sonnet'))
+      const haikus = knownRemoteModels.filter((m) => m.includes('haiku'))
+      dynamicCandidates.push(...sonnets, ...haikus, ...knownRemoteModels)
+    } else {
+      const haikus = knownRemoteModels.filter((m) => m.includes('haiku'))
+      const sonnets = knownRemoteModels.filter((m) => m.includes('sonnet'))
+      dynamicCandidates.push(...haikus, ...sonnets, ...knownRemoteModels)
+    }
+  }
+
   // Lista de modelos candidatos según el tier
   const activeWorkingModel = modelTier === 'sonnet' ? activeWorkingSonnetModel : activeWorkingHaikuModel
   const candidateList = activeWorkingModel
     ? [activeWorkingModel]
-    : modelTier === 'sonnet'
-    ? SONNET_CANDIDATES
-    : HAIKU_CANDIDATES
+    : Array.from(
+        new Set([
+          ...dynamicCandidates,
+          ...(modelTier === 'sonnet' ? SONNET_CANDIDATES : HAIKU_CANDIDATES),
+        ])
+      )
 
   let lastErrorText = ''
   let finalResponse: Response | null = null
