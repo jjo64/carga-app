@@ -1,6 +1,7 @@
 /**
  * Tipos e interfaces de datos para el ecosistema de IA de Carga App.
- * Soporta multi-modelo (Haiku / Sonnet), Prompt Caching y esquemas de respuesta estrictos.
+ * Soporta multi-modelo (Haiku / Sonnet), Prompt Caching, Esquemas estrictos,
+ * Contexto de Atleta Global y Planificador de Mesociclos.
  */
 
 export type AiModelTier = 'haiku' | 'sonnet'
@@ -42,9 +43,52 @@ export interface AiUsageMetrics {
   fromLocalCache: boolean
 }
 
+export interface AiServiceResponse<T> {
+  data: T
+  metrics: AiUsageMetrics
+}
+
+
+// ==========================================
+// Contexto Global del Atleta (Unidades y Perfil)
+// ==========================================
+export interface AthleteProfileContext {
+  weightKg?: number
+  heightCm?: number
+  gender?: 'male' | 'female' | 'other'
+  goal?: 'hipertrofia' | 'fuerza' | 'recomposicion' | 'definicion' | 'mantenimiento' | 'salud' | string
+  preferredUnit?: 'kg' | 'lbs'
+  experienceLevel?: 'principiante' | 'intermedio' | 'avanzado' | 'elite'
+  trainingFrequencyDays?: number
+  avgWeeklyVolumeSets?: number
+  avgRpeLast4Weeks?: number
+  injuriesOrLimitations?: string[]
+  availableEquipment?: string[]
+  targetDailyCalories?: number
+  targetDailyMacros?: {
+    protein: number
+    carbs: number
+    fat: number
+  }
+}
+
 // ==========================================
 // 1. Hands-Free Voice Logger (Módulo Voz)
 // ==========================================
+export interface ActiveExerciseContext {
+  name: string
+  muscleGroup?: string
+  targetSets?: number
+  targetReps?: number | string
+  targetRpe?: number
+  currentSetNumber?: number
+  previousSet?: {
+    weightKg: number
+    reps: number
+    rpe?: number
+  }
+}
+
 export interface VoiceLogResult {
   exerciseName?: string
   weightKg: number
@@ -160,8 +204,8 @@ export interface NutritionalLabelResult {
   ingredientsList: string[]
   ultraProcessedScore: number // 1 (Muy natural/limpio) a 10 (Ultraprocesado extremo)
   classification: 'clean' | 'moderate' | 'ultra_processed'
-  warningFlags: string[] // ej. "Contiene jarabe de maíz de alta fructosa", "Aceite de palma refinado"
-  positiveHighlights: string[] // ej. "Alto en fibra", "Sin azúcares añadidos"
+  warningFlags: string[]
+  positiveHighlights: string[]
   cleanerAlternativeSuggestion?: string
 }
 
@@ -170,6 +214,7 @@ export interface NutritionalLabelResult {
 // ==========================================
 export interface FoodPlateItem {
   name: string
+  unitOrPortion?: string | null
   estimatedGrams: number
   calories: number
   protein: number
@@ -193,16 +238,22 @@ export interface FoodVisionResult {
 // ==========================================
 // 7. Natural Meal Parser (Texto/Voz a Macros)
 // ==========================================
+export interface NaturalMealItem {
+  name: string
+  brand?: string | null
+  unitOrPortion?: string | null
+  grams: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  source?: 'openfoodfacts' | 'ai_estimate'
+  barcode?: string | null
+}
+
 export interface NaturalMealParseResult {
   rawText: string
-  items: Array<{
-    name: string
-    grams: number
-    calories: number
-    protein: number
-    carbs: number
-    fat: number
-  }>
+  items: NaturalMealItem[]
   totalCalories: number
   totalProtein: number
   totalCarbs: number
@@ -228,10 +279,119 @@ export interface LoadAdvisorResult {
 // ==========================================
 // 9. Biomechanical & Nutritional Coach Chat
 // ==========================================
+export interface CoachStructuredResponse {
+  mainAnswer: string
+  technicalCue?: string | null
+  immediateAction?: string | null
+  safetyWarning?: string | null
+  referralFlag: boolean
+}
+
 export interface AiChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  structured?: CoachStructuredResponse
   timestamp: number
   category?: 'technique' | 'nutrition' | 'programming' | 'general'
 }
+
+// ==========================================
+// 10. Mesocycle Builder (Generador de Mesociclos)
+// ==========================================
+export interface MesocycleExercise {
+  id: string
+  name: string
+  targetMuscle: string
+  equipment: string
+  baseSets: number
+  baseReps: string // ej. "8-12" o "6-8"
+  targetRir: number
+  tempo?: string
+  restSeconds: number
+  substitutes?: string[]
+  notes?: string
+}
+
+export interface MesocycleDay {
+  dayNumber: number
+  name: string // ej. "Día 1: Torso Pesado (Pecho / Espalda)"
+  targetMuscles: string[]
+  exercises: MesocycleExercise[]
+}
+
+export interface MesocycleWeek {
+  weekNumber: number
+  phase: 'accumulation' | 'intensification' | 'overreaching' | 'deload'
+  targetRir: number
+  volumeMultiplier: number
+  intensityDescription: string
+  isDeload: boolean
+  days: MesocycleDay[]
+}
+
+export interface MesocyclePlan {
+  planName: string
+  totalWeeks: number
+  splitType: string
+  goal: string
+  weeklyVolumeDistribution: Record<string, number> // series por grupo muscular
+  progressionStrategy: string
+  deloadStrategy: string
+  weeks: MesocycleWeek[]
+  coachNotes: string
+}
+
+export interface MesocycleParams {
+  athleteProfile?: AthleteProfileContext
+  splitType?: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'arnold' | 'custom'
+  daysPerWeek: number
+  durationWeeks?: number // 4 a 8 (default 5: 4 de carga + 1 deload)
+  focusMuscles?: string[]
+  equipmentAvailable?: string[]
+  currentVolumePerMuscle?: Record<string, number>
+  customNotes?: string
+}
+
+// ==========================================
+// 11. Nutrition Health & Micronutrient Auditor
+// ==========================================
+export interface HealthWarningItem {
+  type: 'sodium' | 'sugar' | 'fat' | 'fiber' | 'processed' | 'calorie'
+  title: string
+  message: string
+  severity: 'high' | 'medium' | 'low'
+}
+
+export interface NutrientDeficiencyItem {
+  nutrient: string
+  currentEstimate: string
+  recommended: string
+  status: 'critical_deficit' | 'moderate_deficit' | 'good' | 'excess'
+  whyNeeded: string
+  topFoodSources: string[]
+}
+
+export interface FoodHealthRecommendation {
+  food: string
+  portion: string
+  targetNutrients: string[]
+  benefit: string
+  category: 'superfood' | 'lean_protein' | 'healthy_fat' | 'fiber_carb' | 'micronutrient_booster'
+}
+
+export interface NutritionHealthAuditResult {
+  healthScore: number // 1 a 100
+  overallSummary: string
+  macroBalanceVerdict: string
+  calorieAdherenceVerdict: string
+  warnings: HealthWarningItem[]
+  deficienciesAndNeeds: NutrientDeficiencyItem[]
+  foodRecommendations: FoodHealthRecommendation[]
+  cleanEatingSummary: {
+    processedPercent: number
+    naturalPercent: number
+    advice: string
+  }
+}
+

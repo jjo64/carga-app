@@ -2,10 +2,25 @@ import { Platform } from 'react-native'
 
 export interface OptimizedImageResult {
   base64: string
-  mediaType: string
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
   originalSizeEstimateKb: number
   optimizedSizeEstimateKb: number
   compressionRatioPercent: number
+}
+
+/**
+ * Detecta el mediaType real examinando los magic bytes de la cabecera en base64
+ */
+export function detectBase64MediaType(
+  cleanBase64: string,
+  fallback: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' = 'image/jpeg'
+): 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' {
+  const prefix = cleanBase64.substring(0, 30)
+  if (prefix.startsWith('/9j/')) return 'image/jpeg'
+  if (prefix.startsWith('iVBORw0KGgo')) return 'image/png'
+  if (prefix.startsWith('UklGR')) return 'image/webp'
+  if (prefix.startsWith('R0lGOD')) return 'image/gif'
+  return fallback
 }
 
 /**
@@ -18,25 +33,25 @@ export async function optimizeImageForVision(
   maxHeight = 1024,
   quality = 0.7
 ): Promise<OptimizedImageResult> {
-  const isBase64 = uriOrBase64.startsWith('data:') || !uriOrBase64.includes('://')
-
   if (Platform.OS === 'web') {
     return optimizeImageWeb(uriOrBase64, maxWidth, maxHeight, quality)
   }
 
   // En entorno React Native / Mobile
-  // Si ya es base64 limpio o data URI
   let cleanBase64 = uriOrBase64
-  let mediaType = 'image/jpeg'
+  let hintedMediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' = 'image/jpeg'
 
   if (cleanBase64.startsWith('data:')) {
     const parts = cleanBase64.split(',')
     const meta = parts[0]
     cleanBase64 = parts[1] || ''
-    if (meta.includes('image/png')) mediaType = 'image/png'
-    else if (meta.includes('image/webp')) mediaType = 'image/webp'
+    if (meta.includes('image/png')) hintedMediaType = 'image/png'
+    else if (meta.includes('image/webp')) hintedMediaType = 'image/webp'
+    else if (meta.includes('image/gif')) hintedMediaType = 'image/gif'
   }
 
+  // Siempre verificar con los magic bytes reales para evitar errores 400 en Anthropic
+  const mediaType = detectBase64MediaType(cleanBase64, hintedMediaType)
   const rawBytes = cleanBase64.length * 0.75
   const originalKb = Math.round(rawBytes / 1024)
 
@@ -59,17 +74,20 @@ function optimizeImageWeb(
   quality: number
 ): Promise<OptimizedImageResult> {
   return new Promise((resolve) => {
-    // Si ya viene como data URI con base64, extraerlo directamente
+    // Si ya viene como data URI con base64
     if (src.startsWith('data:image/')) {
       const parts = src.split(',')
       const meta = parts[0]
       const cleanBase64 = parts[1] || ''
-      let mediaType = 'image/jpeg'
-      if (meta.includes('image/png')) mediaType = 'image/png'
-      else if (meta.includes('image/webp')) mediaType = 'image/webp'
+      let hintedType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' = 'image/jpeg'
+      if (meta.includes('image/png')) hintedType = 'image/png'
+      else if (meta.includes('image/webp')) hintedType = 'image/webp'
+      else if (meta.includes('image/gif')) hintedType = 'image/gif'
 
+      const mediaType = detectBase64MediaType(cleanBase64, hintedType)
       const rawBytes = cleanBase64.length * 0.75
       const originalKb = Math.round(rawBytes / 1024)
+
       resolve({
         base64: cleanBase64,
         mediaType,
@@ -84,7 +102,7 @@ function optimizeImageWeb(
       const cleanBase64 = src.replace(/^data:image\/\w+;base64,/, '')
       resolve({
         base64: cleanBase64,
-        mediaType: 'image/jpeg',
+        mediaType: detectBase64MediaType(cleanBase64, 'image/jpeg'),
         originalSizeEstimateKb: 500,
         optimizedSizeEstimateKb: 500,
         compressionRatioPercent: 0,
@@ -113,7 +131,7 @@ function optimizeImageWeb(
         const cleanBase64 = src.replace(/^data:image\/\w+;base64,/, '')
         resolve({
           base64: cleanBase64,
-          mediaType: 'image/jpeg',
+          mediaType: detectBase64MediaType(cleanBase64, 'image/jpeg'),
           originalSizeEstimateKb: 500,
           optimizedSizeEstimateKb: 500,
           compressionRatioPercent: 0,
@@ -142,7 +160,7 @@ function optimizeImageWeb(
       const cleanBase64 = src.replace(/^data:image\/\w+;base64,/, '')
       resolve({
         base64: cleanBase64,
-        mediaType: 'image/jpeg',
+        mediaType: detectBase64MediaType(cleanBase64, 'image/jpeg'),
         originalSizeEstimateKb: 500,
         optimizedSizeEstimateKb: 500,
         compressionRatioPercent: 0,

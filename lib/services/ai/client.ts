@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import {
   AiModelTier,
   AnthropicMessage,
@@ -8,6 +9,30 @@ import { recordApiCall } from './cache'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
+
+export class AiParseError extends Error {
+  constructor(public zodError: z.ZodError, public rawText: string) {
+    super(`[AiParse] Validation failed: ${JSON.stringify(zodError.flatten())}`)
+    this.name = 'AiParseError'
+  }
+}
+
+export interface AnthropicTool {
+  name: string
+  description?: string
+  input_schema: {
+    type: 'object'
+    properties: Record<string, any>
+    required?: string[]
+    [key: string]: any
+  }
+}
+
+export interface AnthropicToolChoice {
+  type: 'auto' | 'any' | 'tool'
+  name?: string
+}
+
 interface AnthropicModelItem {
   id: string
   display_name?: string
@@ -57,52 +82,59 @@ export async function getAvailableModelsList(apiKey?: string): Promise<string[]>
       }
     } else {
       const err = await res.text()
-      console.warn('[AiClient] Nota /v1/models:', err)
+      console.warn('[AiClient] Diagnóstico /v1/models:', err)
     }
   } catch (e) {
-    console.warn('[AiClient] Error al consultar /v1/models:', e)
+    console.warn('[AiClient] Error en diagnóstico /v1/models:', e)
   }
 
   return []
 }
 
+// Candidatos aislados estrictamente por Tier (sin fallbacks cruzados degradados)
 const SONNET_CANDIDATES = [
   process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL,
+  'claude-3-7-sonnet-20250219',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-sonnet-20240620',
   'claude-sonnet-5',
   'claude-sonnet-4-6',
-  'claude-sonnet-4-5-20250929',
-  'claude-haiku-4-5-20251001',
-  'claude-3-5-sonnet-20240620',
-  'claude-3-5-sonnet-20241022',
 ].filter(Boolean) as string[]
 
 const HAIKU_CANDIDATES = [
   process.env.EXPO_PUBLIC_ANTHROPIC_HAIKU_MODEL,
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-5',
   'claude-3-5-haiku-20241022',
   'claude-3-haiku-20240307',
+  'claude-haiku-4-5-20251001',
 ].filter(Boolean) as string[]
 
 let activeWorkingSonnetModel: string | null = null
 let activeWorkingHaikuModel: string | null = null
 
-export const MODEL_HAIKU = 'claude-haiku-4-5-20251001'
-export const MODEL_SONNET = 'claude-sonnet-5'
+/**
+ * Resetea los modelos activos en memoria para forzar re-negociación en caso de fallo
+ */
+export function resetActiveWorkingModels() {
+  activeWorkingSonnetModel = null
+  activeWorkingHaikuModel = null
+}
+
+export const MODEL_HAIKU = 'claude-3-5-haiku-20241022'
+export const MODEL_SONNET = 'claude-3-7-sonnet-20250219'
 
 // Costes por millón de tokens (USD)
 const PRICING = {
   haiku: {
-    input: 1.0,
-    output: 5.0,
-    cacheWrite: 1.25,
-    cacheRead: 0.1,
+    input: 0.8,
+    output: 4.0,
+    cacheWrite: 1.0,
+    cacheRead: 0.08,
   },
   sonnet: {
-    input: 2.0,
-    output: 10.0,
-    cacheWrite: 2.5,
-    cacheRead: 0.2,
+    input: 3.0,
+    output: 15.0,
+    cacheWrite: 3.75,
+    cacheRead: 0.3,
   },
 }
 
@@ -110,13 +142,23 @@ export interface CallAnthropicOptions {
   modelTier?: AiModelTier
   system: AnthropicSystemBlock[]
   messages: AnthropicMessage[]
+  tools?: AnthropicTool[]
+  toolChoice?: AnthropicToolChoice
   maxTokens?: number
   temperature?: number
   apiKey?: string
 }
 
+export interface AnthropicContentBlock {
+  type: string
+  text?: string
+  id?: string
+  name?: string
+  input?: any
+}
+
 export interface AnthropicRawResponse {
-  content: Array<{ type: string; text?: string }>
+  content: AnthropicContentBlock[]
   usage: {
     input_tokens: number
     output_tokens: number
@@ -141,51 +183,85 @@ export function getAnthropicApiKey(customKey?: string): string {
 }
 
 /**
- * Extrae y parsea JSON limpio a partir de una respuesta de texto de LLM
+ * Detecta de forma estricta si un modelo pertenece a la familia Claude 5
  */
-export function extractAndParseJson<T>(rawText: string): T {
+export function isClaude5Model(candidate: string): boolean {
+  return /^claude-(sonnet|opus|haiku)-5/.test(candidate) || candidate.startsWith('claude-fable-5')
+}
+
+/**
+ * Extrae y parsea JSON limpio a partir de una respuesta de texto de LLM,
+ * con validación runtime estricta mediante Zod Schema cuando se provee.
+ */
+export function extractAndParseJson<T>(
+  rawText: string,
+  schema?: z.ZodType<T>,
+  modelUsed?: string
+): T {
+  let raw: any
+
   try {
-    return JSON.parse(rawText) as T
+    raw = JSON.parse(rawText)
   } catch {
     // Intentar buscar bloque de código ```json ... ```
     const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
     if (jsonMatch && jsonMatch[1]) {
       try {
-        return JSON.parse(jsonMatch[1]) as T
-      } catch (err) {
-        // Continuar
+        raw = JSON.parse(jsonMatch[1])
+      } catch {}
+    }
+
+    if (raw === undefined) {
+      // Intentar extraer el contenido entre la primera llave { o corchete [ y la última } o ]
+      const firstBrace = rawText.indexOf('{')
+      const lastBrace = rawText.lastIndexOf('}')
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const slice = rawText.substring(firstBrace, lastBrace + 1)
+        try {
+          raw = JSON.parse(slice)
+        } catch {
+          // Limpiar comas finales trailing commas
+          const sanitized = slice.replace(/,\s*([}\]])/g, '$1')
+          try {
+            raw = JSON.parse(sanitized)
+          } catch {}
+        }
       }
     }
 
-    // Intentar extraer el contenido entre la primera llave { y la última }
-    const firstBrace = rawText.indexOf('{')
-    const lastBrace = rawText.lastIndexOf('}')
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      const slice = rawText.substring(firstBrace, lastBrace + 1)
-      try {
-        return JSON.parse(slice) as T
-      } catch {
-        // Limpiar comas finales trailing commas
-        const sanitized = slice.replace(/,\s*([}\]])/g, '$1')
-        return JSON.parse(sanitized) as T
-      }
+    if (raw === undefined) {
+      const modelInfo = modelUsed ? ` [Modelo: ${modelUsed}]` : ''
+      throw new Error(`[AiClient]${modelInfo} No se pudo parsear el JSON de la respuesta: ${rawText.slice(0, 150)}...`)
     }
-
-    throw new Error(`[AiClient] No se pudo parsear el JSON de la respuesta: ${rawText.slice(0, 100)}...`)
   }
+
+  // Validación de runtime con Zod
+  if (schema) {
+    const result = schema.safeParse(raw)
+    if (!result.success) {
+      console.error('[AiParse] Validation failed:', result.error.flatten())
+      throw new AiParseError(result.error, rawText)
+    }
+    return result.data
+  }
+
+  return raw as T
 }
 
 /**
- * Realiza una petición directa al API de Anthropic con Prompt Caching y Model Tiering
+ * Realiza una petición directa al API de Anthropic con Prompt Caching, Model Tiering y Tool Calling.
  */
 export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
   text: string
   metrics: AiUsageMetrics
+  toolUse?: { name: string; input: any }
 }> {
   const {
     modelTier = 'haiku',
     system,
     messages,
+    tools,
+    toolChoice,
     maxTokens = 1000,
     temperature = 0.1,
     apiKey,
@@ -229,36 +305,13 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     headers['anthropic-workspace-id'] = workspaceId.trim()
   }
 
-  // Consultamos los modelos disponibles en la cuenta si aún no están cacheados
-  let knownRemoteModels: string[] = []
-  if (!activeWorkingSonnetModel && !activeWorkingHaikuModel) {
-    knownRemoteModels = await getAvailableModelsList(apiKey)
-  }
-
-  // Si /v1/models devolvió modelos, seleccionamos preferentemente los que existan en la cuenta
-  const dynamicCandidates: string[] = []
-  if (knownRemoteModels.length > 0) {
-    if (modelTier === 'sonnet') {
-      const sonnets = knownRemoteModels.filter((m) => m.includes('sonnet'))
-      const haikus = knownRemoteModels.filter((m) => m.includes('haiku'))
-      dynamicCandidates.push(...sonnets, ...haikus, ...knownRemoteModels)
-    } else {
-      const haikus = knownRemoteModels.filter((m) => m.includes('haiku'))
-      const sonnets = knownRemoteModels.filter((m) => m.includes('sonnet'))
-      dynamicCandidates.push(...haikus, ...sonnets, ...knownRemoteModels)
-    }
-  }
-
-  // Lista de modelos candidatos según el tier
+  // Lista de modelos candidatos según el tier estricto
   const activeWorkingModel = modelTier === 'sonnet' ? activeWorkingSonnetModel : activeWorkingHaikuModel
+  const baseCandidates = modelTier === 'sonnet' ? SONNET_CANDIDATES : HAIKU_CANDIDATES
+
   const candidateList = activeWorkingModel
-    ? [activeWorkingModel]
-    : Array.from(
-        new Set([
-          ...dynamicCandidates,
-          ...(modelTier === 'sonnet' ? SONNET_CANDIDATES : HAIKU_CANDIDATES),
-        ])
-      )
+    ? [activeWorkingModel, ...baseCandidates.filter((c) => c !== activeWorkingModel)]
+    : baseCandidates
 
   let lastErrorText = ''
   let finalResponse: Response | null = null
@@ -274,57 +327,72 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
       messages,
     }
 
-    // En modelos Claude 5 (como claude-sonnet-5, claude-opus-5), 'temperature' está deprecado
-    const isClaude5 =
-      candidate.includes('-5') ||
-      candidate.includes('sonnet-5') ||
-      candidate.includes('opus-5') ||
-      candidate.includes('fable-5')
+    if (tools && tools.length > 0) {
+      payload.tools = tools
+      if (toolChoice) {
+        payload.tool_choice = toolChoice
+      }
+    }
 
+    // Regla estricta de Claude 5 vs Claude 3.5
+    const isClaude5 = isClaude5Model(candidate)
     if (!isClaude5 && typeof temperature === 'number') {
       payload.temperature = temperature
     }
 
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    })
+    try {
+      const response = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      })
 
-    if (response.ok) {
-      finalResponse = response
-      if (modelTier === 'sonnet') {
-        activeWorkingSonnetModel = candidate
-      } else {
-        activeWorkingHaikuModel = candidate
+      if (response.ok) {
+        finalResponse = response
+        if (modelTier === 'sonnet') {
+          activeWorkingSonnetModel = candidate
+        } else {
+          activeWorkingHaikuModel = candidate
+        }
+        break
       }
-      break
+
+      const errorText = await response.text()
+      lastErrorText = errorText
+      console.warn(`[AiClient] Modelo ${candidate} falló con HTTP ${response.status}:`, errorText)
+
+      // Invalidad el modelo activo si falló
+      if (modelTier === 'sonnet' && activeWorkingSonnetModel === candidate) {
+        activeWorkingSonnetModel = null
+      } else if (modelTier === 'haiku' && activeWorkingHaikuModel === candidate) {
+        activeWorkingHaikuModel = null
+      }
+
+      if (
+        (response.status === 404 && errorText.includes('not_found_error')) ||
+        (response.status === 400 && errorText.includes('temperature'))
+      ) {
+        continue
+      }
+
+      if (response.status === 401) {
+        throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en tu archivo .env.local')
+      } else if (response.status === 400 && errorText.includes('credit_balance')) {
+        throw new Error('Tu cuenta de Anthropic no tiene créditos cargados. Carga saldo en console.anthropic.com/settings/plans')
+      } else if (response.status === 400 && errorText.includes('anthropic-workspace-id')) {
+        throw new Error(
+          'Tu API Key requiere un Workspace ID. En console.anthropic.com/settings/workspaces copia el ID de tu espacio de trabajo y agrégalo en tu .env.local como: EXPO_PUBLIC_ANTHROPIC_WORKSPACE_ID=wrkspc_...'
+        )
+      }
+
+      throw new Error(`Anthropic API Error (${response.status}): ${errorText}`)
+    } catch (fetchErr: any) {
+      if (fetchErr.message && fetchErr.message.includes('Anthropic API Error')) {
+        throw fetchErr
+      }
+      lastErrorText = fetchErr?.message || String(fetchErr)
+      console.warn(`[AiClient] Error de red con modelo ${candidate}:`, lastErrorText)
     }
-
-    const errorText = await response.text()
-    lastErrorText = errorText
-    console.warn(`[AiClient] Modelo ${candidate} falló con HTTP ${response.status}:`, errorText)
-
-    // Si es error 404 (modelo no encontrado en la cuenta) o error de temperature deprecada, reintentamos
-    if (
-      (response.status === 404 && errorText.includes('not_found_error')) ||
-      (response.status === 400 && errorText.includes('temperature'))
-    ) {
-      continue
-    }
-
-    // Si es otro error (autenticación, saldo, workspace), no reintentar modelos
-    if (response.status === 401) {
-      throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en tu archivo .env.local')
-    } else if (response.status === 400 && errorText.includes('credit_balance')) {
-      throw new Error('Tu cuenta de Anthropic no tiene créditos cargados. Carga saldo en console.anthropic.com/settings/plans')
-    } else if (response.status === 400 && errorText.includes('anthropic-workspace-id')) {
-      throw new Error(
-        'Tu API Key requiere un Workspace ID. En console.anthropic.com/settings/workspaces copia el ID de tu espacio de trabajo y agrégalo en tu .env.local como: EXPO_PUBLIC_ANTHROPIC_WORKSPACE_ID=wrkspc_...'
-      )
-    }
-
-    throw new Error(`Anthropic API Error (${response.status}): ${errorText}`)
   }
 
   if (!finalResponse) {
@@ -333,7 +401,21 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
 
   const data: AnthropicRawResponse = await finalResponse.json()
   const latencyMs = Date.now() - startTime
-  const text = data.content?.[0]?.text || ''
+
+  // Buscar bloque de tool_use o bloque de texto estándar
+  const toolUseBlock = data.content?.find((c) => c.type === 'tool_use')
+  let text = ''
+  let toolUseData: { name: string; input: any } | undefined
+
+  if (toolUseBlock && toolUseBlock.input) {
+    text = typeof toolUseBlock.input === 'string' ? toolUseBlock.input : JSON.stringify(toolUseBlock.input)
+    toolUseData = {
+      name: toolUseBlock.name || '',
+      input: toolUseBlock.input,
+    }
+  } else {
+    text = data.content?.find((c) => c.type === 'text')?.text || data.content?.[0]?.text || ''
+  }
 
   const inputTokens = data.usage?.input_tokens || 0
   const outputTokens = data.usage?.output_tokens || 0
@@ -361,6 +443,7 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
       modelUsed: usedModelName,
       fromLocalCache: false,
     },
+    toolUse: toolUseData,
   }
 }
 
@@ -376,7 +459,6 @@ function getLocalFallbackResponse(
   const textPrompt = typeof lastUserMsg === 'string' ? lastUserMsg : JSON.stringify(lastUserMsg)
 
   if (systemText.includes('motor de registro de series por voz')) {
-    // Regex simple de rescate
     const kgMatch = textPrompt.match(/(\d+(?:[.,]\d+)?)\s*(?:kg|kilos|k)/i)
     const repsMatch = textPrompt.match(/(\d+)\s*(?:reps|repeticiones|rep)/i)
     const rpeMatch = textPrompt.match(/rpe\s*(\d+(?:[.,]\d+)?)/i)
@@ -476,6 +558,16 @@ function getLocalFallbackResponse(
       warningFlags: [],
       positiveHighlights: ['Alto contenido de proteína', 'Bajo en azúcares'],
       cleanerAlternativeSuggestion: null,
+    })
+  }
+
+  if (systemText.includes('Carga Coach')) {
+    return JSON.stringify({
+      mainAnswer: 'Mantén una retracción escapular activa y desciende la barra controladamente en 2-3 segundos.',
+      technicalCue: 'Codos a 45 grados respecto al torso para proteger el manguito rotador.',
+      immediateAction: 'En la siguiente serie, reduce 2.5kg y busca máxima tensión en el estiramiento.',
+      safetyWarning: null,
+      referralFlag: false,
     })
   }
 

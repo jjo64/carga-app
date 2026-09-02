@@ -18,6 +18,18 @@ export interface AiLifetimeStats {
 }
 
 /**
+ * Serialización determinista y ordenada por claves para evitar colisiones
+ * o discrepancias de hashing en caché JSON.
+ */
+export function stableStringify(obj: unknown): string {
+  if (typeof obj !== 'object' || obj === null) return JSON.stringify(obj)
+  if (Array.isArray(obj)) return `[${obj.map(stableStringify).join(',')}]`
+  const keys = Object.keys(obj as object).sort()
+  const pairs = keys.map((k) => `${JSON.stringify(k)}:${stableStringify((obj as any)[k])}`)
+  return `{${pairs.join(',')}}`
+}
+
+/**
  * Genera un hash determinista a partir de un string o payload
  */
 export function simpleHash(str: string): string {
@@ -28,6 +40,32 @@ export function simpleHash(str: string): string {
     hash |= 0 // Convierte a entero de 32bit
   }
   return Math.abs(hash).toString(36)
+}
+
+/**
+ * Cola en memoria para resolver la race condition al persistir estadísticas concurrentes
+ */
+type StatsTask = () => Promise<void>
+const statsQueue: StatsTask[] = []
+let isProcessingStats = false
+
+async function enqueueStatsTask(task: StatsTask): Promise<void> {
+  statsQueue.push(task)
+  if (isProcessingStats) return
+  isProcessingStats = true
+
+  while (statsQueue.length > 0) {
+    const nextTask = statsQueue.shift()
+    if (nextTask) {
+      try {
+        await nextTask()
+      } catch (err) {
+        console.warn('[AiCache] Error actualizando estadísticas:', err)
+      }
+    }
+  }
+
+  isProcessingStats = false
 }
 
 /**
@@ -48,8 +86,8 @@ export async function getCachedAiResponse<T>(cacheKey: string): Promise<T | null
       return null
     }
 
-    // Actualizar estadísticas de ahorro
-    await recordCacheHit()
+    // Actualizar estadísticas de ahorro de forma segura y secuencial
+    recordCacheHit()
 
     return entry.data
   } catch (err) {
@@ -80,33 +118,28 @@ export async function setCachedAiResponse<T>(
 }
 
 /**
- * Registra un acierto en caché para métricas de ahorro
+ * Registra un acierto en caché para métricas de ahorro (protegido contra race conditions)
  */
-async function recordCacheHit(estimatedTokensSaved = 500): Promise<void> {
-  try {
+export function recordCacheHit(estimatedTokensSaved = 500): void {
+  enqueueStatsTask(async () => {
     const stats = await getLifetimeStats()
     stats.totalCallsFromCache += 1
     stats.totalTokensSavedByCache += estimatedTokensSaved
-    // Ahorro estimado basado en coste promedio de tokens
     stats.estimatedMoneySavedUsd += (estimatedTokensSaved / 1000000) * 1.5
     await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats))
-  } catch (err) {
-    // Ignorar fallo no crítico
-  }
+  })
 }
 
 /**
- * Registra una llamada real a la API para métricas
+ * Registra una llamada real a la API para métricas (protegido contra race conditions)
  */
 export async function recordApiCall(tokensUsed: number, costUsd: number): Promise<void> {
-  try {
+  await enqueueStatsTask(async () => {
     const stats = await getLifetimeStats()
     stats.totalCallsToApi += 1
     stats.estimatedTotalSpentUsd += costUsd
     await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats))
-  } catch (err) {
-    // Ignorar fallo no crítico
-  }
+  })
 }
 
 /**
