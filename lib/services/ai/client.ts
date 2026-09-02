@@ -146,6 +146,7 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
       'x-api-key': resolvedApiKey,
       'anthropic-version': ANTHROPIC_VERSION,
       'anthropic-beta': PROMPT_CACHING_BETA,
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(payload),
   })
@@ -153,6 +154,14 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
   if (!response.ok) {
     const errorText = await response.text()
     console.error(`[AiClient] Error HTTP ${response.status}:`, errorText)
+    
+    // Si la API key es inválida o no tiene créditos, informar con claridad
+    if (response.status === 401) {
+      throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en el archivo .env')
+    } else if (response.status === 400 && errorText.includes('credit_balance')) {
+      throw new Error('Tu cuenta de Anthropic no tiene créditos cargados. Carga saldo en console.anthropic.com/settings/plans')
+    }
+    
     throw new Error(`Anthropic API Error (${response.status}): ${errorText}`)
   }
 

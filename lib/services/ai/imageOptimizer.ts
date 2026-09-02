@@ -59,6 +59,27 @@ function optimizeImageWeb(
   quality: number
 ): Promise<OptimizedImageResult> {
   return new Promise((resolve) => {
+    // Si ya viene como data URI con base64, extraerlo directamente
+    if (src.startsWith('data:image/')) {
+      const parts = src.split(',')
+      const meta = parts[0]
+      const cleanBase64 = parts[1] || ''
+      let mediaType = 'image/jpeg'
+      if (meta.includes('image/png')) mediaType = 'image/png'
+      else if (meta.includes('image/webp')) mediaType = 'image/webp'
+
+      const rawBytes = cleanBase64.length * 0.75
+      const originalKb = Math.round(rawBytes / 1024)
+      resolve({
+        base64: cleanBase64,
+        mediaType,
+        originalSizeEstimateKb: originalKb || 600,
+        optimizedSizeEstimateKb: originalKb || 600,
+        compressionRatioPercent: 50,
+      })
+      return
+    }
+
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       const cleanBase64 = src.replace(/^data:image\/\w+;base64,/, '')
       resolve({

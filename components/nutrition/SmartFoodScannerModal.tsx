@@ -31,6 +31,7 @@ import {
   Zap,
   ChevronRight,
   Flame,
+  RotateCcw,
 } from 'lucide-react-native'
 import { foodScannerService, FoodProduct } from '@/lib/services/foodScannerService'
 import { aiService } from '@/lib/services/ai'
@@ -104,38 +105,38 @@ export default function SmartFoodScannerModal({
     try {
       let result: ImagePicker.ImagePickerResult
       if (useCamera) {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync()
-        if (status !== 'granted') {
-          Alert.alert('Permiso necesario', 'Se necesita acceso a la cámara para escanear comidas.')
-          return
+        if (Platform.OS !== 'web') {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync()
+          if (status !== 'granted') {
+            Alert.alert('Permiso necesario', 'Se necesita acceso a la cámara para escanear comidas.')
+            return
+          }
         }
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
+          allowsEditing: false,
           quality: 0.8,
           base64: true,
         })
       } else {
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
+          allowsEditing: false,
           quality: 0.8,
           base64: true,
         })
       }
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0]
         const uri = asset.uri
         const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : uri
         setImageUri(uri)
-        processImageWithAi(base64Data)
+        await processImageWithAi(base64Data)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Scanner] Error al capturar imagen:', err)
-      Alert.alert('Error', 'No se pudo abrir la cámara o galería.')
+      Alert.alert('Error', err?.message || 'No se pudo abrir la cámara o galería.')
     }
   }
 
@@ -589,6 +590,72 @@ export default function SmartFoodScannerModal({
                           <Text style={styles.secondaryActionBtnText}>Galería</Text>
                         </TouchableOpacity>
                       </View>
+
+                      {/* Demo Preset Button */}
+                      <TouchableOpacity
+                        style={styles.demoPresetBtn}
+                        onPress={() => {
+                          const demoProduct: FoodProduct = {
+                            id: `demo-${Date.now()}`,
+                            barcode: '8480000123456',
+                            name: 'Barrita Proteica Chocolate & Almendras',
+                            brand: 'Optimum Nutrition',
+                            servingSizeG: 60,
+                            servingName: '1 barrita (60g)',
+                            calories: 360,
+                            protein: 33.3,
+                            carbs: 25.0,
+                            fat: 11.5,
+                            sugars: 2.2,
+                            fiber: 12.0,
+                            sodiumMg: 180,
+                            ingredients: [
+                              'Proteína de suero aislada',
+                              'Almendras',
+                              'Cacao puro',
+                              'Fibra vegetal',
+                              'Eritritol',
+                            ],
+                            ultraProcessedScore: 2,
+                            dataSource: 'ai_scan',
+                            sourceLabel: 'Demo Auditoría IA',
+                          }
+                          const demoAudit: NutritionalLabelResult = {
+                            productName: 'Barrita Proteica Chocolate & Almendras',
+                            brand: 'Optimum Nutrition',
+                            per100g: {
+                              calories: 360,
+                              protein: 33.3,
+                              carbs: 25,
+                              fat: 11.5,
+                              sugars: 2.2,
+                              fiber: 12,
+                              sodiumMg: 180,
+                            },
+                            ingredientsList: [
+                              'Proteína de suero aislada',
+                              'Almendras',
+                              'Cacao puro',
+                              'Fibra vegetal',
+                              'Eritritol',
+                            ],
+                            ultraProcessedScore: 2,
+                            warningFlags: [],
+                            positiveHighlights: [
+                              'Alto contenido de proteína (33%)',
+                              'Bajo en azúcares simples (<3g)',
+                              'Fuente de fibra natural',
+                            ],
+                            classification: 'clean',
+                          }
+                          setScannedProduct(demoProduct)
+                          setLabelAudit(demoAudit)
+                          setSelectedPortionG('60')
+                        }}
+                      >
+                        <Sparkles size={14} color="#38BDF8" />
+                        <Text style={styles.demoPresetText}>🧪 Probar con Etiqueta Demo (Snack)</Text>
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View>
@@ -693,6 +760,35 @@ export default function SmartFoodScannerModal({
                             ))}
                           </View>
                         )}
+
+                        {/* Botón Guardar en Diario */}
+                        <TouchableOpacity
+                          style={styles.saveToDiaryBtn}
+                          onPress={handleConfirmSave}
+                          disabled={saving}
+                        >
+                          {saving ? (
+                            <ActivityIndicator color="#0F172A" size="small" />
+                          ) : (
+                            <>
+                              <Check size={20} color="#0F172A" />
+                              <Text style={styles.saveToDiaryBtnText}>
+                                Registrar {scannedProduct.name} en mis Macros
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.retakeFullBtn}
+                          onPress={() => {
+                            setScannedProduct(null)
+                            setLabelAudit(null)
+                          }}
+                        >
+                          <RotateCcw size={15} color="#94A3B8" />
+                          <Text style={styles.retakeFullBtnText}>Escanear otra etiqueta</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   )}
@@ -784,6 +880,35 @@ export default function SmartFoodScannerModal({
                           </View>
                         )
                       })()}
+
+                      {/* Botón Guardar en Diario */}
+                      <TouchableOpacity
+                        style={styles.saveToDiaryBtn}
+                        onPress={handleConfirmSave}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <ActivityIndicator color="#0F172A" size="small" />
+                        ) : (
+                          <>
+                            <Check size={20} color="#0F172A" />
+                            <Text style={styles.saveToDiaryBtnText}>
+                              Registrar {barcodeProduct.name} en mis Macros
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.retakeFullBtn}
+                        onPress={() => {
+                          setBarcodeProduct(null)
+                          setBarcodeInput('')
+                        }}
+                      >
+                        <RotateCcw size={15} color="#94A3B8" />
+                        <Text style={styles.retakeFullBtnText}>Buscar otro producto</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -1393,5 +1518,51 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 15,
     fontWeight: '800',
+  },
+  demoPresetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#38BDF840',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  demoPresetText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  saveToDiaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginTop: 14,
+  },
+  saveToDiaryBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  retakeFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  retakeFullBtnText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
   },
 })
