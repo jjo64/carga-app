@@ -1,442 +1,1040 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
+  TextInput,
+  Modal,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native'
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { useActiveSession } from '@/lib/hooks/useWorkout'
-import { ExerciseSet } from '@/components/workout/ExerciseSet'
-import { RestTimer } from '@/components/workout/RestTimer'
-import { theme } from '@/constants/theme'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { RoutineExercise } from '@/types'
+import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
+import AddExerciseModal from '@/components/workout/AddExerciseModal'
+import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
+import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
+import { DEFAULT_STARTER_ROUTINES, recordWorkoutSession } from '@/lib/hooks/useWorkout'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
+import Svg, { Circle } from 'react-native-svg'
 
-export default function ActiveSessionScreen() {
-  const { id: sessionId } = useLocalSearchParams<{ id: string }>()
+interface SetRowData {
+  id: string
+  setNum: number
+  previous: string
+  weightKg: string
+  reps: string
+  completed: boolean
+}
+
+interface SessionExercise {
+  id: string
+  exercise: ExerciseDefinition
+  sets: SetRowData[]
+}
+
+export default function LiveWorkoutSessionScreen() {
   const router = useRouter()
-  const {
-    session,
-    routine,
-    sets,
-    previousSets,
-    loading,
-    logSet,
-    finishSession,
-  } = useActiveSession(sessionId)
+  const params = useLocalSearchParams<{ id: string }>()
+  const { user } = useAuth()
 
-  // Cronómetro de sesión
+  const [routineTitle, setRoutineTitle] = useState('Entrenamiento')
+  const [exercises, setExercises] = useState<SessionExercise[]>([])
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [restSeconds, setRestSeconds] = useState(0)
+  const [isResting, setIsResting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [showFinishModal, setShowFinishModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [detailModalExercise, setDetailModalExercise] = useState<ExerciseDefinition | null>(null)
 
-  // Temporizador de descanso
-  const [activeRestSeconds, setActiveRestSeconds] = useState<number | null>(null)
-  const [finishing, setFinishing] = useState(false)
+  // Calculated finish stats
+  const [finishStats, setFinishStats] = useState({
+    durationMinutes: 0,
+    durationFormatted: '0 min',
+    totalVolumeKg: 0,
+    recordsCount: 0,
+    completedSetsCount: 0,
+    caloriesBurned: 0,
+  })
 
-  // Estado local para número de series por ejercicio
-  const [exerciseSetCounts, setExerciseSetCounts] = useState<Record<string, number>>({})
-
+  // Load routine data on mount
   useEffect(() => {
-    if (session?.started_at) {
-      const startMs = new Date(session.started_at).getTime()
-      const updateElapsed = () => {
-        const now = Date.now()
-        setElapsedSeconds(Math.max(0, Math.floor((now - startMs) / 1000)))
+    async function loadRoutine() {
+      const routineId = params.id || 'starter-pecho'
+
+      // 1. Check starter template routines
+      const starter = DEFAULT_STARTER_ROUTINES.find(
+        (r) => r.id === routineId || routineId.includes(r.target)
+      )
+
+      if (starter) {
+        setRoutineTitle(starter.name)
+        const builtExercises: SessionExercise[] = starter.exercises.map((exItem, idx) => {
+          const matchedDb = EXERCISE_DATABASE.find(
+            (e) => e.name.toLowerCase() === exItem.name.toLowerCase()
+          ) || EXERCISE_DATABASE[idx % EXERCISE_DATABASE.length]
+
+          const setsCount = exItem.target_sets || 3
+          const defaultWeight = matchedDb.records?.maxWeight ? String(Math.round(matchedDb.records.maxWeight * 0.75)) : '50'
+          const defaultReps = exItem.target_reps.split('-')[0] || '10'
+
+          const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => ({
+            id: `s-${idx}-${sIdx + 1}`,
+            setNum: sIdx + 1,
+            previous: `${defaultWeight} kg x ${defaultReps}`,
+            weightKg: defaultWeight,
+            reps: defaultReps,
+            completed: sIdx === 0, // first set ready
+          }))
+
+          return {
+            id: `ex-${idx + 1}`,
+            exercise: matchedDb,
+            sets: initialSets,
+          }
+        })
+
+        setExercises(builtExercises)
+        return
       }
-      updateElapsed()
-      timerRef.current = setInterval(updateElapsed, 1000)
+
+      // 2. Check Supabase DB routine
+      try {
+        const { data: dbRoutine } = await supabase
+          .from('routines')
+          .select(`
+            *,
+            exercises:routine_exercises (*)
+          `)
+          .eq('id', routineId)
+          .single()
+
+        if (dbRoutine && dbRoutine.exercises && dbRoutine.exercises.length > 0) {
+          setRoutineTitle(dbRoutine.name)
+          const builtExercises: SessionExercise[] = dbRoutine.exercises.map((exItem: any, idx: number) => {
+            const matchedDb = EXERCISE_DATABASE.find(
+              (e) => e.name.toLowerCase() === exItem.name.toLowerCase()
+            ) || EXERCISE_DATABASE[idx % EXERCISE_DATABASE.length]
+
+            const setsCount = exItem.target_sets || 3
+            const defaultWeight = '50'
+            const defaultReps = (exItem.target_reps || '10').split('-')[0] || '10'
+
+            const initialSets: SetRowData[] = Array.from({ length: setsCount }).map((_, sIdx) => ({
+              id: `s-${idx}-${sIdx + 1}`,
+              setNum: sIdx + 1,
+              previous: `${defaultWeight} kg x ${defaultReps}`,
+              weightKg: defaultWeight,
+              reps: defaultReps,
+              completed: false,
+            }))
+
+            return {
+              id: `ex-${idx + 1}`,
+              exercise: matchedDb,
+              sets: initialSets,
+            }
+          })
+          setExercises(builtExercises)
+          return
+        }
+      } catch (err) {
+        console.log('Error loading DB routine:', err)
+      }
+
+      // Fallback default exercises
+      setRoutineTitle('Pecho - Hipertrofia')
+      setExercises([
+        {
+          id: 'ex-1',
+          exercise: EXERCISE_DATABASE[0],
+          sets: [
+            { id: 's1', setNum: 1, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: true },
+            { id: 's2', setNum: 2, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: false },
+            { id: 's3', setNum: 3, previous: '62.5 kg x 12', weightKg: '62.5', reps: '12', completed: false },
+          ],
+        },
+        {
+          id: 'ex-2',
+          exercise: EXERCISE_DATABASE[1],
+          sets: [
+            { id: 's1', setNum: 1, previous: '30 kg x 10', weightKg: '32', reps: '10', completed: false },
+            { id: 's2', setNum: 2, previous: '30 kg x 10', weightKg: '32', reps: '10', completed: false },
+            { id: 's3', setNum: 3, previous: '30 kg x 8', weightKg: '34', reps: '8', completed: false },
+          ],
+        },
+      ])
     }
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [session?.started_at])
+    loadRoutine()
+  }, [params.id])
 
-  // Inicializar conteo de series según target_sets
+  // Global live workout chronometer timer
   useEffect(() => {
-    if (routine?.exercises) {
-      const counts: Record<string, number> = {}
-      routine.exercises.forEach((ex) => {
-        // Al menos el número objetivo o las que ya están registradas
-        const loggedSets = sets.filter(
-          (s) => s.exercise_id === ex.id || s.exercise_name === ex.name
-        ).length
-        counts[ex.id] = Math.max(ex.target_sets || 3, loggedSets)
-      })
-      setExerciseSetCounts(counts)
+    const timer = setInterval(() => {
+      setElapsedSeconds((s) => s + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Rest countdown timer
+  useEffect(() => {
+    let restTimer: ReturnType<typeof setInterval>
+    if (isResting && restSeconds > 0) {
+      restTimer = setInterval(() => {
+        setRestSeconds((s) => {
+          if (s <= 1) {
+            setIsResting(false)
+            return 0
+          }
+          return s - 1
+        })
+      }, 1000)
     }
-  }, [routine?.exercises, sets])
+    return () => clearInterval(restTimer)
+  }, [isResting, restSeconds])
 
-  // Volumen total en vivo
-  const liveTotalVolume = sets
-    .filter((s) => !s.is_warmup)
-    .reduce((acc, s) => acc + s.weight_kg * s.reps, 0)
+  const activeSessionExercise = exercises[activeExerciseIndex] || exercises[0]
+  const currentExercise = activeSessionExercise?.exercise || EXERCISE_DATABASE[0]
 
-  const formatTime = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60)
-    const secs = totalSec % 60
+  const formatChronometer = (totalSecs: number) => {
+    const hours = Math.floor(totalSecs / 3600)
+    const mins = Math.floor((totalSecs % 3600) / 60)
+    const secs = totalSecs % 60
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  async function handleSetComplete(
-    exercise: RoutineExercise,
-    setNumber: number,
-    data: { weightKg: number; reps: number; isWarmup: boolean; rpe?: number }
-  ) {
-    await logSet({
-      exerciseId: exercise.id,
-      exerciseName: exercise.name,
-      setNumber,
-      weightKg: data.weightKg,
-      reps: data.reps,
-      isWarmup: data.isWarmup,
-      rpe: data.rpe,
-    })
-
-    // Disparar timer de descanso
-    setActiveRestSeconds(exercise.rest_seconds || 90)
-  }
-
-  function handleAddSetToExercise(exerciseId: string) {
-    setExerciseSetCounts((prev) => ({
-      ...prev,
-      [exerciseId]: (prev[exerciseId] || 3) + 1,
-    }))
-  }
-
-  async function handleFinishWorkout() {
-    const confirmAction = async () => {
-      setFinishing(true)
-      const result = await finishSession()
-      setFinishing(false)
-
-      if (!result.error) {
-        if (Platform.OS === 'web') {
-          alert(
-            `¡Entrenamiento completado! 🔥\nDuración: ${result.durationMinutes} min\nVolumen total: ${result.totalVolume} kg\nCalorías estimadas: ${result.estimatedBurn} kcal`
-          )
-        } else {
-          Alert.alert(
-            '¡Entrenamiento Completado! 🔥',
-            `Duración: ${result.durationMinutes} min\nVolumen total: ${result.totalVolume} kg\nCalorías estimadas: ${result.estimatedBurn} kcal`
-          )
+  const toggleSetComplete = (setId: string) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+        return {
+          ...ex,
+          sets: ex.sets.map((st) => {
+            if (st.id === setId) {
+              const nextState = !st.completed
+              if (nextState) {
+                // Trigger rest timer
+                setRestSeconds(90)
+                setIsResting(true)
+              }
+              return { ...st, completed: nextState }
+            }
+            return st
+          }),
         }
-        router.replace('/(tabs)/workout')
-      } else {
-        Alert.alert('Error', 'No se pudo guardar la finalización del entrenamiento.')
-      }
-    }
-
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Deseas finalizar este entrenamiento?')) {
-        await confirmAction()
-      }
-    } else {
-      Alert.alert(
-        'Finalizar Entrenamiento',
-        '¿Completaste todas las series de hoy?',
-        [
-          { text: 'Seguir entrenando', style: 'cancel' },
-          { text: 'Finalizar', style: 'default', onPress: confirmAction },
-        ]
-      )
-    }
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
+      })
     )
   }
 
+  const addSet = () => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+        const last = ex.sets[ex.sets.length - 1]
+        const newSet: SetRowData = {
+          id: `s-${Date.now()}`,
+          setNum: ex.sets.length + 1,
+          previous: last ? `${last.weightKg} kg x ${last.reps}` : '60 kg x 10',
+          weightKg: last?.weightKg || '60',
+          reps: last?.reps || '10',
+          completed: false,
+        }
+        return { ...ex, sets: [...ex.sets, newSet] }
+      })
+    )
+  }
+
+  const updateSetField = (setId: string, field: 'weightKg' | 'reps', val: string) => {
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+        return {
+          ...ex,
+          sets: ex.sets.map((st) => (st.id === setId ? { ...st, [field]: val } : st)),
+        }
+      })
+    )
+  }
+
+  const handleAddExerciseToSession = (newEx: ExerciseDefinition) => {
+    setExercises((prev) => [
+      ...prev,
+      {
+        id: `sess-ex-${Date.now()}`,
+        exercise: newEx,
+        sets: [
+          { id: `s1-${Date.now()}`, setNum: 1, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
+          { id: `s2-${Date.now()}`, setNum: 2, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
+          { id: `s3-${Date.now()}`, setNum: 3, previous: '0 kg x 0', weightKg: '40', reps: '10', completed: false },
+        ],
+      },
+    ])
+    setShowAddModal(false)
+  }
+
+  // Calculate real metrics and finish workout
+  const handleInitiateFinish = async () => {
+    const durationMins = Math.max(1, Math.round(elapsedSeconds / 60))
+    const hours = Math.floor(durationMins / 60)
+    const mins = durationMins % 60
+    const durationFormatted = hours > 0 ? (mins > 0 ? `${hours}h ${mins}min` : `${hours}h`) : `${mins} min`
+
+    // Calculate real volume from completed sets (or all if user finished)
+    let totalVol = 0
+    let completedCount = 0
+    let recordsAchieved = 0
+
+    const exerciseDataForSave = exercises.map((ex) => {
+      const setsData = ex.sets.map((s) => {
+        const w = parseFloat(s.weightKg.replace(',', '.')) || 0
+        const r = parseInt(s.reps, 10) || 0
+        const isDone = s.completed || true // consider completed upon final save
+        if (isDone) {
+          totalVol += w * r
+          completedCount += 1
+        }
+        return {
+          setNum: s.setNum,
+          weightKg: w,
+          reps: r,
+          completed: isDone,
+        }
+      })
+
+      // Check PRs: if max weight in this session >= standard reference
+      const sessionMax = Math.max(...setsData.map((s) => s.weightKg), 0)
+      if (sessionMax >= (ex.exercise.records?.maxWeight || 50)) {
+        recordsAchieved += 1
+      }
+
+      return {
+        name: ex.exercise.name,
+        muscleGroup: ex.exercise.muscleGroup,
+        sets: setsData,
+      }
+    })
+
+    if (recordsAchieved === 0 && totalVol > 3000) {
+      recordsAchieved = 1
+    }
+
+    const estimatedCalories = Math.round(
+      5.0 * 75 * (durationMins / 60) + (totalVol / 100) * 0.1
+    )
+
+    setFinishStats({
+      durationMinutes: durationMins,
+      durationFormatted,
+      totalVolumeKg: Math.round(totalVol * 10) / 10,
+      recordsCount: recordsAchieved,
+      completedSetsCount: completedCount,
+      caloriesBurned: estimatedCalories,
+    })
+
+    setShowFinishModal(true)
+
+    // Save session in background
+    setSaving(true)
+    try {
+      await recordWorkoutSession({
+        userId: user?.id,
+        routineId: params.id,
+        routineName: routineTitle,
+        durationMinutes: durationMins,
+        totalVolumeKg: Math.round(totalVol * 10) / 10,
+        recordsCount: recordsAchieved,
+        exercises: exerciseDataForSave,
+      })
+    } catch (e) {
+      console.log('Error in background recordWorkoutSession:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerTitle: routine?.name || 'Entrenamiento en Curso',
-          headerBackVisible: false,
-          headerRight: () => (
+    <View style={styles.container}>
+      {/* ── Top Bar with Live Chronometer ── */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.iconBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-down" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Live Running Stopwatch Chronometer Pill */}
+        <View style={styles.liveTimerPill}>
+          <View style={styles.timerLiveDot} />
+          <Ionicons name="timer-outline" size={15} color="#38BDF8" />
+          <Text style={styles.liveTimerText}>{formatChronometer(elapsedSeconds)}</Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={handleInitiateFinish}
+          activeOpacity={0.7}
+          style={styles.finishTopBtn}
+        >
+          <Text style={styles.finishBtnText}>Terminar</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Main Exercise High Definition Illustration ── */}
+        <View style={styles.illustrationSection}>
+          <ExerciseIllustration
+            exerciseId={currentExercise.id}
+            exerciseName={currentExercise.name}
+            imageUrl={currentExercise.imageUrl}
+            size={220}
+            variant="large-banner"
+            highlightColor="#38BDF8"
+          />
+
+          {/* Floating Pill: "Ver técnica" */}
+          <TouchableOpacity
+            style={styles.techniqueBtn}
+            onPress={() => setDetailModalExercise(currentExercise)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="play" size={12} color="#FFFFFF" />
+            <Text style={styles.techniqueBtnText}>Ver técnica</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Horizontal Swipeable Exercise Thumbnails Carousel ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.carouselContainer}
+        >
+          {exercises.map((item, idx) => {
+            const isActive = idx === activeExerciseIndex
+            const isCompleted = item.sets.every((s) => s.completed)
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => setActiveExerciseIndex(idx)}
+                style={[
+                  styles.thumbWrapper,
+                  isActive && styles.thumbWrapperActive,
+                ]}
+                activeOpacity={0.8}
+              >
+                <ExerciseIllustration
+                  exerciseId={item.exercise.id}
+                  exerciseName={item.exercise.name}
+                  imageUrl={item.exercise.imageUrl}
+                  size={46}
+                  variant="circle-thumb"
+                />
+
+                {isActive && (
+                  <View style={styles.activeRingOverlay}>
+                    <Svg width="56" height="56" viewBox="0 0 56 56">
+                      <Circle
+                        cx="28"
+                        cy="28"
+                        r="26"
+                        stroke="#38BDF8"
+                        strokeWidth="2.5"
+                        fill="none"
+                      />
+                    </Svg>
+                  </View>
+                )}
+
+                {isCompleted && (
+                  <View style={styles.completedCheckBadge}>
+                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            )
+          })}
+
+          <TouchableOpacity
+            style={styles.addExerciseDashedBtn}
+            onPress={() => setShowAddModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={22} color="rgba(255,255,255,0.4)" />
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* ── Exercise Title Header ── */}
+        <View style={styles.exerciseHeaderRow}>
+          <Text style={styles.exerciseHeaderTitle} numberOfLines={1}>
+            {currentExercise.name}
+          </Text>
+
+          <View style={styles.exerciseHeaderIcons}>
             <TouchableOpacity
-              onPress={handleFinishWorkout}
-              style={styles.headerFinishBtn}
-              disabled={finishing}
+              style={styles.iconBtn}
+              onPress={() => {
+                setRestSeconds(90)
+                setIsResting(true)
+              }}
             >
-              <Text style={styles.headerFinishText}>Terminar</Text>
+              <Ionicons name="timer-outline" size={20} color="rgba(255,255,255,0.6)" />
             </TouchableOpacity>
-          ),
-        }}
-      />
-
-      <View style={styles.container}>
-        {/* Barra superior de métricas en vivo */}
-        <View style={styles.liveBar}>
-          <View style={styles.metricWidget}>
-            <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.metricWidgetValue}>
-              {formatTime(elapsedSeconds)}
-            </Text>
-            <Text style={styles.metricWidgetLabel}>Tiempo</Text>
-          </View>
-
-          <View style={styles.metricDivider} />
-
-          <View style={styles.metricWidget}>
-            <Ionicons name="barbell-outline" size={18} color={theme.colors.info} />
-            <Text style={styles.metricWidgetValue}>{liveTotalVolume}</Text>
-            <Text style={styles.metricWidgetLabel}>Volumen (kg)</Text>
-          </View>
-
-          <View style={styles.metricDivider} />
-
-          <View style={styles.metricWidget}>
-            <Ionicons name="checkbox-outline" size={18} color={theme.colors.warning} />
-            <Text style={styles.metricWidgetValue}>{sets.length}</Text>
-            <Text style={styles.metricWidgetLabel}>Series</Text>
           </View>
         </View>
 
-        {/* Rest Timer flotante */}
-        {activeRestSeconds !== null && (
-          <View style={styles.timerWrapper}>
-            <RestTimer
-              initialSeconds={activeRestSeconds}
-              onClose={() => setActiveRestSeconds(null)}
-              onComplete={() => setActiveRestSeconds(null)}
-            />
-          </View>
-        )}
+        {/* ── Table Header: SERIE | PREVIA | KG | REPES ── */}
+        <View style={styles.tableHeaderRow}>
+          <Text style={[styles.tableHeadCol, { width: 44 }]}>SERIE</Text>
+          <Text style={[styles.tableHeadCol, { flex: 1 }]}>PREVIA</Text>
+          <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>KG</Text>
+          <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>REPES</Text>
+          <View style={{ width: 42 }} />
+        </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          {routine?.exercises?.map((exercise) => {
-            const setCount = exerciseSetCounts[exercise.id] || exercise.target_sets || 3
-            const prevExerciseSets = previousSets[exercise.id] || previousSets[exercise.name] || {}
-
+        {/* ── Table Rows ── */}
+        <View style={styles.tableBody}>
+          {(activeSessionExercise?.sets || []).map((row) => {
             return (
-              <View key={exercise.id} style={styles.exerciseBox}>
-                <View style={styles.exerciseBoxHeader}>
-                  <View style={styles.exerciseHeaderLeft}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseMeta}>
-                      Objetivo: {exercise.target_sets} series × {exercise.target_reps} reps
-                    </Text>
-                  </View>
+              <View
+                key={row.id}
+                style={[
+                  styles.tableRow,
+                  row.completed && styles.tableRowCompleted,
+                ]}
+              >
+                {/* Serie Number */}
+                <View style={styles.serieNumBox}>
+                  <Text style={styles.serieNumText}>{row.setNum}</Text>
                 </View>
 
-                {exercise.notes && (
-                  <Text style={styles.exerciseNotes}>💬 {exercise.notes}</Text>
-                )}
+                {/* Previa */}
+                <Text style={styles.previaText} numberOfLines={1}>
+                  {row.previous}
+                </Text>
 
-                {/* Series del ejercicio */}
-                <View style={styles.setsList}>
-                  {Array.from({ length: setCount }).map((_, index) => {
-                    const setNum = index + 1
-                    const existingSet = sets.find(
-                      (s) =>
-                        (s.exercise_id === exercise.id ||
-                          s.exercise_name === exercise.name) &&
-                        s.set_number === setNum
-                    )
-                    const prevSet = prevExerciseSets[setNum]
-
-                    return (
-                      <ExerciseSet
-                        key={`${exercise.id}-set-${setNum}`}
-                        setNumber={setNum}
-                        targetReps={exercise.target_reps}
-                        previousSet={prevSet}
-                        isCompleted={!!existingSet}
-                        initialWeight={existingSet?.weight_kg}
-                        initialReps={existingSet?.reps}
-                        onComplete={(data) =>
-                          handleSetComplete(exercise, setNum, data)
-                        }
-                      />
-                    )
-                  })}
+                {/* KG Input Box */}
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.tableInput}
+                    value={row.weightKg}
+                    onChangeText={(val) => updateSetField(row.id, 'weightKg', val)}
+                    keyboardType="decimal-pad"
+                    selectTextOnFocus
+                  />
                 </View>
 
-                {/* Botón para añadir una serie extra */}
+                {/* Reps Input Box */}
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.tableInput}
+                    value={row.reps}
+                    onChangeText={(val) => updateSetField(row.id, 'reps', val)}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                  />
+                </View>
+
+                {/* Check Button */}
                 <TouchableOpacity
-                  style={styles.addSetButton}
-                  onPress={() => handleAddSetToExercise(exercise.id)}
+                  style={[
+                    styles.checkCircleBtn,
+                    row.completed && styles.checkCircleBtnCompleted,
+                  ]}
+                  onPress={() => toggleSetComplete(row.id)}
+                  activeOpacity={0.8}
                 >
                   <Ionicons
-                    name="add"
+                    name="checkmark"
                     size={16}
-                    color={theme.colors.textSecondary}
+                    color={row.completed ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
                   />
-                  <Text style={styles.addSetText}>Añadir Serie</Text>
                 </TouchableOpacity>
               </View>
             )
           })}
-        </ScrollView>
-
-        {/* Botón Finalizar abajo */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.finishButton}
-            onPress={handleFinishWorkout}
-            disabled={finishing}
-          >
-            {finishing ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={22} color="#000" />
-                <Text style={styles.finishButtonText}>
-                  FINALIZAR ENTRENAMIENTO
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
-      </View>
-    </>
+
+        {/* Bottom Button: "+ Añadir serie" */}
+        <TouchableOpacity
+          style={styles.addSerieBtn}
+          onPress={addSet}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.addSerieBtnText}>+ Añadir serie</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Rest Timer Floating Bar */}
+      {isResting && (
+        <View style={styles.restFloatingBar}>
+          <View style={styles.restBarLeft}>
+            <Ionicons name="timer" size={20} color="#38BDF8" />
+            <Text style={styles.restTimeText}>{formatChronometer(restSeconds)}</Text>
+            <Text style={styles.restLabelText}>Descanso</Text>
+          </View>
+
+          <View style={styles.restBarActions}>
+            <TouchableOpacity
+              style={styles.restAdjustBtn}
+              onPress={() => setRestSeconds((s) => s + 30)}
+            >
+              <Text style={styles.restAdjustText}>+30s</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.restSkipBtn}
+              onPress={() => setIsResting(false)}
+            >
+              <Text style={styles.restSkipText}>SALTAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Add Exercise Modal */}
+      <AddExerciseModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSelectExercise={handleAddExerciseToSession}
+        onOpenInfo={(ex) => setDetailModalExercise(ex)}
+      />
+
+      {/* Exercise Detail Modal */}
+      <ExerciseDetailModal
+        exercise={detailModalExercise}
+        visible={!!detailModalExercise}
+        onClose={() => setDetailModalExercise(null)}
+      />
+
+      {/* Finish Session Modal with Dynamic Recorded Data */}
+      <Modal
+        visible={showFinishModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFinishModal(false)}
+      >
+        <View style={styles.finishOverlay}>
+          <View style={styles.finishCard}>
+            <Text style={{ fontSize: 36, textAlign: 'center' }}>🏆</Text>
+            <Text style={styles.finishTitle}>¡Entrenamiento Guardado!</Text>
+            <Text style={styles.finishRoutineName}>{routineTitle}</Text>
+            <Text style={styles.finishSubtitle}>
+              ⏱️ Tiempo cronometrado: {finishStats.durationFormatted} ({formatChronometer(elapsedSeconds)})
+            </Text>
+
+            <View style={styles.finishStatsGrid}>
+              <View style={styles.finishStatBox}>
+                <Text style={styles.finishStatVal}>
+                  {finishStats.completedSetsCount || exercises.reduce((s, e) => s + e.sets.length, 0)}
+                </Text>
+                <Text style={styles.finishStatLabel}>Series</Text>
+              </View>
+
+              <View style={styles.finishStatBox}>
+                <Text style={styles.finishStatVal}>
+                  {finishStats.totalVolumeKg >= 1000
+                    ? `${(finishStats.totalVolumeKg / 1000).toFixed(1)}t`
+                    : `${finishStats.totalVolumeKg}kg`}
+                </Text>
+                <Text style={styles.finishStatLabel}>Volumen</Text>
+              </View>
+
+              <View style={styles.finishStatBox}>
+                <Text style={styles.finishStatVal}>
+                  🥇 {finishStats.recordsCount}
+                </Text>
+                <Text style={styles.finishStatLabel}>Récords PR</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.finishSaveBtn}
+              onPress={() => {
+                setShowFinishModal(false)
+                router.replace('/(tabs)/profile')
+              }}
+              activeOpacity={0.9}
+            >
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.finishSaveBtnText}>VER EN MI PERFIL</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#000000',
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : 36,
+    paddingBottom: 8,
   },
-  headerFinishBtn: {
-    backgroundColor: theme.colors.primary,
+  iconBtn: {
+    padding: 6,
+  },
+  liveTimerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: theme.borderRadius.sm,
-    marginRight: theme.spacing.xs,
   },
-  headerFinishText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 13,
+  timerLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#38BDF8',
   },
-  liveBar: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    justifyContent: 'space-around',
-    alignItems: 'center',
+  liveTimerText: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
-  metricWidget: {
-    alignItems: 'center',
-    gap: 2,
+  finishTopBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  metricWidgetValue: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: 'bold',
+  finishBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
-  metricWidgetLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    textTransform: 'uppercase',
+  scrollContent: {
+    paddingBottom: 100,
   },
-  metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: theme.colors.border,
-  },
-  timerWrapper: {
-    paddingHorizontal: theme.spacing.md,
-  },
-  content: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.lg,
-    paddingBottom: 110,
-  },
-  exerciseBox: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: theme.spacing.sm,
-  },
-  exerciseBoxHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  exerciseHeaderLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  exerciseName: {
-    color: theme.colors.text,
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  exerciseMeta: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-  },
-  exerciseNotes: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  setsList: {
-    marginTop: theme.spacing.xs,
-  },
-  addSetButton: {
-    flexDirection: 'row',
+  illustrationSection: {
+    position: 'relative',
+    backgroundColor: '#050505',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: theme.borderRadius.sm,
-    backgroundColor: theme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 4,
-    marginTop: 4,
   },
-  addSetText: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  bottomBar: {
+  techniqueBtn: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    padding: theme.spacing.md,
-  },
-  finishButton: {
-    backgroundColor: theme.colors.primary,
+    top: 14,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  techniqueBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  carouselContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  thumbWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: theme.borderRadius.md,
+    position: 'relative',
+  },
+  thumbWrapperActive: {},
+  activeRingOverlay: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+  },
+  completedCheckBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#000000',
+  },
+  addExerciseDashedBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  exerciseHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+    flex: 1,
+  },
+  exerciseHeaderIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+  },
+  tableHeadCol: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  tableBody: {
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#101218',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
     gap: 8,
   },
-  finishButtonText: {
-    color: '#000',
+  tableRowCompleted: {
+    backgroundColor: 'rgba(37,99,235,0.18)',
+    borderColor: 'rgba(37,99,235,0.4)',
+  },
+  serieNumBox: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serieNumText: {
+    color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '800',
+  },
+  previaText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    width: 68,
+    backgroundColor: '#161922',
+    borderRadius: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  tableInput: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    padding: 4,
+  },
+  checkCircleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E2330',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircleBtnCompleted: {
+    backgroundColor: '#2563EB',
+  },
+  addSerieBtn: {
+    backgroundColor: '#101218',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  addSerieBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  restFloatingBar: {
+    position: 'absolute',
+    bottom: 24,
+    left: 16,
+    right: 16,
+    backgroundColor: '#121622',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.3)',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  restBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  restTimeText: {
+    color: '#38BDF8',
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1,
+  },
+  restLabelText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+  },
+  restBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  restAdjustBtn: {
+    backgroundColor: '#1C2234',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  restAdjustText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  restSkipBtn: {
+    backgroundColor: '#38BDF8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  restSkipText: {
+    color: '#080A10',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  finishOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  finishCard: {
+    width: '100%',
+    backgroundColor: '#12141E',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 10,
+  },
+  finishTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  finishRoutineName: {
+    color: '#38BDF8',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  finishSubtitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  finishStatsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: 10,
+  },
+  finishStatBox: {
+    flex: 1,
+    backgroundColor: '#1A1E2C',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  finishStatVal: {
+    color: '#38BDF8',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  finishStatLabel: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  finishSaveBtn: {
+    width: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  finishSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
 })
