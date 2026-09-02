@@ -162,7 +162,13 @@ export function extractAndParseJson<T>(rawText: string): T {
     const lastBrace = rawText.lastIndexOf('}')
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
       const slice = rawText.substring(firstBrace, lastBrace + 1)
-      return JSON.parse(slice) as T
+      try {
+        return JSON.parse(slice) as T
+      } catch {
+        // Limpiar comas finales trailing commas
+        const sanitized = slice.replace(/,\s*([}\]])/g, '$1')
+        return JSON.parse(sanitized) as T
+      }
     }
 
     throw new Error(`[AiClient] No se pudo parsear el JSON de la respuesta: ${rawText.slice(0, 100)}...`)

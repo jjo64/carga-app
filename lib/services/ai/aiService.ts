@@ -237,7 +237,7 @@ Historial de entrenamiento reciente:
         },
       ],
       temperature: 0.1,
-      maxTokens: 800,
+      maxTokens: 2000,
     })
 
     const parsed = extractAndParseJson<NutritionalLabelResult>(text)
@@ -267,13 +267,13 @@ Historial de entrenamiento reciente:
             },
             {
               type: 'text',
-              text: 'Identifica los alimentos, porciones en gramos y macros aproximados de este plato.',
+              text: 'Identifica los alimentos de este plato, calcula sus gramos y macros.',
             },
           ],
         },
       ],
-      temperature: 0.1,
-      maxTokens: 800,
+      temperature: 0.2,
+      maxTokens: 2000,
     })
 
     const parsed = extractAndParseJson<FoodVisionResult>(text)
