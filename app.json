@@ -19,7 +19,13 @@
       "package": "com.jjo.carga",
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -28,10 +34,26 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a Carga acceder a tus fotos para registrar tus comidas.",
+          "cameraPermission": "Permite a Carga usar la cámara para fotografiar alimentos y tablas nutricionales."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "b1f4b446-626f-4efb-9337-696ee04922f5"
+      }
     }
   }
 }

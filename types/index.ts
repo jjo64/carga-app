@@ -1,6 +1,7 @@
 export type Gender = 'male' | 'female' | 'other'
 export type Goal = 'muscle_gain' | 'fat_loss' | 'maintenance' | 'recomp'
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced'
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
 
 export interface Profile {
@@ -13,6 +14,10 @@ export interface Profile {
   height_cm?: number | null
   goal?: Goal | null
   activity_level?: ActivityLevel | null
+  experience_level?: ExperienceLevel | null
+  training_days_per_week?: number | null
+  onboarding_completed?: boolean | null
+  initial_weight_kg?: number | null
 }
 
 export interface BodyWeight {
@@ -30,6 +35,7 @@ export interface Routine {
   updated_at: string
   name: string
   description?: string | null
+  assigned_days?: string[]
   is_active: boolean
   sort_order: number
   exercises?: RoutineExercise[]
