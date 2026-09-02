@@ -226,14 +226,28 @@ export default function NutritionScreen() {
     }
   }
 
-  const handleAnalyzeText = () => {
+  const handleAnalyzeText = async () => {
     if (!foodText.trim()) return
     setAnalysisState('loading')
-    setTimeout(() => {
+    try {
+      const { data } = await aiService.parseNaturalMeal(foodText)
+      const parsedFoods: FoodItemParsed[] = data.items.map((it) => ({
+        name: it.name,
+        quantity_g: it.grams,
+        calories: it.calories,
+        protein_g: it.protein,
+        carbs_g: it.carbs,
+        fat_g: it.fat,
+        confidence: 'high',
+      }))
+      setResults(parsedFoods)
+      setAnalysisState('result')
+    } catch (err: any) {
+      console.warn('[Nutrition] Fallback parsing food text:', err)
       const parsed = parseFoodText(foodText)
       setResults(parsed)
       setAnalysisState('result')
-    }, 1200)
+    }
   }
 
   const handleSaveMeal = async () => {
