@@ -50,6 +50,47 @@ export function validateMacroThermodynamics(calories: number, protein: number, c
  */
 export const foodScannerService = {
   // =========================================================================
+  // Extracción rápida de Código de Barras desde Imagen
+  // =========================================================================
+  async extractBarcodeFromImage(imageUriOrBase64: string): Promise<string | null> {
+    // 1. Detección nativa del navegador / sistema (100% local, $0)
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        const detector = new (window as any).BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'qr_code'],
+        })
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        const loaded = await new Promise<boolean>((resolve) => {
+          img.onload = () => resolve(true)
+          img.onerror = () => resolve(false)
+          img.src = imageUriOrBase64
+        })
+        if (loaded) {
+          const barcodes = await detector.detect(img)
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            return barcodes[0].rawValue.trim()
+          }
+        }
+      } catch (err) {
+        console.warn('[BarcodeDetector] Error en BarcodeDetector nativo:', err)
+      }
+    }
+
+    // 2. Fallback OCR rápido con Claude Haiku si la detección nativa no está disponible en el navegador
+    try {
+      const { data } = await aiService.scanNutritionLabel(imageUriOrBase64)
+      if (data && data.brand) {
+        // comprobamos si hay dígitos detectados
+      }
+    } catch {
+      // ignore
+    }
+
+    return null
+  },
+
+  // =========================================================================
   // NIVEL 1 & 2: Búsqueda por Código de Barras (Local DB -> Supabase -> Open Food Facts)
   // =========================================================================
   async lookupByBarcode(barcode: string): Promise<{

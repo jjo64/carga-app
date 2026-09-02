@@ -177,7 +177,64 @@ export default function SmartFoodScannerModal({
   }
 
   // =========================================================================
-  // 3. Buscar Código de Barras
+  // 3. Capturar Código de Barras por Cámara o Galería
+  // =========================================================================
+  const pickImageForBarcode = async (useCamera: boolean) => {
+    try {
+      let result: ImagePicker.ImagePickerResult
+      if (useCamera) {
+        if (Platform.OS !== 'web') {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync()
+          if (status !== 'granted') {
+            Alert.alert('Permiso necesario', 'Se necesita acceso a la cámara para escanear códigos.')
+            return
+          }
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: false,
+          quality: 0.8,
+          base64: true,
+        })
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: false,
+          quality: 0.8,
+          base64: true,
+        })
+      }
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0]
+        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        setLoading(true)
+        setStatusMessage('⚡ Leyendo código de barras...')
+        const detectedCode = await foodScannerService.extractBarcodeFromImage(base64Data)
+        if (detectedCode) {
+          setBarcodeInput(detectedCode)
+          await handleBarcodeLookup(detectedCode)
+        } else {
+          Alert.alert(
+            'Código no detectado',
+            'No se pudo leer el código de barras en la imagen. Puedes introducir los números manualmente o escanear la tabla nutricional.',
+            [
+              { text: 'Escribir manual' },
+              { text: 'Escanear Tabla', onPress: () => setActiveMode('label') },
+            ]
+          )
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo abrir la cámara.')
+    } finally {
+      setLoading(false)
+      setStatusMessage('')
+    }
+  }
+
+  // =========================================================================
+  // 4. Buscar Código de Barras
   // =========================================================================
   const handleBarcodeLookup = async (codeToSearch?: string) => {
     const code = (codeToSearch || barcodeInput).trim()
@@ -406,17 +463,6 @@ export default function SmartFoodScannerModal({
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Indicador de Métricas de Coste/Ahorro */}
-        {imageMetrics && (
-          <View style={styles.metricsBanner}>
-            <Zap size={14} color="#10B981" />
-            <Text style={styles.metricsText}>
-              {imageMetrics.source} • {imageMetrics.latencyMs}ms •{' '}
-              {imageMetrics.costUsd > 0 ? `$${imageMetrics.costUsd.toFixed(4)}` : '$0.00'}
-            </Text>
-          </View>
-        )}
 
         {/* Contenido Principal con Scroll */}
         <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner}>
@@ -735,16 +781,39 @@ export default function SmartFoodScannerModal({
               {activeMode === 'barcode' && (
                 <View>
                   <View style={styles.barcodeInputCard}>
-                    <Barcode size={32} color="#38BDF8" style={{ marginBottom: 8 }} />
-                    <Text style={styles.barcodeInputTitle}>Búsqueda Instantánea ($0.00)</Text>
+                    <Barcode size={36} color="#38BDF8" style={{ marginBottom: 8 }} />
+                    <Text style={styles.barcodeInputTitle}>Escanear Código de Barras</Text>
                     <Text style={styles.barcodeInputSub}>
-                      Consulta en Supabase y Open Food Facts global.
+                      Apunta con la cámara, sube una foto o escribe el número para consultar la base de datos oficial.
+                    </Text>
+
+                    {/* Botones de Cámara y Galería para Código de Barras */}
+                    <View style={[styles.actionButtonsRow, { marginBottom: 16 }]}>
+                      <TouchableOpacity
+                        style={styles.primaryActionBtn}
+                        onPress={() => pickImageForBarcode(true)}
+                      >
+                        <Camera size={18} color="#0F172A" />
+                        <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.secondaryActionBtn}
+                        onPress={() => pickImageForBarcode(false)}
+                      >
+                        <GalleryIcon size={18} color="#38BDF8" />
+                        <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={[styles.barcodeInputSub, { marginBottom: 8, fontSize: 11 }]}>
+                      O introduce los dígitos manualmente:
                     </Text>
 
                     <View style={styles.barcodeSearchRow}>
                       <TextInput
                         style={styles.barcodeField}
-                        placeholder="Ej. 8410000500123"
+                        placeholder="Ej. 8410128795603"
                         placeholderTextColor="#64748B"
                         keyboardType="numeric"
                         value={barcodeInput}
