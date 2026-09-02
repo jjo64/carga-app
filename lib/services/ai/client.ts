@@ -139,29 +139,43 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     messages,
   }
 
+  const workspaceId =
+    process.env.EXPO_PUBLIC_ANTHROPIC_WORKSPACE_ID ||
+    process.env.ANTHROPIC_WORKSPACE_ID ||
+    ''
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-api-key': resolvedApiKey,
+    'anthropic-version': ANTHROPIC_VERSION,
+    'anthropic-beta': PROMPT_CACHING_BETA,
+    'anthropic-dangerous-direct-browser-access': 'true',
+  }
+
+  if (workspaceId.trim()) {
+    headers['anthropic-workspace-id'] = workspaceId.trim()
+  }
+
   const response = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': resolvedApiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-beta': PROMPT_CACHING_BETA,
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers,
     body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error(`[AiClient] Error HTTP ${response.status}:`, errorText)
-    
-    // Si la API key es inválida o no tiene créditos, informar con claridad
+
     if (response.status === 401) {
-      throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en el archivo .env')
+      throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en tu archivo .env.local')
     } else if (response.status === 400 && errorText.includes('credit_balance')) {
       throw new Error('Tu cuenta de Anthropic no tiene créditos cargados. Carga saldo en console.anthropic.com/settings/plans')
+    } else if (response.status === 400 && errorText.includes('anthropic-workspace-id')) {
+      throw new Error(
+        'Tu API Key requiere un Workspace ID. En console.anthropic.com/settings/workspaces copia el ID de tu espacio de trabajo y agrégalo en tu .env.local como: EXPO_PUBLIC_ANTHROPIC_WORKSPACE_ID=wrkspc_...'
+      )
     }
-    
+
     throw new Error(`Anthropic API Error (${response.status}): ${errorText}`)
   }
 
