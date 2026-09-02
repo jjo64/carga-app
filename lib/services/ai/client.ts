@@ -148,7 +148,6 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     'Content-Type': 'application/json',
     'x-api-key': resolvedApiKey,
     'anthropic-version': ANTHROPIC_VERSION,
-    'anthropic-beta': PROMPT_CACHING_BETA,
     'anthropic-dangerous-direct-browser-access': 'true',
   }
 
