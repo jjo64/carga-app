@@ -9,10 +9,25 @@ import { recordApiCall } from './cache'
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
 
-export const MODEL_HAIKU =
-  process.env.EXPO_PUBLIC_ANTHROPIC_HAIKU_MODEL || 'claude-3-5-haiku-latest'
-export const MODEL_SONNET =
-  process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL || 'claude-3-5-sonnet-latest'
+const SONNET_CANDIDATES = [
+  process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL,
+  'claude-3-5-sonnet-20240620',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-7-sonnet-20250219',
+  'claude-3-sonnet-20240229',
+].filter(Boolean) as string[]
+
+const HAIKU_CANDIDATES = [
+  process.env.EXPO_PUBLIC_ANTHROPIC_HAIKU_MODEL,
+  'claude-3-5-haiku-20241022',
+  'claude-3-haiku-20240307',
+].filter(Boolean) as string[]
+
+let activeWorkingSonnetModel: string | null = null
+let activeWorkingHaikuModel: string | null = null
+
+export const MODEL_HAIKU = 'claude-3-haiku-20240307'
+export const MODEL_SONNET = 'claude-3-5-sonnet-20240620'
 
 // Costes por millón de tokens (USD)
 const PRICING = {
@@ -110,7 +125,6 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
   } = options
 
   const resolvedApiKey = getAnthropicApiKey(apiKey)
-  const model = modelTier === 'sonnet' ? MODEL_SONNET : MODEL_HAIKU
   const startTime = Date.now()
 
   // Si no hay API key configurada, usamos el motor de fallback simulado
@@ -126,18 +140,10 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
         cacheReadTokens: 0,
         estimatedCostUsd: 0,
         latencyMs: Date.now() - startTime,
-        modelUsed: `${model} (local-fallback)`,
+        modelUsed: `${modelTier} (local-fallback)`,
         fromLocalCache: false,
       },
     }
-  }
-
-  const payload = {
-    model,
-    max_tokens: maxTokens,
-    temperature,
-    system,
-    messages,
   }
 
   const workspaceId =
@@ -156,16 +162,54 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     headers['anthropic-workspace-id'] = workspaceId.trim()
   }
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  })
+  // Lista de modelos candidatos según el tier
+  const activeWorkingModel = modelTier === 'sonnet' ? activeWorkingSonnetModel : activeWorkingHaikuModel
+  const candidateList = activeWorkingModel
+    ? [activeWorkingModel]
+    : modelTier === 'sonnet'
+    ? SONNET_CANDIDATES
+    : HAIKU_CANDIDATES
 
-  if (!response.ok) {
+  let lastErrorText = ''
+  let finalResponse: Response | null = null
+  let usedModelName = candidateList[0]
+
+  for (const candidate of candidateList) {
+    usedModelName = candidate
+    const payload = {
+      model: candidate,
+      max_tokens: maxTokens,
+      temperature,
+      system,
+      messages,
+    }
+
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    })
+
+    if (response.ok) {
+      finalResponse = response
+      if (modelTier === 'sonnet') {
+        activeWorkingSonnetModel = candidate
+      } else {
+        activeWorkingHaikuModel = candidate
+      }
+      break
+    }
+
     const errorText = await response.text()
-    console.error(`[AiClient] Error HTTP ${response.status}:`, errorText)
+    lastErrorText = errorText
+    console.warn(`[AiClient] Modelo ${candidate} falló con HTTP ${response.status}:`, errorText)
 
+    // Si es error 404 (modelo no encontrado en la cuenta), intentamos el siguiente candidato
+    if (response.status === 404 && errorText.includes('not_found_error')) {
+      continue
+    }
+
+    // Si es otro error (autenticación, saldo, workspace), no reintentar modelos
     if (response.status === 401) {
       throw new Error('API Key de Anthropic inválida. Por favor verifica tu clave en tu archivo .env.local')
     } else if (response.status === 400 && errorText.includes('credit_balance')) {
@@ -179,7 +223,11 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     throw new Error(`Anthropic API Error (${response.status}): ${errorText}`)
   }
 
-  const data: AnthropicRawResponse = await response.json()
+  if (!finalResponse) {
+    throw new Error(`Anthropic API Error: Ningún modelo compatible encontrado para ${modelTier}. Detalle: ${lastErrorText}`)
+  }
+
+  const data: AnthropicRawResponse = await finalResponse.json()
   const latencyMs = Date.now() - startTime
   const text = data.content?.[0]?.text || ''
 
@@ -206,7 +254,7 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
       cacheReadTokens,
       estimatedCostUsd: cost,
       latencyMs,
-      modelUsed: model,
+      modelUsed: usedModelName,
       fromLocalCache: false,
     },
   }
