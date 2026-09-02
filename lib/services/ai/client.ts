@@ -53,7 +53,6 @@ export async function getAvailableModelsList(apiKey?: string): Promise<string[]>
       const data: { data?: AnthropicModelItem[] } = await res.json()
       if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
         discoveredModels = data.data.map((m) => m.id)
-        console.log('[AiClient] Modelos autorizados en tu cuenta de Claude:', discoveredModels)
         return discoveredModels
       }
     } else {

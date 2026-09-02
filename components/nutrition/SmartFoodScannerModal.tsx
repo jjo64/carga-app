@@ -161,11 +161,11 @@ export default function SmartFoodScannerModal({
         const res = await foodScannerService.scanLabelWithAi(base64OrUri)
         setScannedProduct(res.product)
         setLabelAudit(res.aiResult)
-        setSelectedPortionG('100')
+        setSelectedPortionG(String(res.product.servingSizeG || 100))
         setImageMetrics({
           costUsd: res.costUsd,
           latencyMs: res.latencyMs,
-          source: 'Auditoría IA Claude 3.5 Sonnet',
+          source: 'Auditoría IA Claude Haiku 4.5',
         })
       }
     } catch (err: any) {

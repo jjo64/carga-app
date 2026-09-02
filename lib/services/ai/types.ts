@@ -143,6 +143,7 @@ export interface NutritionalLabelResult {
     sodiumMg?: number
     fiber?: number
   }
+  packageServingSizeG?: number
   ingredientsList: string[]
   ultraProcessedScore: number // 1 (Muy natural/limpio) a 10 (Ultraprocesado extremo)
   classification: 'clean' | 'moderate' | 'ultra_processed'
