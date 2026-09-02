@@ -260,12 +260,23 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
 
   for (const candidate of candidateList) {
     usedModelName = candidate
-    const payload = {
+
+    const payload: Record<string, any> = {
       model: candidate,
       max_tokens: maxTokens,
-      temperature,
       system,
       messages,
+    }
+
+    // En modelos Claude 5 (como claude-sonnet-5, claude-opus-5), 'temperature' está deprecado
+    const isClaude5 =
+      candidate.includes('-5') ||
+      candidate.includes('sonnet-5') ||
+      candidate.includes('opus-5') ||
+      candidate.includes('fable-5')
+
+    if (!isClaude5 && typeof temperature === 'number') {
+      payload.temperature = temperature
     }
 
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -288,8 +299,11 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     lastErrorText = errorText
     console.warn(`[AiClient] Modelo ${candidate} falló con HTTP ${response.status}:`, errorText)
 
-    // Si es error 404 (modelo no encontrado en la cuenta), intentamos el siguiente candidato
-    if (response.status === 404 && errorText.includes('not_found_error')) {
+    // Si es error 404 (modelo no encontrado en la cuenta) o error de temperature deprecada, reintentamos
+    if (
+      (response.status === 404 && errorText.includes('not_found_error')) ||
+      (response.status === 400 && errorText.includes('temperature'))
+    ) {
       continue
     }
 
