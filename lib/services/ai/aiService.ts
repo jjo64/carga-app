@@ -231,7 +231,7 @@ Historial de entrenamiento reciente:
             },
             {
               type: 'text',
-              text: 'Extrae la tabla nutricional por 100g y audita los ingredientes de este producto.',
+              text: 'Transcribe fielmente los valores nutricionales de la columna Por 100g/ml y el tamaño de envase/porción visible. Si no hay lista de ingredientes visible, no inventes ingredientes.',
             },
           ],
         },
