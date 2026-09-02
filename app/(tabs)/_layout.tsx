@@ -1,32 +1,35 @@
 import { Tabs } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { theme } from '@/constants/theme'
 import { Platform } from 'react-native'
+import { theme } from '@/constants/theme'
+import { useLanguage } from '@/lib/i18n'
+import { Zap, Dumbbell, Apple, TrendingUp, User } from 'lucide-react-native'
 
 export default function TabsLayout() {
+  const { t } = useLanguage()
+
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
+          backgroundColor: '#07080D',
+          borderTopColor: 'rgba(255,255,255,0.06)',
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarActiveTintColor: '#38BDF8',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: '#000000',
         },
-        headerTintColor: theme.colors.text,
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: '700',
           fontSize: 18,
         },
         headerShadowVisible: false,
@@ -35,50 +38,50 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          headerTitle: 'CARGA',
+          title: t('tab_dashboard'),
+          headerTitle: '⚡ CARGA',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flash" color={color} size={size} />
+            <Zap color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
       <Tabs.Screen
         name="workout"
         options={{
-          title: 'Entrenar',
-          headerTitle: 'Entrenamientos',
+          title: t('tab_workout'),
+          headerTitle: '⚡ Carga',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" color={color} size={size} />
+            <Dumbbell color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
       <Tabs.Screen
         name="nutrition"
         options={{
-          title: 'Nutrición',
-          headerTitle: 'Registro de Comidas',
+          title: t('tab_nutrition'),
+          headerTitle: t('tab_nutrition'),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant" color={color} size={size} />
+            <Apple color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progreso',
-          headerTitle: 'Evolución Corporal',
+          title: t('tab_progress'),
+          headerTitle: t('tab_progress'),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up" color={color} size={size} />
+            <TrendingUp color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
-          headerTitle: 'Mi Perfil',
+          title: t('tab_profile'),
+          headerTitle: t('tab_profile'),
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" color={color} size={size} />
+            <User color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
