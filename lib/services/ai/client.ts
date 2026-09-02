@@ -17,10 +17,10 @@ export const MODEL_SONNET =
 // Costes por millón de tokens (USD)
 const PRICING = {
   haiku: {
-    input: 0.25,
-    output: 1.25,
-    cacheWrite: 0.3,
-    cacheRead: 0.03,
+    input: 0.8,
+    output: 4.0,
+    cacheWrite: 1.0,
+    cacheRead: 0.08,
   },
   sonnet: {
     input: 3.0,
