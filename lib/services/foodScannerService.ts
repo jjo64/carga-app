@@ -303,17 +303,39 @@ export const foodScannerService = {
 
     let finalName = aiResult.productName || 'Producto Escaneado por IA'
     let finalBrand = aiResult.brand || null
+    let finalCalories = aiResult.per100g.calories
+    let finalProtein = aiResult.per100g.protein
+    let finalCarbs = aiResult.per100g.carbs
+    let finalFat = aiResult.per100g.fat
+    let finalSugars = aiResult.per100g.sugars || 0
+    let finalSaturatedFat = aiResult.per100g.saturatedFat || 0
+    let finalSaltG = aiResult.per100g.saltG || 0
+    let finalServingSizeG = aiResult.packageServingSizeG || 100
+    let finalServingName = aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}ml/g` : '100g')
 
-    // Si se detectó un código de barras (EAN), consultamos la base de datos oficial para obtener nombre y marca certificados
+    // Si se detectó un código de barras (EAN), consultamos la base de datos oficial para obtener datos certificados
     if (detectedBarcode) {
       try {
         const officialLookup = await foodScannerService.lookupByBarcode(detectedBarcode)
         if (officialLookup?.product) {
-          if (officialLookup.product.name && !officialLookup.product.name.toLowerCase().includes('sin nombre')) {
-            finalName = officialLookup.product.name
+          const off = officialLookup.product
+          if (off.name && !off.name.toLowerCase().includes('sin nombre')) {
+            finalName = off.name
           }
-          if (officialLookup.product.brand) {
-            finalBrand = officialLookup.product.brand
+          if (off.brand) {
+            finalBrand = off.brand
+          }
+          // Si la base de datos oficial tiene los macros certificados por el fabricante, integrarlos para 100% de exactitud
+          if (off.calories > 0 && off.protein > 0) {
+            finalCalories = off.calories
+            finalProtein = off.protein
+            finalCarbs = off.carbs
+            finalFat = off.fat
+            if (typeof off.sugars === 'number') finalSugars = off.sugars
+            if (typeof off.saturatedFat === 'number') finalSaturatedFat = off.saturatedFat
+            if (typeof off.saltG === 'number') finalSaltG = off.saltG
+            if (off.servingSizeG > 0) finalServingSizeG = off.servingSizeG
+            if (off.servingName) finalServingName = off.servingName
           }
         }
       } catch (e) {
@@ -326,16 +348,16 @@ export const foodScannerService = {
       barcode: detectedBarcode,
       name: finalName,
       brand: finalBrand,
-      servingSizeG: aiResult.packageServingSizeG || 100,
-      servingName: aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}ml/g` : '100g'),
-      calories: aiResult.per100g.calories,
+      servingSizeG: finalServingSizeG,
+      servingName: finalServingName,
+      calories: finalCalories,
       energyKj: aiResult.per100g.energyKj,
-      protein: aiResult.per100g.protein,
-      carbs: aiResult.per100g.carbs,
-      fat: aiResult.per100g.fat,
-      sugars: aiResult.per100g.sugars || 0,
-      saturatedFat: aiResult.per100g.saturatedFat || 0,
-      saltG: aiResult.per100g.saltG || 0,
+      protein: finalProtein,
+      carbs: finalCarbs,
+      fat: finalFat,
+      sugars: finalSugars,
+      saturatedFat: finalSaturatedFat,
+      saltG: finalSaltG,
       fiber: aiResult.per100g.fiber || 0,
       sodiumMg: aiResult.per100g.sodiumMg || 0,
       micronutrients: aiResult.micronutrients || [],

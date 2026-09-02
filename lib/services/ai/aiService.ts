@@ -215,7 +215,7 @@ Historial de entrenamiento reciente:
     const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
 
     const { text, metrics } = await callAnthropicApi({
-      modelTier: 'haiku',
+      modelTier: 'sonnet',
       system: NUTRITION_LABEL_SYSTEM_PROMPT,
       messages: [
         {
