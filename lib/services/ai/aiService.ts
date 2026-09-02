@@ -215,7 +215,7 @@ Historial de entrenamiento reciente:
     const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
 
     const { text, metrics } = await callAnthropicApi({
-      modelTier: 'sonnet',
+      modelTier: 'haiku',
       system: NUTRITION_LABEL_SYSTEM_PROMPT,
       messages: [
         {
@@ -245,13 +245,13 @@ Historial de entrenamiento reciente:
   },
 
   // =========================================================================
-  // 6. Escáner de Plato de Comida (Claude 3.5 Sonnet Vision)
+  // 6. Escáner de Plato de Comida (Claude Haiku 4.5 Vision)
   // =========================================================================
   async scanMealPlate(imageUriOrBase64: string): Promise<AiServiceResponse<FoodVisionResult>> {
     const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
 
     const { text, metrics } = await callAnthropicApi({
-      modelTier: 'sonnet',
+      modelTier: 'haiku',
       system: FOOD_VISION_SYSTEM_PROMPT,
       messages: [
         {
