@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { aiService } from './ai'
 import { FoodPlateItem, NutritionalLabelResult, MicronutrientItem } from './ai/types'
+import { callAnthropicApi, extractAndParseJson } from './ai/client'
+import { optimizeImageForVision } from './ai/imageOptimizer'
 
 export interface FoodProduct {
   id: string
@@ -81,14 +83,49 @@ export const foodScannerService = {
       }
     }
 
-    // 2. Fallback OCR rápido con Claude Haiku si la detección nativa no está disponible en el navegador
+    // 2. Fallback con Visión Ligera (Claude Haiku - 300ms) para extraer los dígitos del código de barras
     try {
-      const { data } = await aiService.scanNutritionLabel(imageUriOrBase64)
-      if (data && data.brand) {
-        // comprobamos si hay dígitos detectados
+      const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
+      const { text } = await callAnthropicApi({
+        modelTier: 'haiku',
+        system: [
+          {
+            type: 'text',
+            text: 'Eres un lector OCR de códigos de barras. Analiza la imagen y extrae ÚNICAMENTE la secuencia numérica del código de barras (generalmente 8 a 13 dígitos numéricos). Responde ÚNICAMENTE un objeto JSON con este esquema: {"barcode": "8410128795603"} o {"barcode": null} si no hay código de barras.',
+          },
+        ],
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: optimized.mediaType,
+                  data: optimized.base64,
+                },
+              },
+              {
+                type: 'text',
+                text: 'Extrae los dígitos numéricos del código de barras.',
+              },
+            ],
+          },
+        ],
+        temperature: 0.0,
+        maxTokens: 150,
+      })
+
+      const parsed = extractAndParseJson<{ barcode: string | null }>(text)
+      if (parsed?.barcode) {
+        const cleanDigits = parsed.barcode.replace(/\D/g, '')
+        if (cleanDigits.length >= 8) {
+          return cleanDigits
+        }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('[BarcodeScanner] Error en lector de código de barras:', err)
     }
 
     return null
@@ -262,12 +299,33 @@ export const foodScannerService = {
     latencyMs: number
   }> {
     const { data: aiResult, metrics } = await aiService.scanNutritionLabel(imageUriOrBase64)
+    const detectedBarcode = optionalBarcode || aiResult.barcode || null
+
+    let finalName = aiResult.productName || 'Producto Escaneado por IA'
+    let finalBrand = aiResult.brand || null
+
+    // Si se detectó un código de barras (EAN), consultamos la base de datos oficial para obtener nombre y marca certificados
+    if (detectedBarcode) {
+      try {
+        const officialLookup = await foodScannerService.lookupByBarcode(detectedBarcode)
+        if (officialLookup?.product) {
+          if (officialLookup.product.name && !officialLookup.product.name.toLowerCase().includes('sin nombre')) {
+            finalName = officialLookup.product.name
+          }
+          if (officialLookup.product.brand) {
+            finalBrand = officialLookup.product.brand
+          }
+        }
+      } catch (e) {
+        console.warn('[FoodScanner] Error al auto-completar desde código de barras:', e)
+      }
+    }
 
     const product: FoodProduct = {
       id: `ai-label-${Date.now()}`,
-      barcode: optionalBarcode || aiResult.barcode || null,
-      name: aiResult.productName || 'Producto Escaneado por IA',
-      brand: aiResult.brand || null,
+      barcode: detectedBarcode,
+      name: finalName,
+      brand: finalBrand,
       servingSizeG: aiResult.packageServingSizeG || 100,
       servingName: aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}ml/g` : '100g'),
       calories: aiResult.per100g.calories,
