@@ -71,6 +71,25 @@ export async function getDailyFoodLogs(
   return data as FoodLog[]
 }
 
+export async function getFoodLogsDateRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<FoodLog[]> {
+  const { data, error } = await supabase
+    .from('food_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (error || !data) return []
+  return data as FoodLog[]
+}
+
+
 export async function deleteFoodLog(foodLogId: string): Promise<{ error: Error | null }> {
   const { error } = await supabase
     .from('food_logs')

@@ -12,7 +12,6 @@ import {
   Platform,
   Alert,
 } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
 import {
   Utensils,
   Sun,
@@ -29,10 +28,18 @@ import {
   Sparkles,
   Check,
   ChevronRight,
+  ChevronLeft,
+  Calendar as CalendarIcon,
+  TrendingUp,
+  HeartPulse,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react-native'
 import { useNutrition } from '@/lib/hooks/useNutrition'
 import { MealType, FoodItemParsed } from '@/types'
 import SmartFoodScannerModal from '@/components/nutrition/SmartFoodScannerModal'
+import NutritionEvolutionModal from '@/components/nutrition/NutritionEvolutionModal'
+import NutritionHealthAuditModal from '@/components/nutrition/NutritionHealthAuditModal'
 import { aiService } from '@/lib/services/ai'
 
 const mealLabel: Record<string, string> = {
@@ -114,20 +121,28 @@ function parseFoodText(text: string): FoodItemParsed[] {
   return found
 }
 
-const PHOTO_RESULTS: FoodItemParsed[] = [
-  { name: 'Pechuga de pollo a la plancha', quantity_g: 150, calories: 248, protein_g: 46, carbs_g: 0, fat_g: 5.4, confidence: 'high' },
-  { name: 'Arroz basmati cocido', quantity_g: 150, calories: 195, protein_g: 4, carbs_g: 42, fat_g: 0.4, confidence: 'high' },
-  { name: 'Brócoli al vapor', quantity_g: 150, calories: 51, protein_g: 4.2, carbs_g: 9.9, fat_g: 0.6, confidence: 'medium' },
-]
-
-import { useAuth } from '@/lib/hooks/useAuth'
-import { useDashboard } from '@/lib/hooks/useDashboard'
-import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
-
 export default function NutritionScreen() {
-  const { profile } = useAuth()
-  const { summary, logs, loading, logFood, deleteFoodLog } = useNutrition()
-  const { metrics } = useDashboard()
+  const {
+    selectedDate,
+    setSelectedDate,
+    goToPrevDay,
+    goToNextDay,
+    goToToday,
+    logs,
+    summary,
+    targets,
+    dayStats,
+    calorieAnalysis,
+    proteinAnalysis,
+    carbsAnalysis,
+    fatAnalysis,
+    history7Days,
+    history14Days,
+    history30Days,
+    loading,
+    logFood,
+    deleteFoodLog,
+  } = useNutrition()
 
   const [filterType, setFilterType] = useState<MealType | 'all'>('all')
   const [modalVisible, setModalVisible] = useState(false)
@@ -141,38 +156,33 @@ export default function NutritionScreen() {
   // Smart Food Scanner Modal State
   const [smartScannerVisible, setSmartScannerVisible] = useState(false)
 
+  // Evolution & Calendar Modal State
+  const [evolutionModalVisible, setEvolutionModalVisible] = useState(false)
+
+  // Health & Micronutrient Audit Modal State
+  const [healthModalVisible, setHealthModalVisible] = useState(false)
+
   // Smart Macro Closer Modal State
   const [macroCloserVisible, setMacroCloserVisible] = useState(false)
   const [macroCloserLoading, setMacroCloserLoading] = useState(false)
   const [macroCloserData, setMacroCloserData] = useState<any>(null)
 
-  // Calcular objetivos dinámicos y resilientes para el usuario
-  const targets = metrics
-    ? {
-        targetCals: metrics.targetCalories,
-        targetProtein: metrics.proteinTarget,
-        targetCarbs: metrics.carbsTarget,
-        targetFat: metrics.fatTarget,
-      }
-    : (() => {
-        const computed = calculateDailyNutritionTargets(profile)
-        return {
-          targetCals: computed.targetCalories,
-          targetProtein: computed.proteinTarget,
-          targetCarbs: computed.carbsTarget,
-          targetFat: computed.fatTarget,
+  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+
+  const formatDisplayDate = (dateStr: string) => {
+    try {
+      const parts = dateStr.split('-')
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+        const todayStr = new Date().toISOString().split('T')[0]
+        if (dateStr === todayStr) {
+          return `Hoy, ${d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
         }
-      })()
-
-  const targetCals = targets.targetCals
-  const targetProtein = targets.targetProtein
-  const targetCarbs = targets.targetCarbs
-  const targetFat = targets.targetFat
-
-  const consumedCals = summary?.total_calories || logs.reduce((s, l) => s + (l.calories || 0), 0)
-  const consumedProtein = summary?.total_protein || logs.reduce((s, l) => s + (l.protein_g || 0), 0)
-  const consumedCarbs = summary?.total_carbs || logs.reduce((s, l) => s + (l.carbs_g || 0), 0)
-  const consumedFat = summary?.total_fat || logs.reduce((s, l) => s + (l.fat_g || 0), 0)
+        return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+      }
+    } catch {}
+    return dateStr
+  }
 
   const filteredLogs = filterType === 'all' ? logs : logs.filter((l) => l.meal_type === filterType)
 
@@ -204,10 +214,10 @@ export default function NutritionScreen() {
   }
 
   const handleOpenMacroCloser = async () => {
-    const remainingCalories = Math.max(0, targetCals - consumedCals)
-    const remainingProtein = Math.max(0, targetProtein - consumedProtein)
-    const remainingCarbs = Math.max(0, targetCarbs - consumedCarbs)
-    const remainingFat = Math.max(0, targetFat - consumedFat)
+    const remainingCalories = calorieAnalysis.remaining
+    const remainingProtein = proteinAnalysis.remaining
+    const remainingCarbs = carbsAnalysis.remaining
+    const remainingFat = fatAnalysis.remaining
 
     setMacroCloserVisible(true)
     setMacroCloserLoading(true)
@@ -233,7 +243,9 @@ export default function NutritionScreen() {
       const { data } = await aiService.parseNaturalMeal(foodText)
       const parsedFoods: FoodItemParsed[] = data.items.map((it) => ({
         name: it.name,
+        brand: it.brand || null,
         quantity_g: it.grams,
+        unit_or_portion: it.unitOrPortion || null,
         calories: it.calories,
         protein_g: it.protein,
         carbs_g: it.carbs,
@@ -259,7 +271,7 @@ export default function NutritionScreen() {
 
     await logFood({
       mealType: modalMealType,
-      rawInput: foodText || 'Foto de comida',
+      rawInput: foodText || 'Comida registrada',
       foodsParsed: results,
       calories: totalC,
       proteinG: totalP,
@@ -282,43 +294,302 @@ export default function NutritionScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Top Header con Navegación de Fechas */}
         <View style={styles.header}>
-          <Text style={styles.headerSub}>REGISTRO NUTRICIONAL</Text>
-          <Text style={styles.headerTitle}>Nutrición</Text>
+          <View style={styles.headerTopRow}>
+            <View>
+              <Text style={styles.headerSub}>NUTRICIÓN & SALUD INTEGRAL</Text>
+              <Text style={styles.headerTitle}>Nutrición</Text>
+            </View>
+
+            {/* Botones de Cabecera: Calendario y Salud */}
+            <View style={styles.headerIconsRow}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => setEvolutionModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <TrendingUp size={16} color="#38BDF8" />
+                <Text style={styles.headerIconBtnText}>Evolución</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.headerIconBtn, styles.headerIconBtnHealth]}
+                onPress={() => setHealthModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <HeartPulse size={16} color="#10B981" />
+                <Text style={[styles.headerIconBtnText, { color: '#10B981' }]}>Salud</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Barra de Navegación de Fecha Día a Día */}
+          <View style={styles.dateNavigatorRow}>
+            <TouchableOpacity onPress={goToPrevDay} style={styles.dateNavArrow} activeOpacity={0.7}>
+              <ChevronLeft size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setEvolutionModalVisible(true)}
+              style={styles.dateDisplayBtn}
+              activeOpacity={0.8}
+            >
+              <CalendarIcon size={15} color="#38BDF8" />
+              <Text style={styles.dateDisplayText}>{formatDisplayDate(selectedDate)}</Text>
+              {!isToday && (
+                <TouchableOpacity onPress={goToToday} style={styles.returnTodayPill}>
+                  <Text style={styles.returnTodayText}>Ir a Hoy</Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={goToNextDay}
+              style={[styles.dateNavArrow, isToday && { opacity: 0.3 }]}
+              disabled={isToday}
+              activeOpacity={0.7}
+            >
+              <ChevronRight size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Resumen del Día Card */}
+        {/* Resumen del Día Card con Consumo vs Objetivo */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeaderRow}>
-            <Text style={styles.summaryCardSub}>RESUMEN DEL DÍA</Text>
-            <Flame size={18} color="#F59E0B" />
-          </View>
-          <View style={styles.calorieRow}>
-            <Text style={styles.caloriesMain}>{Math.round(consumedCals)}</Text>
-            <Text style={styles.caloriesTarget}>/ {targetCals} kcal</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Flame size={18} color="#F59E0B" />
+              <Text style={styles.summaryCardSub}>RESUMEN NUTRICIONAL</Text>
+            </View>
+
+            {/* Badge de Estatus Calórico */}
+            <View
+              style={[
+                styles.statusBadge,
+                calorieAnalysis.diff > 250
+                  ? styles.statusBadgeSurplus
+                  : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
+                  ? styles.statusBadgeDeficit
+                  : styles.statusBadgeOptimal,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  calorieAnalysis.diff > 250
+                    ? { color: '#EF4444' }
+                    : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
+                    ? { color: '#38BDF8' }
+                    : { color: '#10B981' },
+                ]}
+              >
+                {calorieAnalysis.diff > 250
+                  ? `+${calorieAnalysis.diff} kcal Superávit`
+                  : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
+                  ? `${calorieAnalysis.diff} kcal Déficit`
+                  : 'Balance Óptimo'}
+              </Text>
+            </View>
           </View>
 
-          {/* Macro Progress Bars */}
+          {/* Fila Principal de Calorías (Consumidas / Objetivo) */}
+          <View style={styles.calorieRow}>
+            <Text style={styles.caloriesMain}>{calorieAnalysis.consumed}</Text>
+            <Text style={styles.caloriesTarget}>/ {calorieAnalysis.target} kcal</Text>
+          </View>
+
+          {/* Subtítulo dinámico de calorías restantes o excedidas */}
+          <Text
+            style={[
+              styles.caloriesSubNotice,
+              calorieAnalysis.isExceeded ? { color: '#F87171' } : { color: '#38BDF8' },
+            ]}
+          >
+            {calorieAnalysis.isExceeded
+              ? `⚠️ Exceso calórico: +${calorieAnalysis.excess} kcal sobre tu meta`
+              : `Te restan ${calorieAnalysis.remaining} kcal para completar el objetivo`}
+          </Text>
+
+          {/* Barra de progreso de calorías */}
+          <View style={styles.calProgressBarBg}>
+            <View
+              style={[
+                styles.calProgressBarFill,
+                {
+                  width: `${calorieAnalysis.progressPercent}%`,
+                  backgroundColor: calorieAnalysis.isExceeded ? '#EF4444' : '#38BDF8',
+                },
+              ]}
+            />
+          </View>
+
+          {/* Macro Grid con Consumido vs Objetivo y Gramos Restantes/Excedidos */}
           <View style={styles.macroGrid}>
-            {[
-              { label: 'Proteína', val: Math.round(consumedProtein), target: targetProtein, color: '#38BDF8' },
-              { label: 'Carbos', val: Math.round(consumedCarbs), target: targetCarbs, color: '#60A5FA' },
-              { label: 'Grasas', val: Math.round(consumedFat), target: targetFat, color: '#93C5FD' },
-            ].map(({ label, val, target, color }) => {
-              const pct = Math.min((val / target) * 100, 100)
-              return (
-                <View key={label} style={styles.macroBox}>
-                  <Text style={styles.macroVal}>{val}g</Text>
-                  <View style={styles.macroBarBg}>
-                    <View style={[styles.macroBarFill, { width: `${pct}%`, backgroundColor: color }]} />
-                  </View>
-                  <Text style={styles.macroLabel}>{label}</Text>
-                </View>
-              )
-            })}
+            {/* Proteínas */}
+            <View style={styles.macroBox}>
+              <View style={styles.macroTopRow}>
+                <Text style={styles.macroLabel}>Proteína</Text>
+                <Text style={styles.macroVal}>
+                  {proteinAnalysis.consumed} / {proteinAnalysis.target}g
+                </Text>
+              </View>
+              <View style={styles.macroBarBg}>
+                <View
+                  style={[
+                    styles.macroBarFill,
+                    {
+                      width: `${proteinAnalysis.progressPercent}%`,
+                      backgroundColor: proteinAnalysis.isMet ? '#10B981' : '#38BDF8',
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.macroDifferenceText,
+                  proteinAnalysis.isMet ? { color: '#10B981' } : { color: '#94A3B8' },
+                ]}
+              >
+                {proteinAnalysis.isMet
+                  ? `✓ Meta alcanzada (+${proteinAnalysis.excess}g)`
+                  : `Faltan ${proteinAnalysis.remaining}g`}
+              </Text>
+            </View>
+
+            {/* Carbohidratos */}
+            <View style={styles.macroBox}>
+              <View style={styles.macroTopRow}>
+                <Text style={styles.macroLabel}>Carbos</Text>
+                <Text style={styles.macroVal}>
+                  {carbsAnalysis.consumed} / {carbsAnalysis.target}g
+                </Text>
+              </View>
+              <View style={styles.macroBarBg}>
+                <View
+                  style={[
+                    styles.macroBarFill,
+                    {
+                      width: `${carbsAnalysis.progressPercent}%`,
+                      backgroundColor: carbsAnalysis.isExceeded ? '#EF4444' : '#FBBF24',
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.macroDifferenceText,
+                  carbsAnalysis.isExceeded ? { color: '#F87171' } : { color: '#94A3B8' },
+                ]}
+              >
+                {carbsAnalysis.isExceeded
+                  ? `⚠️ +${carbsAnalysis.excess}g exceso`
+                  : `Quedan ${carbsAnalysis.remaining}g`}
+              </Text>
+            </View>
+
+            {/* Grasas */}
+            <View style={styles.macroBox}>
+              <View style={styles.macroTopRow}>
+                <Text style={styles.macroLabel}>Grasas</Text>
+                <Text style={styles.macroVal}>
+                  {fatAnalysis.consumed} / {fatAnalysis.target}g
+                </Text>
+              </View>
+              <View style={styles.macroBarBg}>
+                <View
+                  style={[
+                    styles.macroBarFill,
+                    {
+                      width: `${fatAnalysis.progressPercent}%`,
+                      backgroundColor: fatAnalysis.isExceeded ? '#EF4444' : '#F472B6',
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.macroDifferenceText,
+                  fatAnalysis.isExceeded ? { color: '#F87171' } : { color: '#94A3B8' },
+                ]}
+              >
+                {fatAnalysis.isExceeded
+                  ? `⚠️ +${fatAnalysis.excess}g exceso`
+                  : `Quedan ${fatAnalysis.remaining}g`}
+              </Text>
+            </View>
           </View>
         </View>
+
+        {/* Mini Preview de Salud & Micronutrientes (Toca para abrir auditoría completa) */}
+        <TouchableOpacity
+          style={styles.healthMiniCard}
+          onPress={() => setHealthModalVisible(true)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.healthMiniHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <HeartPulse size={15} color="#10B981" />
+              <Text style={styles.healthMiniTitle}>CONTROL DE SALUD & MICRONUTRIENTES</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.healthMiniActionText}>Auditoría IA</Text>
+              <Sparkles size={13} color="#38BDF8" />
+              <ChevronRight size={14} color="#64748B" />
+            </View>
+          </View>
+
+          <View style={styles.healthPillsRow}>
+            {/* Sal */}
+            <View style={styles.healthMiniPill}>
+              <Text style={styles.healthMiniPillLabel}>Sal/Sodio</Text>
+              <Text
+                style={[
+                  styles.healthMiniPillVal,
+                  dayStats.healthMetrics.saltG > 5 ? { color: '#EF4444' } : { color: '#FFFFFF' },
+                ]}
+              >
+                {dayStats.healthMetrics.saltG}g / 5g
+              </Text>
+            </View>
+
+            {/* Azúcar */}
+            <View style={styles.healthMiniPill}>
+              <Text style={styles.healthMiniPillLabel}>Azúcares</Text>
+              <Text
+                style={[
+                  styles.healthMiniPillVal,
+                  dayStats.healthMetrics.sugarsG > 35 ? { color: '#EF4444' } : { color: '#FFFFFF' },
+                ]}
+              >
+                {dayStats.healthMetrics.sugarsG}g / 35g
+              </Text>
+            </View>
+
+            {/* Fibra */}
+            <View style={styles.healthMiniPill}>
+              <Text style={styles.healthMiniPillLabel}>Fibra</Text>
+              <Text style={[styles.healthMiniPillVal, { color: '#10B981' }]}>
+                {dayStats.healthMetrics.fiberG}g / 30g
+              </Text>
+            </View>
+
+            {/* Ultraprocesados */}
+            <View style={styles.healthMiniPill}>
+              <Text style={styles.healthMiniPillLabel}>Procesados</Text>
+              <Text
+                style={[
+                  styles.healthMiniPillVal,
+                  dayStats.healthMetrics.ultraProcessedRatio > 30
+                    ? { color: '#EF4444' }
+                    : { color: '#38BDF8' },
+                ]}
+              >
+                {dayStats.healthMetrics.ultraProcessedRatio}%
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
 
         {/* AI Smart Actions Row */}
         <View style={styles.aiActionRow}>
@@ -343,7 +614,11 @@ export default function NutritionScreen() {
         </View>
 
         {/* Meal Type Filter Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
           {(['all', 'breakfast', 'lunch', 'dinner', 'snack'] as const).map((t) => {
             const active = filterType === t
             return (
@@ -367,7 +642,15 @@ export default function NutritionScreen() {
           {filteredLogs.length === 0 ? (
             <View style={styles.emptyBox}>
               <Utensils size={32} color="rgba(255,255,255,0.25)" />
-              <Text style={styles.emptyText}>Sin comidas registradas</Text>
+              <Text style={styles.emptyText}>Sin comidas registradas en esta fecha</Text>
+              <TouchableOpacity
+                style={styles.emptyAddBtn}
+                onPress={() => setModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Plus size={14} color="#38BDF8" />
+                <Text style={styles.emptyAddBtnText}>Añadir comida</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             filteredLogs.map((log) => {
@@ -382,7 +665,7 @@ export default function NutritionScreen() {
                       </View>
                       <View>
                         <Text style={styles.logTitle}>{mealLabel[type] || 'Comida'}</Text>
-                        <Text style={styles.logTime}>{log.date || 'Hoy'}</Text>
+                        <Text style={styles.logTime}>{log.date || selectedDate}</Text>
                       </View>
                     </View>
 
@@ -404,9 +687,25 @@ export default function NutritionScreen() {
                     <View style={styles.foodsList}>
                       {foods.map((f, i) => (
                         <View key={i} style={styles.foodRow}>
-                          <Text style={styles.foodName}>{f.name}</Text>
+                          <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.foodName}>{f.name}</Text>
+                            {/* Badges de salud si existen */}
+                            {(f.sugars_g || f.fiber_g || f.salt_g || (f.micronutrients && f.micronutrients.length > 0)) && (
+                              <View style={styles.foodSubNutrientRow}>
+                                {typeof f.fiber_g === 'number' && f.fiber_g > 0 && (
+                                  <Text style={styles.foodSubNutrientTag}>🌾 Fibra: {f.fiber_g}g</Text>
+                                )}
+                                {typeof f.sugars_g === 'number' && f.sugars_g > 0 && (
+                                  <Text style={styles.foodSubNutrientTag}>🍬 Azúcar: {f.sugars_g}g</Text>
+                                )}
+                                {typeof f.salt_g === 'number' && f.salt_g > 0 && (
+                                  <Text style={styles.foodSubNutrientTag}>🧂 Sal: {f.salt_g}g</Text>
+                                )}
+                              </View>
+                            )}
+                          </View>
                           <Text style={styles.foodGrams}>
-                            {f.quantity_g}g · {f.calories}kcal
+                            {f.unit_or_portion ? `${f.unit_or_portion} (${f.quantity_g}g)` : `${f.quantity_g}g`} · {f.calories}kcal
                           </Text>
                         </View>
                       ))}
@@ -436,7 +735,34 @@ export default function NutritionScreen() {
         <Text style={styles.fabBtnText}>REGISTRAR</Text>
       </TouchableOpacity>
 
-      {/* Unified Nutrition Modal Sheet */}
+      {/* Modal de Calendario & Evolución */}
+      <NutritionEvolutionModal
+        visible={evolutionModalVisible}
+        onClose={() => setEvolutionModalVisible(false)}
+        selectedDate={selectedDate}
+        onSelectDate={(newDate) => setSelectedDate(newDate)}
+        history7Days={history7Days}
+        history14Days={history14Days}
+        history30Days={history30Days}
+      />
+
+      {/* Modal de Auditoría de Salud & Micronutrientes */}
+      <NutritionHealthAuditModal
+        visible={healthModalVisible}
+        onClose={() => setHealthModalVisible(false)}
+        dayStats={dayStats}
+        logs={logs}
+      />
+
+      {/* Smart Food Scanner Modal */}
+      <SmartFoodScannerModal
+        visible={smartScannerVisible}
+        onClose={() => setSmartScannerVisible(false)}
+        mealType={modalMealType}
+        onSaveToMeal={handleSaveFromSmartScanner}
+      />
+
+      {/* Unified Text & Quick Entry Modal Sheet */}
       <Modal
         visible={modalVisible}
         transparent
@@ -456,15 +782,16 @@ export default function NutritionScreen() {
             </View>
 
             {/* Meal Type Quick Selector */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modalMealTypeRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.modalMealTypeRow}
+            >
               {(['breakfast', 'lunch', 'dinner', 'snack'] as MealType[]).map((t) => (
                 <TouchableOpacity
                   key={t}
                   onPress={() => setModalMealType(t)}
-                  style={[
-                    styles.modalMealPill,
-                    modalMealType === t && styles.modalMealPillActive,
-                  ]}
+                  style={[styles.modalMealPill, modalMealType === t && styles.modalMealPillActive]}
                   activeOpacity={0.8}
                 >
                   {getMealIcon(t, 14, modalMealType === t ? '#FFFFFF' : 'rgba(255,255,255,0.4)')}
@@ -492,8 +819,8 @@ export default function NutritionScreen() {
                     <Camera size={22} color="#38BDF8" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.cameraBtnTitle}>Fotografiar alimento</Text>
-                    <Text style={styles.cameraBtnSub}>Abre la cámara directamente</Text>
+                    <Text style={styles.cameraBtnTitle}>Fotografiar alimento o tabla</Text>
+                    <Text style={styles.cameraBtnSub}>Abre la cámara del escáner inteligente</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -511,7 +838,8 @@ export default function NutritionScreen() {
                 <View style={styles.amberWarning}>
                   <AlertTriangle size={16} color="#F59E0B" />
                   <Text style={styles.amberWarningText}>
-                    Para mayor precisión, <Text style={{ fontWeight: 'bold' }}>fotografía la tabla nutricional</Text> del producto en lugar del plato.
+                    Para mayor precisión en micronutrientes,{' '}
+                    <Text style={{ fontWeight: 'bold' }}>fotografía la tabla nutricional</Text> del producto.
                   </Text>
                 </View>
 
@@ -525,7 +853,7 @@ export default function NutritionScreen() {
                 {/* Textarea Input */}
                 <TextInput
                   style={styles.foodTextInput}
-                  placeholder="Describe lo que comiste... ej: 200g de pollo con arroz y brócoli"
+                  placeholder="Describe lo que comiste... ej: 200g de pechuga de pollo con 150g arroz y ensalada"
                   placeholderTextColor="rgba(255,255,255,0.25)"
                   value={foodText}
                   onChangeText={setFoodText}
@@ -534,35 +862,25 @@ export default function NutritionScreen() {
                 />
 
                 <TouchableOpacity
-                  style={[
-                    styles.analyzeBtn,
-                    !foodText.trim() && styles.analyzeBtnDisabled,
-                  ]}
+                  style={[styles.analyzeBtn, !foodText.trim() && styles.analyzeBtnDisabled]}
                   onPress={handleAnalyzeText}
                   disabled={!foodText.trim()}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.analyzeBtnText}>ANALIZAR</Text>
+                  <Text style={styles.analyzeBtnText}>ANALIZAR CON IA</Text>
                 </TouchableOpacity>
               </ScrollView>
             )}
 
             {analysisState === 'loading' && (
               <View style={styles.loadingStateBox}>
-                {photoUri && (
-                  <Image source={{ uri: photoUri }} style={styles.previewImage} />
-                )}
                 <ActivityIndicator size="large" color="#38BDF8" />
-                <Text style={styles.loadingText}>Analizando nutrientes con IA...</Text>
+                <Text style={styles.loadingText}>Analizando alimentos y nutrientes con IA...</Text>
               </View>
             )}
 
             {analysisState === 'result' && (
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                {photoUri && (
-                  <Image source={{ uri: photoUri }} style={styles.previewImageResult} />
-                )}
-
                 <View style={styles.resultHeader}>
                   <Text style={styles.resultSub}>RESULTADO DEL ANÁLISIS</Text>
                   <Text style={styles.resultCalories}>
@@ -574,9 +892,11 @@ export default function NutritionScreen() {
                 <View style={styles.resultItemsList}>
                   {results.map((f, i) => (
                     <View key={i} style={styles.resultItemRow}>
-                      <View>
+                      <View style={{ flex: 1, marginRight: 12 }}>
                         <Text style={styles.resultItemName}>{f.name}</Text>
-                        <Text style={styles.resultItemGrams}>{f.quantity_g}g</Text>
+                        <Text style={styles.resultItemGrams}>
+                          {f.unit_or_portion ? `${f.unit_or_portion} (${f.quantity_g}g)` : `${f.quantity_g}g`}
+                        </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text style={styles.resultItemCals}>{f.calories} kcal</Text>
@@ -591,19 +911,19 @@ export default function NutritionScreen() {
                 {/* Macro Summary Grid */}
                 <View style={styles.resultMacroGrid}>
                   <View style={styles.resultMacroBox}>
-                    <Text style={styles.resultMacroVal}>
+                    <Text style={[styles.resultMacroVal, { color: '#38BDF8' }]}>
                       {results.reduce((s, r) => s + r.protein_g, 0)}g
                     </Text>
                     <Text style={styles.resultMacroLabel}>Proteína</Text>
                   </View>
                   <View style={styles.resultMacroBox}>
-                    <Text style={styles.resultMacroVal}>
+                    <Text style={[styles.resultMacroVal, { color: '#FBBF24' }]}>
                       {results.reduce((s, r) => s + r.carbs_g, 0)}g
                     </Text>
                     <Text style={styles.resultMacroLabel}>Carbos</Text>
                   </View>
                   <View style={styles.resultMacroBox}>
-                    <Text style={styles.resultMacroVal}>
+                    <Text style={[styles.resultMacroVal, { color: '#F472B6' }]}>
                       {results.reduce((s, r) => s + r.fat_g, 0)}g
                     </Text>
                     <Text style={styles.resultMacroLabel}>Grasas</Text>
@@ -639,14 +959,6 @@ export default function NutritionScreen() {
         </View>
       </Modal>
 
-      {/* Smart Food Scanner Modal (Modulo 2) */}
-      <SmartFoodScannerModal
-        visible={smartScannerVisible}
-        onClose={() => setSmartScannerVisible(false)}
-        mealType={modalMealType}
-        onSaveToMeal={handleSaveFromSmartScanner}
-      />
-
       {/* Modal Cierra tus Macros */}
       <Modal
         visible={macroCloserVisible}
@@ -664,10 +976,7 @@ export default function NutritionScreen() {
                 </View>
                 <Text style={styles.macroCloserTitle}>Recetas Rápidas para Cuadrar</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => setMacroCloserVisible(false)}
-                style={styles.closeBtn}
-              >
+              <TouchableOpacity onPress={() => setMacroCloserVisible(false)} style={styles.closeBtn}>
                 <X size={18} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             </View>
@@ -730,9 +1039,7 @@ export default function NutritionScreen() {
                     </View>
 
                     {/* Instrucciones */}
-                    <Text style={styles.instructionText}>
-                      {sug.quickRecipeInstructions}
-                    </Text>
+                    <Text style={styles.instructionText}>{sug.quickRecipeInstructions}</Text>
 
                     {/* Macros de la sugerencia */}
                     <View style={styles.suggestionMacrosRow}>
@@ -749,10 +1056,18 @@ export default function NutritionScreen() {
                         const parsedFoods: FoodItemParsed[] = (sug.ingredients || []).map((ing: any) => ({
                           name: ing.name,
                           quantity_g: ing.gramsApprox || 100,
-                          calories: Math.round((sug.macros?.calories || 200) / Math.max(1, sug.ingredients.length)),
-                          protein_g: Number(((sug.macros?.protein || 20) / Math.max(1, sug.ingredients.length)).toFixed(1)),
-                          carbs_g: Number(((sug.macros?.carbs || 10) / Math.max(1, sug.ingredients.length)).toFixed(1)),
-                          fat_g: Number(((sug.macros?.fat || 5) / Math.max(1, sug.ingredients.length)).toFixed(1)),
+                          calories: Math.round(
+                            (sug.macros?.calories || 200) / Math.max(1, sug.ingredients.length)
+                          ),
+                          protein_g: Number(
+                            ((sug.macros?.protein || 20) / Math.max(1, sug.ingredients.length)).toFixed(1)
+                          ),
+                          carbs_g: Number(
+                            ((sug.macros?.carbs || 10) / Math.max(1, sug.ingredients.length)).toFixed(1)
+                          ),
+                          fat_g: Number(
+                            ((sug.macros?.fat || 5) / Math.max(1, sug.ingredients.length)).toFixed(1)
+                          ),
                           confidence: 'high',
                         }))
 
@@ -775,9 +1090,7 @@ export default function NutritionScreen() {
                 ))}
 
                 {macroCloserData.nutritionalTip && (
-                  <Text style={styles.macroCloserTip}>
-                    💡 {macroCloserData.nutritionalTip}
-                  </Text>
+                  <Text style={styles.macroCloserTip}>💡 {macroCloserData.nutritionalTip}</Text>
                 )}
               </ScrollView>
             ) : null}
@@ -795,32 +1108,102 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    gap: 16,
+    gap: 14,
     paddingBottom: 100,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 8 : 4,
-    marginBottom: 2,
+    gap: 12,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   headerSub: {
     color: 'rgba(255,255,255,0.35)',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
-    marginTop: 2,
+    marginTop: 1,
+  },
+  headerIconsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#111827',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.25)',
+  },
+  headerIconBtnHealth: {
+    borderColor: 'rgba(16,185,129,0.25)',
+  },
+  headerIconBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dateNavigatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#121212',
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  dateNavArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateDisplayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateDisplayText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    textTransform: 'capitalize',
+  },
+  returnTodayPill: {
+    backgroundColor: 'rgba(56,189,248,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  returnTodayText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
   },
   summaryCard: {
     backgroundColor: '#121212',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 22,
+    padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    gap: 12,
+    gap: 10,
   },
   summaryHeaderRow: {
     flexDirection: 'row',
@@ -828,10 +1211,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   summaryCardSub: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusBadgeOptimal: {
+    backgroundColor: 'rgba(16,185,129,0.12)',
+  },
+  statusBadgeSurplus: {
+    backgroundColor: 'rgba(239,68,68,0.12)',
+  },
+  statusBadgeDeficit: {
+    backgroundColor: 'rgba(56,189,248,0.12)',
+  },
+  statusBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   calorieRow: {
     flexDirection: 'row',
@@ -840,30 +1241,55 @@ const styles = StyleSheet.create({
   },
   caloriesMain: {
     color: '#FFFFFF',
-    fontSize: 44,
+    fontSize: 40,
     fontWeight: '900',
-    lineHeight: 48,
+    lineHeight: 44,
   },
   caloriesTarget: {
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  caloriesSubNotice: {
+    fontSize: 12,
     fontWeight: '600',
+    marginTop: -4,
+  },
+  calProgressBarBg: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginVertical: 2,
+  },
+  calProgressBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   macroGrid: {
-    flexDirection: 'row',
     gap: 8,
     marginTop: 4,
   },
   macroBox: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#181818',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 4,
+  },
+  macroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  macroLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   macroVal: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
   },
   macroBarBg: {
@@ -871,16 +1297,99 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
-    marginVertical: 4,
+    marginVertical: 2,
   },
   macroBarFill: {
     height: '100%',
     borderRadius: 2,
   },
-  macroLabel: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 10,
+  macroDifferenceText: {
+    fontSize: 10.5,
     fontWeight: '600',
+  },
+  healthMiniCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.25)',
+    gap: 10,
+  },
+  healthMiniHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  healthMiniTitle: {
+    color: '#10B981',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  healthMiniActionText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  healthPillsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  healthMiniPill: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  healthMiniPillLabel: {
+    color: '#94A3B8',
+    fontSize: 9.5,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  healthMiniPillVal: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  aiActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  aiActionBtnPrimary: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  aiActionBtnPrimaryText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  aiActionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#0F172A',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#0284C7',
+  },
+  aiActionBtnSecondaryText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   filterScroll: {
     gap: 8,
@@ -914,19 +1423,35 @@ const styles = StyleSheet.create({
   emptyBox: {
     backgroundColor: '#111111',
     borderRadius: 20,
-    padding: 32,
+    padding: 30,
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.04)',
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 13,
+  },
+  emptyAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56,189,248,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.3)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  emptyAddBtnText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   logCard: {
     backgroundColor: '#121212',
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -984,19 +1509,36 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   foodsList: {
-    gap: 4,
+    gap: 6,
   },
   foodRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   foodName: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  foodSubNutrientRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  foodSubNutrientTag: {
+    color: '#94A3B8',
+    fontSize: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   foodGrams: {
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
+    fontWeight: '600',
   },
   logMacrosRow: {
     flexDirection: 'row',
@@ -1006,9 +1548,9 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.04)',
   },
   logMacroTag: {
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   fabBtn: {
     position: 'absolute',
@@ -1125,7 +1667,7 @@ const styles = StyleSheet.create({
   },
   cameraBtnTitle: {
     color: '#38BDF8',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   cameraBtnSub: {
@@ -1206,9 +1748,9 @@ const styles = StyleSheet.create({
   },
   analyzeBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
   loadingStateBox: {
     paddingVertical: 40,
@@ -1219,18 +1761,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
     fontWeight: '600',
-  },
-  previewImage: {
-    width: '100%',
-    height: 140,
-    borderRadius: 16,
-    opacity: 0.7,
-  },
-  previewImageResult: {
-    width: '100%',
-    height: 140,
-    borderRadius: 16,
-    marginBottom: 16,
   },
   resultHeader: {
     flexDirection: 'row',
@@ -1291,7 +1821,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resultMacroVal: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -1328,46 +1857,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1.5,
-  },
-  aiActionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: -4,
-    marginBottom: 4,
-  },
-  aiActionBtnPrimary: {
-    flex: 1.2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-  },
-  aiActionBtnPrimaryText: {
-    color: '#0F172A',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  aiActionBtnSecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0F172A',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#0284C7',
-  },
-  aiActionBtnSecondaryText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
   },
   macroCloserOverlay: {
     flex: 1,

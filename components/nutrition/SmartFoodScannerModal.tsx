@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -32,6 +32,8 @@ import {
   ChevronRight,
   Flame,
   RotateCcw,
+  ShoppingBag,
+  ListPlus,
 } from 'lucide-react-native'
 import { foodScannerService, FoodProduct } from '@/lib/services/foodScannerService'
 import { aiService } from '@/lib/services/ai'
@@ -47,6 +49,13 @@ interface SmartFoodScannerModalProps {
   onSaveToMeal: (foods: FoodItemParsed[], rawInput: string) => Promise<void>
 }
 
+const MEAL_NAMES: Record<string, string> = {
+  breakfast: 'Desayuno',
+  lunch: 'Almuerzo',
+  dinner: 'Cena',
+  snack: 'Snack',
+}
+
 export default function SmartFoodScannerModal({
   visible,
   onClose,
@@ -57,12 +66,29 @@ export default function SmartFoodScannerModal({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const mealName = MEAL_NAMES[mealType] || 'Comida'
+
+  useEffect(() => {
+    if (visible) {
+      foodScannerService.clearCorruptedCache().catch(() => {})
+    }
+  }, [visible])
+
+  // Clear toast after 3.5s
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [toastMessage])
 
   // State: Foto seleccionada
   const [imageUri, setImageUri] = useState<string | null>(null)
   const [imageMetrics, setImageMetrics] = useState<{ costUsd: number; latencyMs: number; source: string } | null>(null)
 
-  // State: Plato de Comida (Modo 'plate')
+  // State: Bandeja de Alimentos / Plato Compuesto
   const [plateMealName, setPlateMealName] = useState('')
   const [plateItems, setPlateItems] = useState<FoodPlateItem[]>([])
 
@@ -91,6 +117,8 @@ export default function SmartFoodScannerModal({
     setNaturalText('')
     setLoading(false)
     setStatusMessage('')
+    setToastMessage(null)
+    setActiveMode('plate')
   }
 
   const handleClose = () => {
@@ -99,7 +127,7 @@ export default function SmartFoodScannerModal({
   }
 
   // =========================================================================
-  // 1. Selector de Cámara o Galería
+  // 1. Selector de Cámara o Galería (Plato o Etiqueta)
   // =========================================================================
   const pickImage = async (useCamera: boolean) => {
     try {
@@ -130,7 +158,8 @@ export default function SmartFoodScannerModal({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0]
         const uri = asset.uri
-        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : uri
+        const mime = asset.mimeType || (uri?.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg')
+        const base64Data = asset.base64 ? `data:${mime};base64,${asset.base64}` : uri
         setImageUri(uri)
         await processImageWithAi(base64Data)
       }
@@ -149,13 +178,15 @@ export default function SmartFoodScannerModal({
       if (activeMode === 'plate') {
         setStatusMessage('🧠 Analizando plato y estimando porciones...')
         const res = await foodScannerService.scanPlateWithAi(base64OrUri)
-        setPlateMealName(res.mealName)
-        setPlateItems(res.items)
+        setPlateMealName(res.mealName || plateMealName || `${mealName} Compuesto`)
+        // Acumula en el plato
+        setPlateItems((prev) => [...prev, ...res.items])
         setImageMetrics({
           costUsd: res.costUsd,
           latencyMs: res.latencyMs,
           source: 'Claude 3.5 Sonnet Vision (Compresión 92%)',
         })
+        setToastMessage(`✓ Se añadieron ${res.items.length} alimentos al ${mealName}`)
       } else if (activeMode === 'label') {
         setStatusMessage('🔍 Leyendo tabla nutricional y auditando ingredientes...')
         const res = await foodScannerService.scanLabelWithAi(base64OrUri)
@@ -207,7 +238,8 @@ export default function SmartFoodScannerModal({
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0]
-        const base64Data = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        const mime = asset.mimeType || (asset.uri?.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg')
+        const base64Data = asset.base64 ? `data:${mime};base64,${asset.base64}` : asset.uri
         setLoading(true)
         setStatusMessage('⚡ Leyendo código de barras...')
         const detectedCode = await foodScannerService.extractBarcodeFromImage(base64Data)
@@ -279,7 +311,7 @@ export default function SmartFoodScannerModal({
   }
 
   // =========================================================================
-  // 4. Parser de Lenguaje Natural (Texto / Voz)
+  // 5. Parser de Lenguaje Natural (Texto / Voz)
   // =========================================================================
   const handleNaturalParse = async () => {
     if (!naturalText.trim()) {
@@ -293,6 +325,7 @@ export default function SmartFoodScannerModal({
       const { data, metrics } = await aiService.parseNaturalMeal(naturalText)
       const convertedItems: FoodPlateItem[] = data.items.map((it) => ({
         name: it.name,
+        unitOrPortion: it.unitOrPortion || null,
         estimatedGrams: it.grams,
         calories: it.calories,
         protein: it.protein,
@@ -300,14 +333,15 @@ export default function SmartFoodScannerModal({
         fat: it.fat,
         confidence: 0.95,
       }))
-      setPlateMealName('Comida registrada por texto')
-      setPlateItems(convertedItems)
-      setActiveMode('plate') // Mostrar en vista de plato editable
+      setPlateItems((prev) => [...prev, ...convertedItems])
+      setNaturalText('')
+      setActiveMode('plate')
       setImageMetrics({
         costUsd: metrics.estimatedCostUsd,
         latencyMs: metrics.latencyMs,
         source: 'Claude 3.5 Haiku (~300ms)',
       })
+      setToastMessage(`✓ ${convertedItems.length} alimentos añadidos`)
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Error al analizar el texto.')
     } finally {
@@ -317,7 +351,69 @@ export default function SmartFoodScannerModal({
   }
 
   // =========================================================================
-  // 5. Ajustar Gramos en Ítems de Plato
+  // 6. Añadir Producto de Código de Barras a la Bandeja
+  // =========================================================================
+  const addBarcodeProductToPlate = (goToPlateSummary = false) => {
+    if (!barcodeProduct) return
+    const portion = Math.max(1, parseFloat(barcodePortionG) || 100)
+    const ratio = portion / 100
+    const displayName = `${barcodeProduct.name}${barcodeProduct.brand ? ` (${barcodeProduct.brand})` : ''}`
+
+    const newItem: FoodPlateItem = {
+      name: displayName,
+      unitOrPortion: `${portion}g`,
+      estimatedGrams: portion,
+      calories: Math.round(barcodeProduct.calories * ratio),
+      protein: Number((barcodeProduct.protein * ratio).toFixed(1)),
+      carbs: Number((barcodeProduct.carbs * ratio).toFixed(1)),
+      fat: Number((barcodeProduct.fat * ratio).toFixed(1)),
+      confidence: 1.0,
+    }
+
+    setPlateItems((prev) => [...prev, newItem])
+    setBarcodeProduct(null)
+    setBarcodeInput('')
+
+    if (goToPlateSummary) {
+      setActiveMode('plate')
+    } else {
+      setToastMessage(`✓ Añadido: ${barcodeProduct.name} (${portion}g)`)
+    }
+  }
+
+  // =========================================================================
+  // 7. Añadir Producto de Etiqueta a la Bandeja
+  // =========================================================================
+  const addLabelProductToPlate = (goToPlateSummary = false) => {
+    if (!scannedProduct) return
+    const portion = Math.max(1, parseFloat(selectedPortionG) || 100)
+    const ratio = portion / 100
+    const displayName = `${scannedProduct.name}${scannedProduct.brand ? ` (${scannedProduct.brand})` : ''}`
+
+    const newItem: FoodPlateItem = {
+      name: displayName,
+      unitOrPortion: `${portion}g`,
+      estimatedGrams: portion,
+      calories: Math.round(scannedProduct.calories * ratio),
+      protein: Number((scannedProduct.protein * ratio).toFixed(1)),
+      carbs: Number((scannedProduct.carbs * ratio).toFixed(1)),
+      fat: Number((scannedProduct.fat * ratio).toFixed(1)),
+      confidence: 1.0,
+    }
+
+    setPlateItems((prev) => [...prev, newItem])
+    setScannedProduct(null)
+    setLabelAudit(null)
+
+    if (goToPlateSummary) {
+      setActiveMode('plate')
+    } else {
+      setToastMessage(`✓ Añadido: ${scannedProduct.name} (${portion}g)`)
+    }
+  }
+
+  // =========================================================================
+  // 8. Ajustar Gramos en Ítems de Plato
   // =========================================================================
   const updateItemGrams = (index: number, delta: number) => {
     setPlateItems((prev) => {
@@ -340,14 +436,19 @@ export default function SmartFoodScannerModal({
   }
 
   // =========================================================================
-  // 6. Guardar en el Diario Nutricional
+  // 9. Guardar en el Diario Nutricional
   // =========================================================================
   const handleConfirmSave = async () => {
     setSaving(true)
     try {
-      if (activeMode === 'plate' && plateItems.length > 0) {
-        const parsedFoods: FoodItemParsed[] = plateItems.map((it) => ({
+      let finalFoods: FoodItemParsed[] = []
+      let mealTitle = ''
+
+      // 1. Si hay alimentos en la bandeja de plato
+      if (plateItems.length > 0) {
+        finalFoods = plateItems.map((it) => ({
           name: it.name,
+          unit_or_portion: it.unitOrPortion || null,
           quantity_g: it.estimatedGrams,
           calories: it.calories,
           protein_g: it.protein,
@@ -355,42 +456,111 @@ export default function SmartFoodScannerModal({
           fat_g: it.fat,
           confidence: it.confidence > 0.8 ? 'high' : 'medium',
         }))
-        const rawInput = plateMealName || `Plato con ${plateItems.length} alimentos`
-        await onSaveToMeal(parsedFoods, rawInput)
-        handleClose()
-      } else if (activeMode === 'label' && scannedProduct) {
-        const portion = Math.max(1, parseFloat(selectedPortionG) || 100)
-        const ratio = portion / 100
-        const parsedFoods: FoodItemParsed[] = [
-          {
-            name: `${scannedProduct.name}${scannedProduct.brand ? ` (${scannedProduct.brand})` : ''}`,
-            quantity_g: portion,
-            calories: Math.round(scannedProduct.calories * ratio),
-            protein_g: Number((scannedProduct.protein * ratio).toFixed(1)),
-            carbs_g: Number((scannedProduct.carbs * ratio).toFixed(1)),
-            fat_g: Number((scannedProduct.fat * ratio).toFixed(1)),
-            confidence: 'high',
-          },
-        ]
-        await onSaveToMeal(parsedFoods, scannedProduct.name)
-        handleClose()
-      } else if (activeMode === 'barcode' && barcodeProduct) {
-        const portion = Math.max(1, parseFloat(barcodePortionG) || 100)
-        const ratio = portion / 100
-        const parsedFoods: FoodItemParsed[] = [
-          {
+
+        // Si el usuario tenía además un producto de código de barras abierto sin añadir
+        if (activeMode === 'barcode' && barcodeProduct) {
+          const portion = Math.max(1, parseFloat(barcodePortionG) || 100)
+          const ratio = portion / 100
+          finalFoods.push({
             name: `${barcodeProduct.name}${barcodeProduct.brand ? ` (${barcodeProduct.brand})` : ''}`,
+            brand: barcodeProduct.brand || null,
             quantity_g: portion,
             calories: Math.round(barcodeProduct.calories * ratio),
             protein_g: Number((barcodeProduct.protein * ratio).toFixed(1)),
             carbs_g: Number((barcodeProduct.carbs * ratio).toFixed(1)),
             fat_g: Number((barcodeProduct.fat * ratio).toFixed(1)),
+            sugars_g: typeof barcodeProduct.sugars === 'number' ? Number((barcodeProduct.sugars * ratio).toFixed(1)) : undefined,
+            saturated_fat_g: typeof barcodeProduct.saturatedFat === 'number' ? Number((barcodeProduct.saturatedFat * ratio).toFixed(1)) : undefined,
+            salt_g: typeof barcodeProduct.saltG === 'number' ? Number((barcodeProduct.saltG * ratio).toFixed(2)) : undefined,
+            sodium_mg: typeof barcodeProduct.sodiumMg === 'number' ? Math.round(barcodeProduct.sodiumMg * ratio) : undefined,
+            fiber_g: typeof barcodeProduct.fiber === 'number' ? Number((barcodeProduct.fiber * ratio).toFixed(1)) : undefined,
+            micronutrients: barcodeProduct.micronutrients,
+            ultraProcessedScore: barcodeProduct.ultraProcessedScore,
+            confidence: 'high',
+          })
+        }
+        // Si el usuario tenía además una etiqueta abierta sin añadir
+        else if (activeMode === 'label' && scannedProduct) {
+          const portion = Math.max(1, parseFloat(selectedPortionG) || 100)
+          const ratio = portion / 100
+          finalFoods.push({
+            name: `${scannedProduct.name}${scannedProduct.brand ? ` (${scannedProduct.brand})` : ''}`,
+            brand: scannedProduct.brand || null,
+            quantity_g: portion,
+            calories: Math.round(scannedProduct.calories * ratio),
+            protein_g: Number((scannedProduct.protein * ratio).toFixed(1)),
+            carbs_g: Number((scannedProduct.carbs * ratio).toFixed(1)),
+            fat_g: Number((scannedProduct.fat * ratio).toFixed(1)),
+            sugars_g: typeof scannedProduct.sugars === 'number' ? Number((scannedProduct.sugars * ratio).toFixed(1)) : undefined,
+            saturated_fat_g: typeof scannedProduct.saturatedFat === 'number' ? Number((scannedProduct.saturatedFat * ratio).toFixed(1)) : undefined,
+            salt_g: typeof scannedProduct.saltG === 'number' ? Number((scannedProduct.saltG * ratio).toFixed(2)) : undefined,
+            sodium_mg: typeof scannedProduct.sodiumMg === 'number' ? Math.round(scannedProduct.sodiumMg * ratio) : undefined,
+            fiber_g: typeof scannedProduct.fiber === 'number' ? Number((scannedProduct.fiber * ratio).toFixed(1)) : undefined,
+            micronutrients: scannedProduct.micronutrients,
+            ultraProcessedScore: scannedProduct.ultraProcessedScore,
+            confidence: 'high',
+          })
+        }
+
+        mealTitle = plateMealName || `${mealName} (${finalFoods.length} alimentos)`
+      } else if (activeMode === 'barcode' && barcodeProduct) {
+        // Guardado directo de 1 solo código de barras
+        const portion = Math.max(1, parseFloat(barcodePortionG) || 100)
+        const ratio = portion / 100
+        finalFoods = [
+          {
+            name: `${barcodeProduct.name}${barcodeProduct.brand ? ` (${barcodeProduct.brand})` : ''}`,
+            brand: barcodeProduct.brand || null,
+            quantity_g: portion,
+            calories: Math.round(barcodeProduct.calories * ratio),
+            protein_g: Number((barcodeProduct.protein * ratio).toFixed(1)),
+            carbs_g: Number((barcodeProduct.carbs * ratio).toFixed(1)),
+            fat_g: Number((barcodeProduct.fat * ratio).toFixed(1)),
+            sugars_g: typeof barcodeProduct.sugars === 'number' ? Number((barcodeProduct.sugars * ratio).toFixed(1)) : undefined,
+            saturated_fat_g: typeof barcodeProduct.saturatedFat === 'number' ? Number((barcodeProduct.saturatedFat * ratio).toFixed(1)) : undefined,
+            salt_g: typeof barcodeProduct.saltG === 'number' ? Number((barcodeProduct.saltG * ratio).toFixed(2)) : undefined,
+            sodium_mg: typeof barcodeProduct.sodiumMg === 'number' ? Math.round(barcodeProduct.sodiumMg * ratio) : undefined,
+            fiber_g: typeof barcodeProduct.fiber === 'number' ? Number((barcodeProduct.fiber * ratio).toFixed(1)) : undefined,
+            micronutrients: barcodeProduct.micronutrients,
+            ultraProcessedScore: barcodeProduct.ultraProcessedScore,
             confidence: 'high',
           },
         ]
-        await onSaveToMeal(parsedFoods, barcodeProduct.name)
-        handleClose()
+        mealTitle = barcodeProduct.name
+      } else if (activeMode === 'label' && scannedProduct) {
+        // Guardado directo de 1 sola etiqueta
+        const portion = Math.max(1, parseFloat(selectedPortionG) || 100)
+        const ratio = portion / 100
+        finalFoods = [
+          {
+            name: `${scannedProduct.name}${scannedProduct.brand ? ` (${scannedProduct.brand})` : ''}`,
+            brand: scannedProduct.brand || null,
+            quantity_g: portion,
+            calories: Math.round(scannedProduct.calories * ratio),
+            protein_g: Number((scannedProduct.protein * ratio).toFixed(1)),
+            carbs_g: Number((scannedProduct.carbs * ratio).toFixed(1)),
+            fat_g: Number((scannedProduct.fat * ratio).toFixed(1)),
+            sugars_g: typeof scannedProduct.sugars === 'number' ? Number((scannedProduct.sugars * ratio).toFixed(1)) : undefined,
+            saturated_fat_g: typeof scannedProduct.saturatedFat === 'number' ? Number((scannedProduct.saturatedFat * ratio).toFixed(1)) : undefined,
+            salt_g: typeof scannedProduct.saltG === 'number' ? Number((scannedProduct.saltG * ratio).toFixed(2)) : undefined,
+            sodium_mg: typeof scannedProduct.sodiumMg === 'number' ? Math.round(scannedProduct.sodiumMg * ratio) : undefined,
+            fiber_g: typeof scannedProduct.fiber === 'number' ? Number((scannedProduct.fiber * ratio).toFixed(1)) : undefined,
+            micronutrients: scannedProduct.micronutrients,
+            ultraProcessedScore: scannedProduct.ultraProcessedScore,
+            confidence: 'high',
+          },
+        ]
+        mealTitle = scannedProduct.name
       }
+
+
+      if (finalFoods.length === 0) {
+        Alert.alert('Bandeja vacía', 'Escanea o añade al menos un alimento antes de guardar.')
+        return
+      }
+
+      await onSaveToMeal(finalFoods, mealTitle)
+      handleClose()
     } catch (err: any) {
       Alert.alert('Error al guardar', err.message || 'No se pudo registrar la comida.')
     } finally {
@@ -398,7 +568,7 @@ export default function SmartFoodScannerModal({
     }
   }
 
-  // Totales calculados de plato
+  // Totales calculados de la bandeja / plato compuesto
   const totalPlateCals = plateItems.reduce((s, it) => s + it.calories, 0)
   const totalPlateP = Number(plateItems.reduce((s, it) => s + it.protein, 0).toFixed(1))
   const totalPlateC = Number(plateItems.reduce((s, it) => s + it.carbs, 0).toFixed(1))
@@ -414,12 +584,40 @@ export default function SmartFoodScannerModal({
               <Sparkles size={14} color="#38BDF8" />
               <Text style={styles.badgeText}>ESCÁNER DE IA & VISIÓN</Text>
             </View>
-            <Text style={styles.headerTitle}>Registrar en {mealType.toUpperCase()}</Text>
+            <Text style={styles.headerTitle}>Registrar en {mealName.toUpperCase()}</Text>
           </View>
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <X size={20} color="#94A3B8" />
           </TouchableOpacity>
         </View>
+
+        {/* Notificación Toast Flotante */}
+        {toastMessage && (
+          <View style={styles.toastContainer}>
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        )}
+
+        {/* Barra superior de Alimentos Acumulados (si estamos en otro modo y ya hay alimentos en el plato) */}
+        {plateItems.length > 0 && activeMode !== 'plate' && (
+          <TouchableOpacity
+            style={styles.traySummaryBanner}
+            onPress={() => setActiveMode('plate')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.trayBannerLeft}>
+              <ShoppingBag size={16} color="#38BDF8" />
+              <Text style={styles.trayBannerTitle}>
+                {plateItems.length} {plateItems.length === 1 ? 'alimento añadido' : 'alimentos añadidos'}
+              </Text>
+              <Text style={styles.trayBannerCals}>({totalPlateCals} kcal)</Text>
+            </View>
+            <View style={styles.trayBannerRight}>
+              <Text style={styles.trayBannerAction}>Ver Bandeja</Text>
+              <ChevronRight size={14} color="#38BDF8" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Selector de Modo de Escaneo */}
         <View style={styles.modeTabs}>
@@ -431,16 +629,11 @@ export default function SmartFoodScannerModal({
             <Text style={[styles.tabText, activeMode === 'plate' && styles.tabTextActive]}>
               Plato
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeMode === 'label' && styles.tabBtnActive]}
-            onPress={() => setActiveMode('label')}
-          >
-            <FileText size={15} color={activeMode === 'label' ? '#38BDF8' : '#64748B'} />
-            <Text style={[styles.tabText, activeMode === 'label' && styles.tabTextActive]}>
-              Etiqueta
-            </Text>
+            {plateItems.length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{plateItems.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -450,6 +643,16 @@ export default function SmartFoodScannerModal({
             <Barcode size={15} color={activeMode === 'barcode' ? '#38BDF8' : '#64748B'} />
             <Text style={[styles.tabText, activeMode === 'barcode' && styles.tabTextActive]}>
               Código
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeMode === 'label' && styles.tabBtnActive]}
+            onPress={() => setActiveMode('label')}
+          >
+            <FileText size={15} color={activeMode === 'label' ? '#38BDF8' : '#64748B'} />
+            <Text style={[styles.tabText, activeMode === 'label' && styles.tabTextActive]}>
+              Etiqueta
             </Text>
           </TouchableOpacity>
 
@@ -475,17 +678,16 @@ export default function SmartFoodScannerModal({
           ) : (
             <>
               {/* ================================================= */}
-              {/* MODO 1: PLATO DE COMIDA */}
+              {/* MODO 1: PLATO DE COMIDA / BANDEJA COMPUESTA */}
               {/* ================================================= */}
               {activeMode === 'plate' && (
                 <View>
                   {plateItems.length === 0 ? (
                     <View style={styles.captureCard}>
                       <Utensils size={40} color="#38BDF8" style={{ marginBottom: 12 }} />
-                      <Text style={styles.captureTitle}>Escanea tu Plato de Comida</Text>
+                      <Text style={styles.captureTitle}>Escanea o Compón tu {mealName}</Text>
                       <Text style={styles.captureSub}>
-                        La IA identificará los ingredientes, estimará los gramos y calculará las
-                        calorías automáticamente.
+                        Toma foto al plato completo, o escanea los códigos de barras de cada ingrediente (pollo, arroz, aceite, etc.) para registrarlos juntos.
                       </Text>
 
                       <View style={styles.actionButtonsRow}>
@@ -494,7 +696,7 @@ export default function SmartFoodScannerModal({
                           onPress={() => pickImage(true)}
                         >
                           <Camera size={18} color="#0F172A" />
-                          <Text style={styles.primaryActionBtnText}>Tomar Foto</Text>
+                          <Text style={styles.primaryActionBtnText}>Foto al Plato</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -504,6 +706,27 @@ export default function SmartFoodScannerModal({
                           <GalleryIcon size={18} color="#38BDF8" />
                           <Text style={styles.secondaryActionBtnText}>Galería</Text>
                         </TouchableOpacity>
+                      </View>
+
+                      {/* Atajos a Código de Barras o Dictado */}
+                      <View style={styles.shortcutsBox}>
+                        <Text style={styles.shortcutsTitle}>O escanea ingredientes uno a uno:</Text>
+                        <View style={styles.shortcutsRow}>
+                          <TouchableOpacity
+                            style={styles.shortcutBtn}
+                            onPress={() => setActiveMode('barcode')}
+                          >
+                            <Barcode size={16} color="#38BDF8" />
+                            <Text style={styles.shortcutBtnText}>Escanear Código</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.shortcutBtn}
+                            onPress={() => setActiveMode('natural')}
+                          >
+                            <Mic size={16} color="#38BDF8" />
+                            <Text style={styles.shortcutBtnText}>Escribir / Dictar</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   ) : (
@@ -516,28 +739,83 @@ export default function SmartFoodScannerModal({
                       {/* Título de comida y botón de re-escanear */}
                       <View style={styles.resultHeaderRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.plateTitle}>{plateMealName || 'Plato Detectado'}</Text>
+                          <Text style={styles.plateTitle}>{plateMealName || `${mealName} Compuesto`}</Text>
                           <Text style={styles.plateSubtitle}>
-                            {plateItems.length} ingredientes detectados (Toca para editar gramos)
+                            {plateItems.length} {plateItems.length === 1 ? 'alimento registrado' : 'alimentos registrados'} (Toca +/- para gramos)
                           </Text>
                         </View>
                         <TouchableOpacity
                           style={styles.retakeBtn}
                           onPress={() => {
-                            setPlateItems([])
-                            setImageUri(null)
+                            Alert.alert(
+                              'Limpiar bandeja',
+                              '¿Deseas vaciar todos los alimentos añadidos a este plato?',
+                              [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                  text: 'Vaciar',
+                                  style: 'destructive',
+                                  onPress: () => {
+                                    setPlateItems([])
+                                    setImageUri(null)
+                                  },
+                                },
+                              ]
+                            )
                           }}
                         >
-                          <Camera size={14} color="#94A3B8" />
-                          <Text style={styles.retakeBtnText}>Repetir</Text>
+                          <Trash2 size={13} color="#EF4444" />
+                          <Text style={[styles.retakeBtnText, { color: '#EF4444' }]}>Vaciar</Text>
                         </TouchableOpacity>
+                      </View>
+
+                      {/* Botón "+ Añadir otro alimento" */}
+                      <View style={styles.addMoreRow}>
+                        <Text style={styles.addMorePrompt}>¿Comiste algo más en este {mealName}?</Text>
+                        <View style={styles.addMoreButtons}>
+                          <TouchableOpacity
+                            style={styles.addMoreBtn}
+                            onPress={() => setActiveMode('barcode')}
+                          >
+                            <Barcode size={14} color="#38BDF8" />
+                            <Text style={styles.addMoreBtnText}>+ Código</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.addMoreBtn}
+                            onPress={() => setActiveMode('label')}
+                          >
+                            <FileText size={14} color="#38BDF8" />
+                            <Text style={styles.addMoreBtnText}>+ Etiqueta</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.addMoreBtn}
+                            onPress={() => setActiveMode('natural')}
+                          >
+                            <Mic size={14} color="#38BDF8" />
+                            <Text style={styles.addMoreBtnText}>+ Texto</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.addMoreBtn}
+                            onPress={() => pickImage(true)}
+                          >
+                            <Camera size={14} color="#38BDF8" />
+                            <Text style={styles.addMoreBtnText}>+ Foto</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
 
                       {/* Lista de alimentos desglosados */}
                       {plateItems.map((item, idx) => (
                         <View key={idx} style={styles.foodItemCard}>
                           <View style={styles.foodItemTop}>
-                            <Text style={styles.foodItemName}>{item.name}</Text>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text style={styles.foodItemName}>{item.name}</Text>
+                              {item.unitOrPortion && (
+                                <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                                  {item.unitOrPortion}
+                                </Text>
+                              )}
+                            </View>
                             <TouchableOpacity
                               onPress={() => removeItemFromPlate(idx)}
                               style={styles.removeBtn}
@@ -579,7 +857,7 @@ export default function SmartFoodScannerModal({
                       <View style={styles.plateSummaryCard}>
                         <View style={styles.summaryTopRow}>
                           <View>
-                            <Text style={styles.summaryLabel}>TOTAL DEL PLATO</Text>
+                            <Text style={styles.summaryLabel}>TOTAL DEL {mealName.toUpperCase()}</Text>
                             <Text style={styles.summaryCalories}>{totalPlateCals} kcal</Text>
                           </View>
                           <Flame size={28} color="#FB923C" />
@@ -606,7 +884,202 @@ export default function SmartFoodScannerModal({
               )}
 
               {/* ================================================= */}
-              {/* MODO 2: TABLA NUTRICIONAL / PRODUCTO */}
+              {/* MODO 2: CÓDIGO DE BARRAS */}
+              {/* ================================================= */}
+              {activeMode === 'barcode' && (
+                <View>
+                  <View style={styles.barcodeInputCard}>
+                    <Barcode size={36} color="#38BDF8" style={{ marginBottom: 8 }} />
+                    <Text style={styles.barcodeInputTitle}>Escanear Código de Barras</Text>
+                    <Text style={styles.barcodeInputSub}>
+                      Apunta con la cámara, sube una foto o escribe el número para consultar la base de datos oficial.
+                    </Text>
+
+                    {/* Botones de Cámara y Galería para Código de Barras */}
+                    <View style={[styles.actionButtonsRow, { marginBottom: 16 }]}>
+                      <TouchableOpacity
+                        style={styles.primaryActionBtn}
+                        onPress={() => pickImageForBarcode(true)}
+                      >
+                        <Camera size={18} color="#0F172A" />
+                        <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.secondaryActionBtn}
+                        onPress={() => pickImageForBarcode(false)}
+                      >
+                        <GalleryIcon size={18} color="#38BDF8" />
+                        <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={[styles.barcodeInputSub, { marginBottom: 8, fontSize: 11 }]}>
+                      O introduce los dígitos manualmente:
+                    </Text>
+
+                    <View style={styles.barcodeSearchRow}>
+                      <TextInput
+                        style={styles.barcodeField}
+                        placeholder="Ej. 8410000000000"
+                        placeholderTextColor="#64748B"
+                        keyboardType="numeric"
+                        value={barcodeInput}
+                        onChangeText={setBarcodeInput}
+                        onSubmitEditing={() => handleBarcodeLookup()}
+                      />
+                      <TouchableOpacity
+                        style={styles.barcodeSearchBtn}
+                        onPress={() => handleBarcodeLookup()}
+                      >
+                        <ChevronRight size={20} color="#0F172A" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {barcodeProduct && (
+                    <View style={styles.productCard}>
+                      <View style={styles.productBadgeDetected}>
+                        <Check size={14} color="#10B981" />
+                        <Text style={styles.productBadgeDetectedText}>Producto Encontrado</Text>
+                      </View>
+
+                      <Text style={styles.productName}>{barcodeProduct.name}</Text>
+                      {barcodeProduct.brand && (
+                        <Text style={styles.productBrand}>Marca: {barcodeProduct.brand}</Text>
+                      )}
+
+                      {/* Selector de Porción */}
+                      <View style={styles.portionSelectorRow}>
+                        <Text style={styles.portionLabel}>Porción que vas a comer:</Text>
+                        <View style={styles.portionInputContainer}>
+                          <TextInput
+                            style={styles.portionInput}
+                            keyboardType="numeric"
+                            value={barcodePortionG}
+                            onChangeText={setBarcodePortionG}
+                          />
+                          <Text style={styles.portionUnit}>gramos</Text>
+                        </View>
+                      </View>
+
+                      {/* Macros calculados para la porción */}
+                      {(() => {
+                        const portion = parseFloat(barcodePortionG) || 100
+                        const ratio = portion / 100
+                        return (
+                          <View>
+                            <View style={styles.macrosGrid}>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {Math.round(barcodeProduct.calories * ratio)}
+                                </Text>
+                                <Text style={styles.macroCellLabel}>kcal</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.protein * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Proteína</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.carbs * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Carbos</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.fat * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Grasas</Text>
+                              </View>
+                            </View>
+
+                            {/* Sub-Macros */}
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                              {typeof barcodeProduct.sugars === 'number' && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Azúcares: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.sugars * ratio).toFixed(1)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {typeof barcodeProduct.saturatedFat === 'number' && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Sat: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saturatedFat * ratio).toFixed(1)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {typeof barcodeProduct.saltG === 'number' && barcodeProduct.saltG > 0 && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Sal: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saltG * ratio).toFixed(2)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {barcodeProduct.barcode && (
+                                <View style={{ backgroundColor: '#0284C720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#0284C750' }}>
+                                  <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600' }}>
+                                    EAN: {barcodeProduct.barcode}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        )
+                      })()}
+
+                      {/* Botones de Acción Multialimento */}
+                      <View style={styles.compositeActionsContainer}>
+                        {/* 1. Añadir y seguir escaneando */}
+                        <TouchableOpacity
+                          style={styles.addAndContinueBtn}
+                          onPress={() => addBarcodeProductToPlate(false)}
+                        >
+                          <ListPlus size={18} color="#0F172A" />
+                          <Text style={styles.addAndContinueBtnText}>
+                            Añadir a {mealName} (+ Escanear otro)
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* 2. Añadir e ir al plato */}
+                        <TouchableOpacity
+                          style={styles.addAndReviewBtn}
+                          onPress={() => addBarcodeProductToPlate(true)}
+                        >
+                          <Utensils size={16} color="#38BDF8" />
+                          <Text style={styles.addAndReviewBtnText}>
+                            Añadir y ver plato ({plateItems.length + 1} alimentos)
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* 3. Guardar solo este alimento */}
+                        <TouchableOpacity
+                          style={styles.saveSingleBtn}
+                          onPress={handleConfirmSave}
+                          disabled={saving}
+                        >
+                          {saving ? (
+                            <ActivityIndicator color="#94A3B8" size="small" />
+                          ) : (
+                            <>
+                              <Check size={16} color="#94A3B8" />
+                              <Text style={styles.saveSingleBtnText}>
+                                Guardar solo este alimento directamente
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* ================================================= */}
+              {/* MODO 3: TABLA NUTRICIONAL / ETIQUETA */}
               {/* ================================================= */}
               {activeMode === 'label' && (
                 <View>
@@ -680,7 +1153,7 @@ export default function SmartFoodScannerModal({
 
                         {/* Selector de Porción */}
                         <View style={styles.portionSelectorRow}>
-                          <Text style={styles.portionLabel}>Porción a registrar:</Text>
+                          <Text style={styles.portionLabel}>Porción que vas a comer:</Text>
                           <View style={styles.portionInputContainer}>
                             <TextInput
                               style={styles.portionInput}
@@ -725,280 +1198,67 @@ export default function SmartFoodScannerModal({
                                 </View>
                               </View>
 
-                              {/* Detalle de Sub-Macros (Saturadas, Azúcares, Sal) */}
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                                {typeof scannedProduct.sugars === 'number' && (
-                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                      Azúcares: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.sugars * ratio).toFixed(1)}g</Text>
+                              {/* Alertas de Ingredientes */}
+                              {labelAudit && labelAudit.warningFlags.length > 0 && (
+                                <View style={styles.warningsCard}>
+                                  <View style={styles.warningTitleRow}>
+                                    <AlertTriangle size={15} color="#EF4444" />
+                                    <Text style={styles.warningTitle}>Alertas de Ingredientes</Text>
+                                  </View>
+                                  {labelAudit.warningFlags.map((w, i) => (
+                                    <Text key={i} style={styles.warningItem}>
+                                      • {w}
                                     </Text>
-                                  </View>
-                                )}
-                                {typeof scannedProduct.saturatedFat === 'number' && (
-                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                      Sat: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.saturatedFat * ratio).toFixed(1)}g</Text>
-                                    </Text>
-                                  </View>
-                                )}
-                                {typeof scannedProduct.saltG === 'number' && scannedProduct.saltG > 0 && (
-                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                      Sal: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.saltG * ratio).toFixed(2)}g</Text>
-                                    </Text>
-                                  </View>
-                                )}
-                                {scannedProduct.barcode && (
-                                  <View style={{ backgroundColor: '#0284C720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#0284C750' }}>
-                                    <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600' }}>
-                                      EAN: {scannedProduct.barcode}
-                                    </Text>
-                                  </View>
-                                )}
-                              </View>
-
-                              {/* Vitaminas y Minerales */}
-                              {scannedProduct.micronutrients && scannedProduct.micronutrients.length > 0 && (
-                                <View style={{ backgroundColor: '#0F172A', borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: '#1E293B' }}>
-                                  <Text style={{ color: '#38BDF8', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
-                                    🌿 Vitaminas y Minerales
-                                  </Text>
-                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                                    {scannedProduct.micronutrients.map((m, idx) => (
-                                      <View key={idx} style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                        <Text style={{ color: '#E2E8F0', fontSize: 11 }}>
-                                          {m.name}: <Text style={{ color: '#38BDF8', fontWeight: '700' }}>{m.amountPerServing || m.amount || m.amountPer100g}</Text>
-                                          {typeof m.vrnPercent === 'number' ? ` (${m.vrnPercent}% VRN)` : ''}
-                                        </Text>
-                                      </View>
-                                    ))}
-                                  </View>
+                                  ))}
                                 </View>
                               )}
                             </View>
                           )
                         })()}
 
-                        {/* Alertas de Ingredientes */}
-                        {labelAudit && labelAudit.warningFlags.length > 0 && (
-                          <View style={styles.warningsCard}>
-                            <View style={styles.warningTitleRow}>
-                              <AlertTriangle size={15} color="#EF4444" />
-                              <Text style={styles.warningTitle}>Alertas de Ingredientes</Text>
-                            </View>
-                            {labelAudit.warningFlags.map((w, i) => (
-                              <Text key={i} style={styles.warningItem}>
-                                • {w}
-                              </Text>
-                            ))}
-                          </View>
-                        )}
+                        {/* Botones de Acción Multialimento */}
+                        <View style={styles.compositeActionsContainer}>
+                          {/* 1. Añadir y seguir escaneando */}
+                          <TouchableOpacity
+                            style={styles.addAndContinueBtn}
+                            onPress={() => addLabelProductToPlate(false)}
+                          >
+                            <ListPlus size={18} color="#0F172A" />
+                            <Text style={styles.addAndContinueBtnText}>
+                              Añadir a {mealName} (+ Escanear otro)
+                            </Text>
+                          </TouchableOpacity>
 
-                        {/* Botón Guardar en Diario */}
-                        <TouchableOpacity
-                          style={styles.saveToDiaryBtn}
-                          onPress={handleConfirmSave}
-                          disabled={saving}
-                        >
-                          {saving ? (
-                            <ActivityIndicator color="#0F172A" size="small" />
-                          ) : (
-                            <>
-                              <Check size={20} color="#0F172A" />
-                              <Text style={styles.saveToDiaryBtnText}>
-                                Registrar {scannedProduct.name} en mis Macros
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
+                          {/* 2. Añadir e ir al plato */}
+                          <TouchableOpacity
+                            style={styles.addAndReviewBtn}
+                            onPress={() => addLabelProductToPlate(true)}
+                          >
+                            <Utensils size={16} color="#38BDF8" />
+                            <Text style={styles.addAndReviewBtnText}>
+                              Añadir y ver plato ({plateItems.length + 1} alimentos)
+                            </Text>
+                          </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={styles.retakeFullBtn}
-                          onPress={() => {
-                            setScannedProduct(null)
-                            setLabelAudit(null)
-                          }}
-                        >
-                          <RotateCcw size={15} color="#94A3B8" />
-                          <Text style={styles.retakeFullBtnText}>Escanear otra etiqueta</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* ================================================= */}
-              {/* MODO 3: CÓDIGO DE BARRAS */}
-              {/* ================================================= */}
-              {activeMode === 'barcode' && (
-                <View>
-                  <View style={styles.barcodeInputCard}>
-                    <Barcode size={36} color="#38BDF8" style={{ marginBottom: 8 }} />
-                    <Text style={styles.barcodeInputTitle}>Escanear Código de Barras</Text>
-                    <Text style={styles.barcodeInputSub}>
-                      Apunta con la cámara, sube una foto o escribe el número para consultar la base de datos oficial.
-                    </Text>
-
-                    {/* Botones de Cámara y Galería para Código de Barras */}
-                    <View style={[styles.actionButtonsRow, { marginBottom: 16 }]}>
-                      <TouchableOpacity
-                        style={styles.primaryActionBtn}
-                        onPress={() => pickImageForBarcode(true)}
-                      >
-                        <Camera size={18} color="#0F172A" />
-                        <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.secondaryActionBtn}
-                        onPress={() => pickImageForBarcode(false)}
-                      >
-                        <GalleryIcon size={18} color="#38BDF8" />
-                        <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={[styles.barcodeInputSub, { marginBottom: 8, fontSize: 11 }]}>
-                      O introduce los dígitos manualmente:
-                    </Text>
-
-                    <View style={styles.barcodeSearchRow}>
-                      <TextInput
-                        style={styles.barcodeField}
-                        placeholder="Ej. 8410128795603"
-                        placeholderTextColor="#64748B"
-                        keyboardType="numeric"
-                        value={barcodeInput}
-                        onChangeText={setBarcodeInput}
-                        onSubmitEditing={() => handleBarcodeLookup()}
-                      />
-                      <TouchableOpacity
-                        style={styles.barcodeSearchBtn}
-                        onPress={() => handleBarcodeLookup()}
-                      >
-                        <ChevronRight size={20} color="#0F172A" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {barcodeProduct && (
-                    <View style={styles.productCard}>
-                      <Text style={styles.productName}>{barcodeProduct.name}</Text>
-                      {barcodeProduct.brand && (
-                        <Text style={styles.productBrand}>Marca: {barcodeProduct.brand}</Text>
-                      )}
-
-                      {/* Selector de Porción */}
-                      <View style={styles.portionSelectorRow}>
-                        <Text style={styles.portionLabel}>Porción:</Text>
-                        <View style={styles.portionInputContainer}>
-                          <TextInput
-                            style={styles.portionInput}
-                            keyboardType="numeric"
-                            value={barcodePortionG}
-                            onChangeText={setBarcodePortionG}
-                          />
-                          <Text style={styles.portionUnit}>g</Text>
+                          {/* 3. Guardar solo este alimento */}
+                          <TouchableOpacity
+                            style={styles.saveSingleBtn}
+                            onPress={handleConfirmSave}
+                            disabled={saving}
+                          >
+                            {saving ? (
+                              <ActivityIndicator color="#94A3B8" size="small" />
+                            ) : (
+                              <>
+                                <Check size={16} color="#94A3B8" />
+                                <Text style={styles.saveSingleBtnText}>
+                                  Guardar solo este alimento directamente
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
                         </View>
                       </View>
-
-                      {/* Macros */}
-                      {(() => {
-                        const portion = parseFloat(barcodePortionG) || 100
-                        const ratio = portion / 100
-                        return (
-                          <View>
-                            <View style={styles.macrosGrid}>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {Math.round(barcodeProduct.calories * ratio)}
-                                </Text>
-                                <Text style={styles.macroCellLabel}>kcal</Text>
-                              </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(barcodeProduct.protein * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Proteína</Text>
-                              </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(barcodeProduct.carbs * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Carbos</Text>
-                              </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(barcodeProduct.fat * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Grasas</Text>
-                              </View>
-                            </View>
-
-                            {/* Sub-Macros */}
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                              {typeof barcodeProduct.sugars === 'number' && (
-                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                    Azúcares: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.sugars * ratio).toFixed(1)}g</Text>
-                                  </Text>
-                                </View>
-                              )}
-                              {typeof barcodeProduct.saturatedFat === 'number' && (
-                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                    Sat: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saturatedFat * ratio).toFixed(1)}g</Text>
-                                  </Text>
-                                </View>
-                              )}
-                              {typeof barcodeProduct.saltG === 'number' && barcodeProduct.saltG > 0 && (
-                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
-                                    Sal: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saltG * ratio).toFixed(2)}g</Text>
-                                  </Text>
-                                </View>
-                              )}
-                              {barcodeProduct.barcode && (
-                                <View style={{ backgroundColor: '#0284C720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#0284C750' }}>
-                                  <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600' }}>
-                                    EAN: {barcodeProduct.barcode}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                        )
-                      })()}
-
-                      {/* Botón Guardar en Diario */}
-                      <TouchableOpacity
-                        style={styles.saveToDiaryBtn}
-                        onPress={handleConfirmSave}
-                        disabled={saving}
-                      >
-                        {saving ? (
-                          <ActivityIndicator color="#0F172A" size="small" />
-                        ) : (
-                          <>
-                            <Check size={20} color="#0F172A" />
-                            <Text style={styles.saveToDiaryBtnText}>
-                              Registrar {barcodeProduct.name} en mis Macros
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.retakeFullBtn}
-                        onPress={() => {
-                          setBarcodeProduct(null)
-                          setBarcodeInput('')
-                        }}
-                      >
-                        <RotateCcw size={15} color="#94A3B8" />
-                        <Text style={styles.retakeFullBtnText}>Buscar otro producto</Text>
-                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -1012,12 +1272,12 @@ export default function SmartFoodScannerModal({
                   <Mic size={32} color="#38BDF8" style={{ marginBottom: 8 }} />
                   <Text style={styles.naturalTitle}>Dictado o Texto Libre</Text>
                   <Text style={styles.naturalSub}>
-                    Escribe o dicta todo lo que comiste en lenguaje natural.
+                    Escribe o dicta todo lo que comiste en lenguaje natural. Los alimentos se añadirán a tu {mealName}.
                   </Text>
 
                   <TextInput
                     style={styles.naturalTextArea}
-                    placeholder="Ej. Me comí 150g de pechuga a la plancha, 200g de arroz basmati y una manzana mediana"
+                    placeholder="Ej. 150g de pechuga a la plancha, 200g de arroz basmati y 10g de aceite de oliva"
                     placeholderTextColor="#64748B"
                     multiline
                     numberOfLines={4}
@@ -1027,7 +1287,7 @@ export default function SmartFoodScannerModal({
 
                   <TouchableOpacity style={styles.primaryActionBtn} onPress={handleNaturalParse}>
                     <Sparkles size={18} color="#0F172A" />
-                    <Text style={styles.primaryActionBtnText}>Analizar con IA (~300ms)</Text>
+                    <Text style={styles.primaryActionBtnText}>Desglosar y Añadir a {mealName}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1035,10 +1295,8 @@ export default function SmartFoodScannerModal({
           )}
         </ScrollView>
 
-        {/* Footer con Botón de Confirmación */}
-        {((activeMode === 'plate' && plateItems.length > 0) ||
-          (activeMode === 'label' && scannedProduct) ||
-          (activeMode === 'barcode' && barcodeProduct)) && (
+        {/* Footer con Botón de Confirmación Principal */}
+        {plateItems.length > 0 && activeMode === 'plate' && (
           <View style={styles.footer}>
             <TouchableOpacity
               style={styles.saveMainBtn}
@@ -1051,7 +1309,7 @@ export default function SmartFoodScannerModal({
                 <>
                   <Check size={20} color="#0F172A" />
                   <Text style={styles.saveMainBtnText}>
-                    Guardar en {mealType.toUpperCase()}
+                    Guardar {mealName} ({plateItems.length} {plateItems.length === 1 ? 'alimento' : 'alimentos'} · {totalPlateCals} kcal)
                   </Text>
                 </>
               )}
@@ -1103,6 +1361,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  toastContainer: {
+    backgroundColor: '#0284C7',
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  traySummaryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0B2238',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0284C740',
+  },
+  trayBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trayBannerTitle: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  trayBannerCals: {
+    color: '#FB923C',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trayBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trayBannerAction: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   modeTabs: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -1122,6 +1427,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
     borderWidth: 1,
     borderColor: '#1E293B',
+    position: 'relative',
   },
   tabBtnActive: {
     backgroundColor: '#0B2238',
@@ -1136,21 +1442,17 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontWeight: '700',
   },
-  metricsBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#064E3B20',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#10B98130',
+  tabBadge: {
+    backgroundColor: '#38BDF8',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: -2,
   },
-  metricsText: {
-    color: '#34D399',
-    fontSize: 11,
-    fontWeight: '600',
+  tabBadgeText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '800',
   },
   scrollContent: {
     flex: 1,
@@ -1195,7 +1497,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -1234,6 +1536,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  shortcutsBox: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    width: '100%',
+    alignItems: 'center',
+  },
+  shortcutsTitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  shortcutsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  shortcutBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  shortcutBtnText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   previewImage: {
     width: '100%',
     height: 180,
@@ -1244,7 +1582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   plateTitle: {
     color: '#F8FAFC',
@@ -1260,15 +1598,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#7F1D1D20',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EF444430',
   },
   retakeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  addMoreRow: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  addMorePrompt: {
     color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  addMoreButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  addMoreBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#1E293B',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  addMoreBtnText: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '700',
   },
   foodItemCard: {
     backgroundColor: '#0F172A',
@@ -1397,6 +1771,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1E293B',
   },
+  productBadgeDetected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: '#064E3B30',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  productBadgeDetectedText: {
+    color: '#34D399',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   productTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1515,6 +1905,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  compositeActionsContainer: {
+    marginTop: 16,
+    gap: 10,
+  },
+  addAndContinueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  addAndContinueBtnText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  addAndReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0B2238',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#0284C7',
+  },
+  addAndReviewBtnText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  saveSingleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1E293B',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  saveSingleBtnText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   barcodeInputCard: {
     backgroundColor: '#0F172A',
     borderRadius: 18,
@@ -1534,6 +1972,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginBottom: 16,
+    textAlign: 'center',
   },
   barcodeSearchRow: {
     flexDirection: 'row',
@@ -1608,51 +2047,5 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 15,
     fontWeight: '800',
-  },
-  demoPresetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#38BDF840',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    marginTop: 12,
-  },
-  demoPresetText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  saveToDiaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 13,
-    borderRadius: 12,
-    marginTop: 14,
-  },
-  saveToDiaryBtnText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  retakeFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  retakeFullBtnText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
   },
 })

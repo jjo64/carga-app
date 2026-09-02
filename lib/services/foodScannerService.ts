@@ -1,55 +1,29 @@
 import { supabase } from '@/lib/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { aiService } from './ai'
-import { FoodPlateItem, NutritionalLabelResult, MicronutrientItem } from './ai/types'
+import { FoodPlateItem, NutritionalLabelResult, MicronutrientItem, NaturalMealItem } from './ai/types'
 import { callAnthropicApi, extractAndParseJson } from './ai/client'
 import { optimizeImageForVision } from './ai/imageOptimizer'
 
-export interface FoodProduct {
-  id: string
-  barcode?: string | null
-  name: string
-  brand?: string | null
-  servingSizeG: number
-  servingName: string
-  calories: number // ¡Siempre en kcal!
-  energyKj?: number
-  protein: number
-  carbs: number
-  fat: number
-  sugars?: number
-  saturatedFat?: number
-  saltG?: number
-  fiber?: number
-  sodiumMg?: number
-  micronutrients?: MicronutrientItem[]
-  ingredients?: string[]
-  ultraProcessedScore?: number // 1 (Limpio) a 10 (Ultraprocesado)
-  dataSource: 'verified' | 'openfoodfacts' | 'ai_scan' | 'user'
-  sourceLabel?: string
+import {
+  FoodProduct,
+  KJ_TO_KCAL,
+  validateMacroThermodynamics,
+  sanitizeNutritionalLabelValues,
+  searchOpenFoodFactsByName,
+  enrichNaturalMealWithOpenFoodFacts,
+} from './nutritionUtils'
+
+export {
+  FoodProduct,
+  KJ_TO_KCAL,
+  validateMacroThermodynamics,
+  sanitizeNutritionalLabelValues,
+  searchOpenFoodFactsByName,
+  enrichNaturalMealWithOpenFoodFacts,
 }
 
 const LOCAL_PRODUCTS_CACHE_KEY = '@carga_cached_food_products'
-
-/**
- * Valida la consistencia termodinámica de los macros:
- * (Proteína * 4) + (Carbohidratos * 4) + (Grasas * 9) ≈ Calorías
- */
-export function validateMacroThermodynamics(calories: number, protein: number, carbs: number, fat: number): {
-  isValid: boolean
-  calculatedCalories: number
-  differencePercent: number
-} {
-  const calculated = protein * 4 + carbs * 4 + fat * 9
-  if (calories <= 0) return { isValid: true, calculatedCalories: calculated, differencePercent: 0 }
-  const diff = Math.abs(calculated - calories)
-  const diffPercent = (diff / calories) * 100
-  return {
-    isValid: diffPercent <= 20, // Tolerancia del 20%
-    calculatedCalories: Math.round(calculated),
-    differencePercent: Math.round(diffPercent),
-  }
-}
 
 /**
  * Servicio en Cascada de 3 Niveles para Alimentos y Productos Nutricionales
@@ -91,7 +65,7 @@ export const foodScannerService = {
         system: [
           {
             type: 'text',
-            text: 'Eres un lector OCR de códigos de barras. Analiza la imagen y extrae ÚNICAMENTE la secuencia numérica del código de barras (generalmente 8 a 13 dígitos numéricos). Responde ÚNICAMENTE un objeto JSON con este esquema: {"barcode": "8410128795603"} o {"barcode": null} si no hay código de barras.',
+            text: 'Eres un lector OCR de códigos de barras. Analiza la imagen y extrae ÚNICAMENTE la secuencia numérica del código de barras (generalmente 8 a 13 dígitos numéricos) si es visible y legible con certeza. Si no hay código de barras visible o los números son ilegibles, responde {"barcode": null}. Responde ÚNICAMENTE un JSON válido.',
           },
         ],
         messages: [
@@ -108,7 +82,7 @@ export const foodScannerService = {
               },
               {
                 type: 'text',
-                text: 'Extrae los dígitos numéricos del código de barras.',
+                text: 'Extrae los dígitos numéricos del código de barras. Si no hay, devuelve barcode: null.',
               },
             ],
           },
@@ -141,18 +115,27 @@ export const foodScannerService = {
     latencyMs: number
   }> {
     const startTime = Date.now()
-    const cleanBarcode = barcode.trim()
+    const cleanBarcode = barcode.trim().replace(/\D/g, '')
+
+    if (!cleanBarcode || cleanBarcode.length < 5) {
+      return {
+        product: null,
+        source: 'not_found',
+        costUsd: 0,
+        latencyMs: 0,
+      }
+    }
 
     // 1. Buscar en caché local de AsyncStorage
     try {
       const localRaw = await AsyncStorage.getItem(LOCAL_PRODUCTS_CACHE_KEY)
       if (localRaw) {
         const localList: FoodProduct[] = JSON.parse(localRaw)
-        const match = localList.find((p) => p.barcode === cleanBarcode)
-        if (match) {
+        const match = localList.find((p) => p.barcode === cleanBarcode && p.dataSource !== 'ai_scan')
+        if (match && match.name && !match.name.toLowerCase().includes('sin nombre')) {
           return {
             product: match,
-            source: 'supabase_db',
+            source: match.dataSource === 'verified' ? 'supabase_db' : 'openfoodfacts',
             costUsd: 0,
             latencyMs: Date.now() - startTime,
           }
@@ -168,9 +151,10 @@ export const foodScannerService = {
         .from('food_products')
         .select('*')
         .eq('barcode', cleanBarcode)
+        .neq('data_source', 'ai_scan')
         .maybeSingle()
 
-      if (dbProduct && !error) {
+      if (dbProduct && !error && dbProduct.name) {
         const product: FoodProduct = {
           id: dbProduct.id,
           barcode: dbProduct.barcode,
@@ -183,6 +167,8 @@ export const foodScannerService = {
           carbs: Number(dbProduct.carbs) || 0,
           fat: Number(dbProduct.fat) || 0,
           sugars: Number(dbProduct.sugars) || 0,
+          saturatedFat: typeof dbProduct.saturated_fat === 'number' ? dbProduct.saturated_fat : undefined,
+          saltG: typeof dbProduct.salt_g === 'number' ? dbProduct.salt_g : undefined,
           fiber: Number(dbProduct.fiber) || 0,
           sodiumMg: Number(dbProduct.sodium_mg) || 0,
           ingredients: dbProduct.ingredients || [],
@@ -201,13 +187,13 @@ export const foodScannerService = {
         }
       }
     } catch {
-      // Supabase no configurado o tabla pendiente, continuar a OpenFoodFacts
+      // Supabase no configurado, continuar a OpenFoodFacts
     }
 
-    // 3. Consultar Open Food Facts API v2 (Nivel 2 - Optimizada con fields, lc y cc)
+    // 3. Consultar Open Food Facts API v2
     try {
       const fields =
-        'code,product_name,product_name_es,brands,nutriments,serving_size,serving_quantity,ingredients_text_es,ingredients_text,nova_group,image_front_url'
+        'code,product_name,product_name_es,generic_name,generic_name_es,brands,brand_owner,nutriments,serving_size,serving_quantity,ingredients_text_es,ingredients_text,nova_group,image_front_url'
       const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(cleanBarcode)}.json?fields=${fields}&lc=es&cc=es`
 
       const offResponse = await fetch(url, {
@@ -222,19 +208,36 @@ export const foodScannerService = {
           const p = json.product
           const nutriments = p.nutriments || {}
 
-          const calories =
-            Math.round(
-              nutriments['energy-kcal_100g'] ||
-                (nutriments['energy-kj_100g'] ? nutriments['energy-kj_100g'] / 4.184 : 0) ||
-                nutriments.calories ||
-                0
-            ) || 0
-          const protein = Number((nutriments.proteins_100g || nutriments.proteins || 0).toFixed(1))
-          const carbs = Number((nutriments.carbohydrates_100g || nutriments.carbohydrates || 0).toFixed(1))
-          const fat = Number((nutriments.fat_100g || nutriments.fat || 0).toFixed(1))
-          const sugars = Number((nutriments.sugars_100g || nutriments.sugars || 0).toFixed(1))
-          const fiber = Number((nutriments.fiber_100g || nutriments.fiber || 0).toFixed(1))
-          const sodiumMg = Math.round((nutriments.sodium_100g || 0) * 1000)
+          let rawKcal =
+            nutriments['energy-kcal_100g'] ??
+            nutriments['energy-kcal_value'] ??
+            nutriments['energy-kcal'] ??
+            (nutriments['energy-kj_100g'] ? nutriments['energy-kj_100g'] / KJ_TO_KCAL : undefined) ??
+            (nutriments['energy_100g'] && nutriments['energy_unit'] === 'kJ' ? nutriments['energy_100g'] / KJ_TO_KCAL : undefined) ??
+            nutriments.calories ??
+            0
+
+          const calories = Math.round(Number(rawKcal) || 0)
+          const energyKj = Math.round(
+            nutriments['energy-kj_100g'] ??
+              nutriments['energy-kj_value'] ??
+              nutriments['energy-kj'] ??
+              (calories * KJ_TO_KCAL)
+          )
+
+          const protein = Number((nutriments.proteins_100g ?? nutriments.proteins_value ?? nutriments.proteins ?? 0).toFixed(1))
+          const carbs = Number((nutriments.carbohydrates_100g ?? nutriments.carbohydrates_value ?? nutriments.carbohydrates ?? 0).toFixed(1))
+          const fat = Number((nutriments.fat_100g ?? nutriments.fat_value ?? nutriments.fat ?? 0).toFixed(1))
+          const sugars = Number((nutriments.sugars_100g ?? nutriments.sugars_value ?? nutriments.sugars ?? 0).toFixed(1))
+          const saturatedFat = Number((nutriments['saturated-fat_100g'] ?? nutriments['saturated-fat_value'] ?? nutriments['saturated-fat'] ?? 0).toFixed(1))
+          const saltG = Number((nutriments.salt_100g ?? nutriments.salt_value ?? nutriments.salt ?? 0).toFixed(2))
+          const fiber = Number((nutriments.fiber_100g ?? nutriments.fiber_value ?? nutriments.fiber ?? 0).toFixed(1))
+          const sodiumMg = Math.round(
+            (nutriments.sodium_100g ?? (nutriments.salt_100g ? nutriments.salt_100g / 2.5 : 0)) * 1000
+          )
+
+          const parsedServingQuantity = Number(p.serving_quantity) || parseFloat(String(p.serving_size || '').replace(',', '.')) || 100
+          const parsedServingName = p.serving_size ? String(p.serving_size) : `${parsedServingQuantity}g`
 
           const ingredients = p.ingredients_text_es
             ? p.ingredients_text_es.split(',').map((s: string) => s.trim())
@@ -242,28 +245,38 @@ export const foodScannerService = {
             ? p.ingredients_text.split(',').map((s: string) => s.trim())
             : []
 
+          const productName =
+            p.product_name_es ||
+            p.product_name ||
+            p.generic_name_es ||
+            p.generic_name ||
+            'Producto sin nombre'
+
+          const brand = p.brands || p.brand_owner || null
+
           const product: FoodProduct = {
             id: `off-${cleanBarcode}`,
             barcode: cleanBarcode,
-            name: p.product_name_es || p.product_name || 'Producto sin nombre',
-            brand: p.brands || null,
-            servingSizeG: p.serving_quantity ? Number(p.serving_quantity) : 100,
-            servingName: p.serving_size || '100g',
+            name: productName,
+            brand,
+            servingSizeG: parsedServingQuantity,
+            servingName: parsedServingName,
             calories,
+            energyKj,
             protein,
             carbs,
             fat,
             sugars,
+            saturatedFat,
+            saltG,
             fiber,
             sodiumMg,
             ingredients,
             ultraProcessedScore: p.nova_group || 2,
             dataSource: 'openfoodfacts',
-            sourceLabel: 'Open Food Facts (Global)',
+            sourceLabel: 'Open Food Facts (Oficial)',
           }
 
-          // Auto-poblado en nuestra base de datos (Background sync)
-          foodScannerService.persistProductToDatabase(product).catch(() => {})
           await foodScannerService.saveToLocalCache(product)
 
           return {
@@ -288,6 +301,7 @@ export const foodScannerService = {
 
   // =========================================================================
   // NIVEL 3: Escaneo de Tabla Nutricional / OCR con IA (Claude 3.5 Sonnet)
+  // Con auditoría programática post-parse de kJ/kcal y consistencia Atwater
   // =========================================================================
   async scanLabelWithAi(
     imageUriOrBase64: string,
@@ -298,48 +312,53 @@ export const foodScannerService = {
     costUsd: number
     latencyMs: number
   }> {
-    const { data: aiResult, metrics } = await aiService.scanNutritionLabel(imageUriOrBase64)
+    const { data: rawAiResult, metrics } = await aiService.scanNutritionLabel(imageUriOrBase64)
+    const aiResult = sanitizeNutritionalLabelValues(rawAiResult)
     const detectedBarcode = optionalBarcode || aiResult.barcode || null
 
     let finalName = aiResult.productName || 'Producto Escaneado por IA'
     let finalBrand = aiResult.brand || null
-    let finalCalories = aiResult.per100g.calories
-    let finalProtein = aiResult.per100g.protein
-    let finalCarbs = aiResult.per100g.carbs
-    let finalFat = aiResult.per100g.fat
-    let finalSugars = aiResult.per100g.sugars || 0
-    let finalSaturatedFat = aiResult.per100g.saturatedFat || 0
-    let finalSaltG = aiResult.per100g.saltG || 0
+    let finalCalories = aiResult.per100g?.calories ?? 0
+    let finalProtein = aiResult.per100g?.protein ?? 0
+    let finalCarbs = aiResult.per100g?.carbs ?? 0
+    let finalFat = aiResult.per100g?.fat ?? 0
+    let finalSugars = aiResult.per100g?.sugars ?? 0
+    let finalSaturatedFat = aiResult.per100g?.saturatedFat ?? 0
+    let finalSaltG = aiResult.per100g?.saltG ?? 0
     let finalServingSizeG = aiResult.packageServingSizeG || 100
-    let finalServingName = aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}ml/g` : '100g')
+    let finalServingName = aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}g` : '100g')
+    let isCorroboratedWithApi = false
+    let officialProduct: FoodProduct | null = null
 
-    // Si se detectó un código de barras (EAN), consultamos la base de datos oficial para obtener datos certificados
+    // CORROBORACIÓN: Si se detectó un código de barras (EAN), corroboramos con la API oficial
     if (detectedBarcode) {
       try {
         const officialLookup = await foodScannerService.lookupByBarcode(detectedBarcode)
         if (officialLookup?.product) {
-          const off = officialLookup.product
-          if (off.name && !off.name.toLowerCase().includes('sin nombre')) {
-            finalName = off.name
+          officialProduct = officialLookup.product
+          isCorroboratedWithApi = true
+
+          if (officialProduct.name && !officialProduct.name.toLowerCase().includes('sin nombre')) {
+            finalName = officialProduct.name
           }
-          if (off.brand) {
-            finalBrand = off.brand
+          if (officialProduct.brand) {
+            finalBrand = officialProduct.brand
           }
-          // Si la base de datos oficial tiene los macros certificados por el fabricante, integrarlos para 100% de exactitud
-          if (off.calories > 0 && off.protein > 0) {
-            finalCalories = off.calories
-            finalProtein = off.protein
-            finalCarbs = off.carbs
-            finalFat = off.fat
-            if (typeof off.sugars === 'number') finalSugars = off.sugars
-            if (typeof off.saturatedFat === 'number') finalSaturatedFat = off.saturatedFat
-            if (typeof off.saltG === 'number') finalSaltG = off.saltG
-            if (off.servingSizeG > 0) finalServingSizeG = off.servingSizeG
-            if (off.servingName) finalServingName = off.servingName
+
+          if (officialProduct.calories > 0 || officialProduct.protein > 0 || officialProduct.carbs > 0) {
+            finalCalories = officialProduct.calories
+            finalProtein = officialProduct.protein
+            finalCarbs = officialProduct.carbs
+            finalFat = officialProduct.fat
+            if (typeof officialProduct.sugars === 'number') finalSugars = officialProduct.sugars
+            if (typeof officialProduct.saturatedFat === 'number') finalSaturatedFat = officialProduct.saturatedFat
+            if (typeof officialProduct.saltG === 'number') finalSaltG = officialProduct.saltG
+            if (officialProduct.servingSizeG > 0) finalServingSizeG = officialProduct.servingSizeG
+            if (officialProduct.servingName) finalServingName = officialProduct.servingName
           }
         }
       } catch (e) {
-        console.warn('[FoodScanner] Error al auto-completar desde código de barras:', e)
+        console.warn('[FoodScanner] Error al corroborar desde código de barras:', e)
       }
     }
 
@@ -351,27 +370,21 @@ export const foodScannerService = {
       servingSizeG: finalServingSizeG,
       servingName: finalServingName,
       calories: finalCalories,
-      energyKj: aiResult.per100g.energyKj,
+      energyKj: aiResult.per100g?.energyKj || Math.round(finalCalories * KJ_TO_KCAL),
       protein: finalProtein,
       carbs: finalCarbs,
       fat: finalFat,
       sugars: finalSugars,
       saturatedFat: finalSaturatedFat,
       saltG: finalSaltG,
-      fiber: aiResult.per100g.fiber || 0,
-      sodiumMg: aiResult.per100g.sodiumMg || 0,
+      fiber: aiResult.per100g?.fiber || 0,
+      sodiumMg: aiResult.per100g?.sodiumMg || 0,
       micronutrients: aiResult.micronutrients || [],
-      ingredients: aiResult.ingredientsList || [],
+      ingredients: (isCorroboratedWithApi && officialProduct?.ingredients?.length) ? officialProduct.ingredients : (aiResult.ingredientsList || []),
       ultraProcessedScore: aiResult.ultraProcessedScore || 3,
-      dataSource: 'ai_scan',
-      sourceLabel: 'Escaneo IA',
+      dataSource: isCorroboratedWithApi ? 'openfoodfacts' : 'ai_scan',
+      sourceLabel: isCorroboratedWithApi ? 'Corroborado con API Oficial' : 'Lector OCR de Etiqueta (IA Auditado)',
     }
-
-    // Si tiene código de barras, lo guardamos para que el próximo usuario lo tenga a $0
-    if (optionalBarcode) {
-      foodScannerService.persistProductToDatabase(product).catch(() => {})
-    }
-    await foodScannerService.saveToLocalCache(product)
 
     return {
       product,
@@ -409,9 +422,11 @@ export const foodScannerService = {
   },
 
   // =========================================================================
-  // Persistencia y Auto-Poblado en Supabase y Caché Local
+  // Persistencia y Caché Local Seguro
   // =========================================================================
   async persistProductToDatabase(product: FoodProduct): Promise<void> {
+    if (product.dataSource === 'ai_scan') return
+
     try {
       const { error } = await supabase.from('food_products').upsert(
         {
@@ -425,6 +440,8 @@ export const foodScannerService = {
           carbs: product.carbs,
           fat: product.fat,
           sugars: product.sugars || 0,
+          saturated_fat: product.saturatedFat || 0,
+          salt_g: product.saltG || 0,
           fiber: product.fiber || 0,
           sodium_mg: product.sodiumMg || 0,
           ingredients: product.ingredients || [],
@@ -435,25 +452,48 @@ export const foodScannerService = {
       )
 
       if (error) {
-        // Puede fallar si la tabla en Supabase no existe aún
+        // Silencioso
       }
     } catch {
-      // Continuar silenciosamente
+      // Silencioso
     }
   },
 
   async saveToLocalCache(product: FoodProduct): Promise<void> {
+    if (product.dataSource === 'ai_scan') return
+
     try {
       const raw = await AsyncStorage.getItem(LOCAL_PRODUCTS_CACHE_KEY)
-      const list: FoodProduct[] = raw ? JSON.parse(raw) : []
-      const index = list.findIndex((p) => (product.barcode && p.barcode === product.barcode) || p.id === product.id)
-      if (index >= 0) {
-        list[index] = product
-      } else {
-        list.unshift(product)
+      let list: FoodProduct[] = raw ? JSON.parse(raw) : []
+      list = list.filter((p) => p.dataSource !== 'ai_scan')
+
+      // Versión ligera (omitir micronutrientes pesados y recortar ingredientes para mantener AsyncStorage ultraligero <50KB)
+      const leanProduct: FoodProduct = {
+        ...product,
+        micronutrients: undefined,
+        ingredients: product.ingredients ? product.ingredients.slice(0, 10) : [],
       }
-      // Limitar a los 100 productos más recientes en cliente
-      await AsyncStorage.setItem(LOCAL_PRODUCTS_CACHE_KEY, JSON.stringify(list.slice(0, 100)))
+
+      const index = list.findIndex((p) => (leanProduct.barcode && p.barcode === leanProduct.barcode) || p.id === leanProduct.id)
+      if (index >= 0) {
+        list[index] = leanProduct
+      } else {
+        list.unshift(leanProduct)
+      }
+      await AsyncStorage.setItem(LOCAL_PRODUCTS_CACHE_KEY, JSON.stringify(list.slice(0, 50)))
+    } catch {
+      // Ignorar
+    }
+  },
+
+  async clearCorruptedCache(): Promise<void> {
+    try {
+      const raw = await AsyncStorage.getItem(LOCAL_PRODUCTS_CACHE_KEY)
+      if (raw) {
+        const list: FoodProduct[] = JSON.parse(raw)
+        const cleanList = list.filter((p) => p.dataSource === 'openfoodfacts' || p.dataSource === 'verified')
+        await AsyncStorage.setItem(LOCAL_PRODUCTS_CACHE_KEY, JSON.stringify(cleanList))
+      }
     } catch {
       // Ignorar
     }

@@ -85,16 +85,32 @@ export interface SessionSet {
   notes?: string | null
 }
 
+export interface FoodMicronutrient {
+  name: string
+  amount?: string
+  amountPer100g?: string
+  amountPerServing?: string
+  vrnPercent?: number
+}
+
 export interface FoodItemParsed {
   name: string
   brand?: string | null
   quantity_g: number
+  unit_or_portion?: string | null
   calories: number
   protein_g: number
   carbs_g: number
   fat_g: number
   confidence: 'high' | 'medium' | 'low'
   notes?: string
+  sugars_g?: number
+  saturated_fat_g?: number
+  salt_g?: number
+  sodium_mg?: number
+  fiber_g?: number
+  micronutrients?: FoodMicronutrient[]
+  ultraProcessedScore?: number
 }
 
 export interface FoodLog {
@@ -123,3 +139,31 @@ export interface DailySummary {
   meal_count: number
   calories_burned: number
 }
+
+export interface NutritionDayStats {
+  date: string
+  calories: number
+  targetCalories: number
+  caloriesDiff: number // > 0 superávit, < 0 déficit
+  protein: number
+  targetProtein: number
+  proteinDiff: number
+  carbs: number
+  targetCarbs: number
+  carbsDiff: number
+  fat: number
+  targetFat: number
+  fatDiff: number
+  mealCount: number
+  status: 'optimal' | 'surplus' | 'deficit' | 'warning'
+  healthMetrics: {
+    sugarsG: number
+    saturatedFatG: number
+    saltG: number
+    sodiumMg: number
+    fiberG: number
+    ultraProcessedRatio: number // 0% a 100%
+    micronutrientsMap: Record<string, { name: string; amount: number; unit: string; vrnPercent: number }>
+  }
+}
+
