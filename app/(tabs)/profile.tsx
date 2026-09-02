@@ -12,7 +12,9 @@ import {
   Alert,
   Share,
   Switch,
+  Image,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter } from 'expo-router'
 import {
@@ -50,6 +52,7 @@ import {
   Layers,
   SlidersHorizontal,
   ArrowLeft,
+  Camera,
 } from 'lucide-react-native'
 import Svg, { Circle, Rect, Path } from 'react-native-svg'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -57,12 +60,13 @@ import { useTheme } from '@/lib/theme'
 import { useLanguage, SUPPORTED_LANGUAGES } from '@/lib/i18n'
 import { getSeniorityBadge } from '@/constants/fitnessData'
 import { Goal, Gender, ActivityLevel } from '@/types'
-import { useWorkoutHistory, UserWorkoutHistoryItem, useRoutines } from '@/lib/hooks/useWorkout'
+import { useWorkoutHistory, UserWorkoutHistoryItem, useRoutines, calculateStreak } from '@/lib/hooks/useWorkout'
 import { useBodyMeasurements, BodyMeasurementEntry } from '@/lib/hooks/useBodyMeasurements'
 import { exportAllAppData, importAppData } from '@/lib/utils/exportImport'
 import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
 import ExerciseProgressView from '@/components/workout/ExerciseProgressView'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
+import { supabase } from '@/lib/supabase'
 
 type ProfileTab = 'stats' | 'measures'
 type SettingsSection = 'profile' | 'account' | 'notifications' | 'preferences'
@@ -145,15 +149,25 @@ export default function ProfileScreen() {
   const [firstDayOfWeek, setFirstDayOfWeek] = useState<FirstDayOfWeek>('monday')
 
   // Form State inside Profile Settings
-  const [name, setName] = useState(profile?.name || 'Alejandro')
-  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() || '179')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null)
+  const [name, setName] = useState(profile?.name || 'Usuario')
+  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() || '175')
   const [birthDate, setBirthDate] = useState(profile?.birth_date || '1998-01-01')
-  const [weightKg, setWeightKg] = useState('82')
+  const [weightKg, setWeightKg] = useState(
+    profile?.initial_weight_kg?.toString() ||
+    profile?.weight_kg?.toString() ||
+    latestMeasurement?.weightKg?.toString() ||
+    '70'
+  )
   const [gender, setGender] = useState<Gender>(profile?.gender || 'male')
   const [goal, setGoal] = useState<Goal>(profile?.goal || 'muscle_gain')
+  const [showBirthDatePickerModal, setShowBirthDatePickerModal] = useState(false)
+  const [tempBirthYear, setTempBirthYear] = useState(1998)
+  const [tempBirthMonth, setTempBirthMonth] = useState(1)
+  const [tempBirthDay, setTempBirthDay] = useState(1)
 
   // Account Security state
-  const [newUsername, setNewUsername] = useState(profile?.name || 'Alejandro')
+  const [newUsername, setNewUsername] = useState(profile?.name || 'Usuario')
   const [newEmail, setNewEmail] = useState(user?.email || '')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -202,7 +216,7 @@ export default function ProfileScreen() {
 
   // New Measurement Form State
   const [newMeasureDate, setNewMeasureDate] = useState(new Date().toISOString().split('T')[0])
-  const [newWeight, setNewWeight] = useState(latestMeasurement?.weightKg?.toString() || '82')
+  const [newWeight, setNewWeight] = useState(latestMeasurement?.weightKg?.toString() || '70')
   const [newChest, setNewChest] = useState(latestMeasurement?.chestCm?.toString() || '104')
   const [newWaist, setNewWaist] = useState(latestMeasurement?.waistCm?.toString() || '84')
   const [newHips, setNewHips] = useState(latestMeasurement?.hipsCm?.toString() || '99')
@@ -212,8 +226,11 @@ export default function ProfileScreen() {
   const [newNeck, setNewNeck] = useState(latestMeasurement?.neckCm?.toString() || '39')
   const [newMeasureNotes, setNewMeasureNotes] = useState('')
 
-  const displayName = profile?.name || name || 'Alejandro'
+  const displayName = profile?.name || name || 'Usuario'
   const badge = getSeniorityBadge(profile?.created_at || '2023-08-01')
+
+  const realStreakDays = useMemo(() => calculateStreak(history), [history])
+  const realStreakWeeks = Math.floor(realStreakDays / 7)
 
   useEffect(() => {
     async function loadFirstDaySetting() {
@@ -245,12 +262,44 @@ export default function ProfileScreen() {
         setName(profile.name)
         setNewUsername(profile.name)
       }
+      if (profile.avatar_url) setAvatarUrl(profile.avatar_url)
       if (profile.height_cm) setHeightCm(profile.height_cm.toString())
       if (profile.birth_date) setBirthDate(profile.birth_date)
+      if (profile.initial_weight_kg) setWeightKg(profile.initial_weight_kg.toString())
+      else if (profile.weight_kg) setWeightKg(profile.weight_kg.toString())
+      else if (latestMeasurement?.weightKg) setWeightKg(latestMeasurement.weightKg.toString())
       if (profile.gender) setGender(profile.gender)
       if (profile.goal) setGoal(profile.goal)
     }
-  }, [profile])
+  }, [profile, latestMeasurement])
+
+  const handlePickAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Se necesita acceso a la galería para cambiar tu foto de perfil.')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      })
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0]
+        const newUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        setAvatarUrl(newUri)
+        await updateProfile({ avatar_url: newUri })
+        Alert.alert('Éxito', 'Foto de perfil actualizada correctamente.')
+      }
+    } catch (err) {
+      console.log('Error picking avatar image:', err)
+    }
+  }
 
   // Dynamic activity level calculated according to completed workouts
   const workoutsCount = history.length
@@ -392,14 +441,33 @@ export default function ProfileScreen() {
     setSaving(true)
     setSaveSuccess(false)
 
+    const parsedHeight = parseInt(heightCm, 10) || 175
+    const parsedWeight = parseFloat(weightKg.replace(',', '.')) || null
+
     const { error } = await updateProfile({
       name: name.trim(),
       height_cm: parsedHeight,
       birth_date: birthDate,
+      initial_weight_kg: parsedWeight,
+      weight_kg: parsedWeight,
+      avatar_url: avatarUrl,
       gender,
       goal,
       activity_level: computedActivityLevel,
     })
+
+    if (user && parsedWeight) {
+      const todayStr = new Date().toISOString().split('T')[0]
+      try {
+        await supabase.from('body_weight').insert({
+          user_id: user.id,
+          date: todayStr,
+          weight_kg: parsedWeight,
+        })
+      } catch (e) {
+        console.log('Error inserting weight log:', e)
+      }
+    }
 
     setSaving(false)
     if (error) {
@@ -409,7 +477,7 @@ export default function ProfileScreen() {
       setTimeout(() => {
         setSaveSuccess(false)
         setShowSettingsModal(false)
-      }, 1200)
+      }, 1000)
     }
   }
 
@@ -465,8 +533,11 @@ export default function ProfileScreen() {
   // Share profile
   const handleShareProfile = async () => {
     try {
+      const totalVol = history.reduce((sum, w) => sum + (w.volumeKg || 0), 0)
+      const shareText = `🔥 ¡Echa un vistazo a mi perfil de entrenamiento en Carga App!\n👤 Usuario: ${displayName}\n💪 Entrenamientos completados: ${history.length}\n🔥 Racha activa: ${realStreakDays} días (${realStreakWeeks} sem)\n🏋️ Volumen total levantado: ${(totalVol / 1000).toFixed(1)} toneladas\n🎯 Objetivo actual: ${GOAL_OPTIONS.find((g) => g.value === goal)?.label || 'Hipertrofia'}\n\n¡Entrena al máximo con Carga App! ⚡`
       await Share.share({
-        message: `🔥 ¡Echa un vistazo a mi perfil de entrenamiento en FitAI!\n👤 Usuario: ${displayName}\n💪 Entrenamientos: ${history.length}\n🏋️ Volumen total: ${(totalVolumeAccumulated / 1000).toFixed(1)} toneladas`,
+        title: `Perfil de ${displayName}`,
+        message: shareText,
       })
     } catch (err) {
       console.log('Share error:', err)
@@ -480,7 +551,7 @@ export default function ProfileScreen() {
         .map((e) => `• ${e.sets} series de ${e.name}`)
         .join('\n')
 
-      const shareText = `⚡ Entrenamiento completado: ${workout.routineName}\n📅 Fecha: ${workout.dateLabel}\n⏱️ Duración: ${workout.durationFormatted}\n🏋️ Volumen: ${workout.volumeKg.toLocaleString('es-ES')} kg\n🥇 Récords: ${workout.recordsCount}\n\nEjercicios:\n${exerciseListText}\n\nRegistrado con FitAI 💪`
+      const shareText = `⚡ Entrenamiento completado: ${workout.routineName}\n📅 Fecha: ${workout.dateLabel}\n⏱️ Duración: ${workout.durationFormatted}\n🏋️ Volumen: ${workout.volumeKg.toLocaleString('es-ES')} kg\n🥇 Récords: ${workout.recordsCount}\n\nComposición de la rutina:\n${exerciseListText}\n\nRegistrado en Carga App 💪`
 
       await Share.share({
         title: `Entrenamiento - ${workout.routineName}`,
@@ -496,7 +567,7 @@ export default function ProfileScreen() {
     try {
       await Share.share({
         title: 'Resumen de Entrenamientos',
-        message: `📅 ¡He completado ${history.length} entrenamientos con FitAI! Racha activa de ${Math.max(1, Math.round(history.length / 3))} semanas. 💪`,
+        message: `📅 ¡He completado ${history.length} entrenamientos en Carga App! Racha activa de ${realStreakDays} días (${realStreakWeeks} semanas). 💪⚡`,
       })
     } catch (err) {
       console.log('Calendar share error:', err)
@@ -654,11 +725,22 @@ export default function ProfileScreen() {
         {/* ── Profile Section ── */}
         <View style={styles.profileHeroSection}>
           {/* Avatar circle */}
-          <View style={[styles.avatarCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.avatarInner, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
-              <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+          <TouchableOpacity
+            onPress={handlePickAvatar}
+            activeOpacity={0.8}
+            style={[styles.avatarCircle, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+            ) : (
+              <View style={[styles.avatarInner, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={styles.avatarEditBadge}>
+              <Camera size={12} color="#FFFFFF" />
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* Profile Name & 3-Column Stats */}
           <View style={styles.profileStatsCol}>
@@ -1059,7 +1141,9 @@ export default function ProfileScreen() {
             <View style={styles.calendarBannerBox}>
               <Flame size={15} color="#F59E0B" />
               <Text style={styles.calendarBannerText}>
-                Racha de {Math.max(1, Math.round(history.length / 3))} semanas
+                {realStreakDays > 0
+                  ? `Racha de ${realStreakDays} ${realStreakDays === 1 ? 'día' : 'días'}`
+                  : 'Sin racha activa'}
               </Text>
             </View>
             <View style={styles.calendarBannerBox}>
@@ -1646,6 +1730,26 @@ export default function ProfileScreen() {
                 <View style={[styles.settingsCardSection, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}>
                   <Text style={styles.settingsSectionTitle}>DATOS PERSONALES & FÍSICOS</Text>
 
+                  {/* Avatar Picker Row in Settings */}
+                  <View style={styles.settingsAvatarRow}>
+                    <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} style={styles.settingsAvatarCircle}>
+                      {avatarUrl ? (
+                        <Image source={{ uri: avatarUrl }} style={styles.settingsAvatarImg} />
+                      ) : (
+                        <View style={[styles.avatarInner, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                          <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={[styles.settingsAvatarLabel, { color: colors.text }]}>Foto de Perfil</Text>
+                      <TouchableOpacity onPress={handlePickAvatar} style={styles.changePhotoBtn}>
+                        <Camera size={13} color="#38BDF8" />
+                        <Text style={styles.changePhotoBtnText}>Cambiar foto</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
                   {/* Name Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>NOMBRE</Text>
@@ -1689,13 +1793,22 @@ export default function ProfileScreen() {
                   <View style={styles.threeInputsRow}>
                     <View style={{ flex: 1.2 }}>
                       <Text style={styles.inputLabel}>CUMPLEAÑOS</Text>
-                      <TextInput
-                        style={[styles.smallInput, { color: colors.text }]}
-                        value={birthDate}
-                        onChangeText={setBirthDate}
-                        placeholder="AAAA-MM-DD"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                      />
+                      <TouchableOpacity
+                        style={[styles.smallInput, styles.datePickerBtn, { borderColor: colors.border }]}
+                        onPress={() => {
+                          const parts = (birthDate || '1998-01-01').split('-')
+                          setTempBirthYear(parseInt(parts[0], 10) || 1998)
+                          setTempBirthMonth(parseInt(parts[1], 10) || 1)
+                          setTempBirthDay(parseInt(parts[2], 10) || 1)
+                          setShowBirthDatePickerModal(true)
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.datePickerBtnText, { color: colors.text }]} numberOfLines={1}>
+                          {birthDate || 'Elegir'}
+                        </Text>
+                        <CalendarIcon size={14} color="#38BDF8" />
+                      </TouchableOpacity>
                     </View>
 
                     <View style={{ flex: 0.9 }}>
@@ -1705,6 +1818,8 @@ export default function ProfileScreen() {
                         value={weightKg}
                         onChangeText={setWeightKg}
                         keyboardType="decimal-pad"
+                        placeholder="Ej. 61"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                       />
                     </View>
 
@@ -1715,6 +1830,8 @@ export default function ProfileScreen() {
                         value={heightCm}
                         onChangeText={setHeightCm}
                         keyboardType="decimal-pad"
+                        placeholder="Ej. 175"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                       />
                     </View>
                   </View>
@@ -2108,6 +2225,130 @@ export default function ProfileScreen() {
           onClose={() => setActiveExerciseForPR(null)}
         />
       )}
+
+      {/* ── MODAL: Selector de Cumpleaños Interactivo ── */}
+      <Modal
+        visible={showBirthDatePickerModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowBirthDatePickerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.datePickerModalContent, { backgroundColor: '#131622', borderColor: 'rgba(255,255,255,0.1)' }]}>
+            <View style={styles.datePickerModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <CalendarIcon size={20} color="#38BDF8" />
+                <Text style={styles.datePickerModalTitle}>Fecha de Cumpleaños</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowBirthDatePickerModal(false)} style={{ padding: 4 }}>
+                <X size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.datePickerModalSub}>
+              Selecciona tu fecha de nacimiento para ajustar tus calorías exactas.
+            </Text>
+
+            {/* Selectors for Day, Month, Year */}
+            <View style={styles.datePickerColumnsRow}>
+              {/* Day */}
+              <View style={styles.datePickerCol}>
+                <Text style={styles.datePickerColLabel}>DÍA</Text>
+                <ScrollView style={styles.datePickerColScroll} showsVerticalScrollIndicator={false}>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      onPress={() => setTempBirthDay(d)}
+                      style={[styles.datePickerItemBtn, tempBirthDay === d && styles.datePickerItemBtnActive]}
+                    >
+                      <Text style={[styles.datePickerItemText, tempBirthDay === d && styles.datePickerItemTextActive]}>
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Month */}
+              <View style={[styles.datePickerCol, { flex: 1.4 }]}>
+                <Text style={styles.datePickerColLabel}>MES</Text>
+                <ScrollView style={styles.datePickerColScroll} showsVerticalScrollIndicator={false}>
+                  {[
+                    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                  ].map((mName, mIdx) => (
+                    <TouchableOpacity
+                      key={mName}
+                      onPress={() => setTempBirthMonth(mIdx + 1)}
+                      style={[styles.datePickerItemBtn, tempBirthMonth === mIdx + 1 && styles.datePickerItemBtnActive]}
+                    >
+                      <Text style={[styles.datePickerItemText, tempBirthMonth === mIdx + 1 && styles.datePickerItemTextActive]}>
+                        {mName}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Year (from 1940 up to current year) */}
+              <View style={styles.datePickerCol}>
+                <Text style={styles.datePickerColLabel}>AÑO</Text>
+                <ScrollView style={styles.datePickerColScroll} showsVerticalScrollIndicator={false}>
+                  {Array.from({ length: new Date().getFullYear() - 1939 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                    <TouchableOpacity
+                      key={y}
+                      onPress={() => setTempBirthYear(y)}
+                      style={[styles.datePickerItemBtn, tempBirthYear === y && styles.datePickerItemBtnActive]}
+                    >
+                      <Text style={[styles.datePickerItemText, tempBirthYear === y && styles.datePickerItemTextActive]}>
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            {/* Selected Date Preview */}
+            <View style={styles.datePickerPreviewBox}>
+              <Text style={styles.datePickerPreviewText}>
+                Fecha elegida: {String(tempBirthDay).padStart(2, '0')}/{String(tempBirthMonth).padStart(2, '0')}/{tempBirthYear}
+              </Text>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.datePickerActionsRow}>
+              <TouchableOpacity
+                style={styles.datePickerCancelBtn}
+                onPress={() => setShowBirthDatePickerModal(false)}
+              >
+                <Text style={styles.datePickerCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.datePickerConfirmBtn}
+                onPress={() => {
+                  const maxDaysInMonth = new Date(tempBirthYear, tempBirthMonth, 0).getDate()
+                  const validDay = Math.min(tempBirthDay, maxDaysInMonth)
+                  const chosenDate = new Date(tempBirthYear, tempBirthMonth - 1, validDay)
+                  const now = new Date()
+
+                  if (chosenDate > now) {
+                    Alert.alert('Fecha inválida', 'La fecha de cumpleaños no puede ser posterior a hoy.')
+                    return
+                  }
+
+                  const formatted = `${tempBirthYear}-${String(tempBirthMonth).padStart(2, '0')}-${String(validDay).padStart(2, '0')}`
+                  setBirthDate(formatted)
+                  setShowBirthDatePickerModal(false)
+                }}
+              >
+                <Text style={styles.datePickerConfirmText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -3102,5 +3343,191 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#38BDF8',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0B0D14',
+  },
+  settingsAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 12,
+  },
+  settingsAvatarCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+  },
+  settingsAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  settingsAvatarLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  changePhotoBtnText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  datePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  datePickerBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  datePickerModalContent: {
+    width: '92%',
+    maxWidth: 420,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+  },
+  datePickerModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  datePickerModalTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  datePickerModalSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginBottom: 16,
+    lineHeight: 16,
+  },
+  datePickerColumnsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    height: 180,
+    marginBottom: 14,
+  },
+  datePickerCol: {
+    flex: 1,
+    backgroundColor: '#0D0F17',
+    borderRadius: 14,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  datePickerColLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: 1,
+  },
+  datePickerColScroll: {
+    flex: 1,
+  },
+  datePickerItemBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  datePickerItemBtnActive: {
+    backgroundColor: '#2563EB',
+  },
+  datePickerItemText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  datePickerItemTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  datePickerPreviewBox: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  datePickerPreviewText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  datePickerActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  datePickerCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+  },
+  datePickerCancelText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  datePickerConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+  },
+  datePickerConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 })

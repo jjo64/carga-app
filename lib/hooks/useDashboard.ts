@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { useAuth } from './useAuth'
-import { calculateBMR, calculateTDEE, calculateTargetCalories } from '@/lib/utils/calories'
+import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
 import { WorkoutSession } from '@/types'
 
 export interface DashboardMetrics {
@@ -43,7 +43,11 @@ export function useDashboard(targetDate?: string) {
         .limit(1)
         .single()
 
-      const currentWeight = latestWeightData?.weight_kg || 75
+      const currentWeight =
+        latestWeightData?.weight_kg ||
+        profile?.initial_weight_kg ||
+        profile?.weight_kg ||
+        75
 
       // 2. Obtener comidas de hoy
       const { data: foodsData } = await supabase
@@ -79,34 +83,25 @@ export function useDashboard(targetDate?: string) {
       const todayWorkout = sessionData && sessionData.length > 0 ? (sessionData[0] as WorkoutSession) : null
       const workoutBurned = todayWorkout?.estimated_calories_burned || 0
 
-      // 4. Cálculos energéticos
-      const bmr = calculateBMR(profile, currentWeight)
-      const tdee = calculateTDEE(bmr, profile?.activity_level || 'moderate')
-      const baseTarget = calculateTargetCalories(tdee, profile?.goal)
-      const adjustedTarget = baseTarget + workoutBurned
+      // 4. Cálculos unificados y consistentes
+      const targets = calculateDailyNutritionTargets(profile, currentWeight, workoutBurned)
       const consumed = Math.round(foodTotals.calories)
-      const balance = consumed - adjustedTarget
-
-      // Objetivos aproximados de macros
-      const proteinTarget = Math.round(currentWeight * 2.0)
-      const fatTarget = Math.round(currentWeight * 0.9)
-      const remainingCalories = Math.max(0, adjustedTarget - (proteinTarget * 4 + fatTarget * 9))
-      const carbsTarget = Math.round(remainingCalories / 4)
+      const balance = consumed - targets.targetCalories
 
       setMetrics({
-        currentWeightKg: currentWeight,
+        currentWeightKg: targets.weightKg,
         consumedCalories: consumed,
         burnedCalories: workoutBurned,
-        bmr,
-        tdee,
-        targetCalories: adjustedTarget,
+        bmr: targets.bmr,
+        tdee: targets.tdee,
+        targetCalories: targets.targetCalories,
         calorieBalance: balance,
         protein: Math.round(foodTotals.protein),
-        proteinTarget,
+        proteinTarget: targets.proteinTarget,
         carbs: Math.round(foodTotals.carbs),
-        carbsTarget,
+        carbsTarget: targets.carbsTarget,
         fat: Math.round(foodTotals.fat),
-        fatTarget,
+        fatTarget: targets.fatTarget,
         mealCount: foodTotals.count,
         todayWorkout,
       })

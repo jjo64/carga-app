@@ -22,6 +22,10 @@ import {
   Calendar,
   X,
   AlertTriangle,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
+  Check,
 } from 'lucide-react-native'
 import RoutineAnatomicalCover from '@/components/visuals/RoutineAnatomicalCover'
 import AddExerciseModal from '@/components/workout/AddExerciseModal'
@@ -39,7 +43,7 @@ import { Routine } from '@/types'
 export default function WorkoutScreen() {
   const router = useRouter()
   const { t } = useLanguage()
-  const { routines, loading: routinesLoading, deleteRoutine } = useRoutines()
+  const { routines, loading: routinesLoading, deleteRoutine, reorderRoutines } = useRoutines()
 
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false)
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null)
@@ -47,10 +51,12 @@ export default function WorkoutScreen() {
   const [routineToDelete, setRoutineToDelete] = useState<any | null>(null)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [detailModalExercise, setDetailModalExercise] = useState<ExerciseDefinition | null>(null)
+  const [isReordering, setIsReordering] = useState(false)
 
-  const displayRoutines = routines.map((r) => ({
+  const displayRoutines = routines.map((r, idx) => ({
     raw: r,
     id: r.id,
+    index: idx,
     title: r.name,
     description: cleanRoutineDescription(r.description),
     assignedDays: parseRoutineDays(r),
@@ -82,17 +88,41 @@ export default function WorkoutScreen() {
     await deleteRoutine(id)
   }
 
+  const handleMoveRoutine = async (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= routines.length) return
+    const updated = [...routines]
+    const temp = updated[index]
+    updated[index] = updated[newIndex]
+    updated[newIndex] = temp
+    await reorderRoutines(updated)
+  }
+
   return (
     <View style={styles.container}>
       {/* ── Top Header Section ── */}
       <View style={styles.topSection}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.brandName}>⚡ Carga</Text>
             <Text style={styles.screenTitle}>{t('routines_title')}</Text>
           </View>
 
           <View style={styles.topActionsRow}>
+            {/* Reorder Button */}
+            {routines.length > 1 && (
+              <TouchableOpacity
+                style={[styles.reorderToggleBtn, isReordering && styles.reorderToggleBtnActive]}
+                onPress={() => setIsReordering((prev) => !prev)}
+                activeOpacity={0.8}
+              >
+                {isReordering ? (
+                  <Check color="#38BDF8" size={18} strokeWidth={2.5} />
+                ) : (
+                  <ArrowUpDown color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                )}
+              </TouchableOpacity>
+            )}
+
             {/* Search across exercises */}
             <TouchableOpacity
               style={styles.searchIconBtn}
@@ -161,8 +191,29 @@ export default function WorkoutScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          displayRoutines.map((routine) => (
-            <View key={routine.id} style={styles.routineCard}>
+          displayRoutines.map((routine, idx) => (
+            <View key={routine.id} style={[styles.routineCard, isReordering && styles.routineCardReordering]}>
+              {/* Reordering Up/Down Quick Controls on Mobile */}
+              {isReordering && (
+                <View style={styles.reorderPillCol}>
+                  <TouchableOpacity
+                    onPress={() => handleMoveRoutine(idx, 'up')}
+                    disabled={idx === 0}
+                    style={[styles.reorderPillBtn, idx === 0 && { opacity: 0.25 }]}
+                  >
+                    <ChevronUp color="#38BDF8" size={20} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                  <Text style={styles.reorderIdxBadge}>{idx + 1}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleMoveRoutine(idx, 'down')}
+                    disabled={idx === displayRoutines.length - 1}
+                    style={[styles.reorderPillBtn, idx === displayRoutines.length - 1 && { opacity: 0.25 }]}
+                  >
+                    <ChevronDown color="#38BDF8" size={20} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Left Content Column */}
               <View style={styles.routineLeftCol}>
                 {/* Top Meta Row with Options 3-Dots */}
@@ -195,8 +246,8 @@ export default function WorkoutScreen() {
 
                 {/* Bullet List of Exercises */}
                 <View style={styles.exerciseBulletsList}>
-                  {routine.exercises.slice(0, 4).map((ex, idx) => (
-                    <Text key={idx} style={styles.exerciseBulletItem} numberOfLines={1}>
+                  {routine.exercises.slice(0, 4).map((ex, exIdx) => (
+                    <Text key={exIdx} style={styles.exerciseBulletItem} numberOfLines={1}>
                       - {ex}
                     </Text>
                   ))}
@@ -234,7 +285,7 @@ export default function WorkoutScreen() {
         )}
       </ScrollView>
 
-      {/* ── Routine Options Action Modal (Editar / Eliminar) ── */}
+      {/* ── Routine Options Action Modal (Editar / Reordenar / Eliminar) ── */}
       {activeMenuRoutine && (
         <Modal
           visible={!!activeMenuRoutine}
@@ -256,6 +307,46 @@ export default function WorkoutScreen() {
                   <X color="rgba(255,255,255,0.4)" size={20} />
                 </TouchableOpacity>
               </View>
+
+              {/* Move Up */}
+              {activeMenuRoutine.index > 0 && (
+                <TouchableOpacity
+                  style={styles.actionOptionBtn}
+                  onPress={() => {
+                    handleMoveRoutine(activeMenuRoutine.index, 'up')
+                    setActiveMenuRoutine(null)
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionOptionIcon, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                    <ChevronUp color="#38BDF8" size={18} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionOptionTitle}>Mover hacia arriba</Text>
+                    <Text style={styles.actionOptionSub}>Subir posición en la lista</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Move Down */}
+              {activeMenuRoutine.index < displayRoutines.length - 1 && (
+                <TouchableOpacity
+                  style={styles.actionOptionBtn}
+                  onPress={() => {
+                    handleMoveRoutine(activeMenuRoutine.index, 'down')
+                    setActiveMenuRoutine(null)
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.actionOptionIcon, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                    <ChevronDown color="#38BDF8" size={18} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionOptionTitle}>Mover hacia abajo</Text>
+                    <Text style={styles.actionOptionSub}>Bajar posición en la lista</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.actionOptionBtn}
@@ -720,5 +811,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.6,
+  },
+  reorderToggleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#161922',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  reorderToggleBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38BDF8',
+  },
+  routineCardReordering: {
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    paddingLeft: 8,
+  },
+  reorderPillCol: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: 8,
+    gap: 4,
+  },
+  reorderPillBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#1E2330',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reorderIdxBadge: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '900',
   },
 })

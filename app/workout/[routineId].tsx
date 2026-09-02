@@ -32,7 +32,7 @@ export default function RoutineDetailScreen() {
   const { routineId } = useLocalSearchParams<{ routineId: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const { routines, addExerciseToRoutine, deleteExercise, refetch } = useRoutines()
+  const { routines, addExerciseToRoutine, deleteExercise, reorderRoutineExercises, refetch } = useRoutines()
 
   const routine = routines.find((r) => r.id === routineId)
 
@@ -45,6 +45,17 @@ export default function RoutineDetailScreen() {
   const [notes, setNotes] = useState('')
   const [adding, setAdding] = useState(false)
   const [starting, setStarting] = useState(false)
+
+  const handleMoveExercise = async (index: number, direction: 'up' | 'down') => {
+    if (!routine || !routine.exercises || !routineId) return
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= routine.exercises.length) return
+    const updated = [...routine.exercises]
+    const temp = updated[index]
+    updated[index] = updated[newIndex]
+    updated[newIndex] = temp
+    await reorderRoutineExercises(routineId, updated)
+  }
 
   async function handleAddExercise() {
     if (!name.trim() || !routineId) return
@@ -167,9 +178,27 @@ export default function RoutineDetailScreen() {
                     <View style={[styles.sideIndicator, { backgroundColor: color }]} />
                     <View style={styles.exerciseCardInner}>
                       <View style={styles.exerciseHeader}>
-                        <Text style={[styles.exerciseIndex, { color }]}>
-                          {String(index + 1).padStart(2, '0')}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <View style={{ gap: 2 }}>
+                            <TouchableOpacity
+                              onPress={() => handleMoveExercise(index, 'up')}
+                              disabled={index === 0}
+                              style={{ opacity: index === 0 ? 0.2 : 0.8 }}
+                            >
+                              <Ionicons name="chevron-up" size={14} color="#38BDF8" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleMoveExercise(index, 'down')}
+                              disabled={index === (routine?.exercises?.length || 1) - 1}
+                              style={{ opacity: index === (routine?.exercises?.length || 1) - 1 ? 0.2 : 0.8 }}
+                            >
+                              <Ionicons name="chevron-down" size={14} color="#38BDF8" />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={[styles.exerciseIndex, { color }]}>
+                            {String(index + 1).padStart(2, '0')}
+                          </Text>
+                        </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.exerciseName}>{exercise.name}</Text>
                         </View>

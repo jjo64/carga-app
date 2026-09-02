@@ -18,6 +18,8 @@ export interface Profile {
   training_days_per_week?: number | null
   onboarding_completed?: boolean | null
   initial_weight_kg?: number | null
+  weight_kg?: number | null
+  avatar_url?: string | null
 }
 
 export interface BodyWeight {

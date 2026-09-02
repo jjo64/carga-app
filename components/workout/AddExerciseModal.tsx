@@ -9,7 +9,7 @@ import {
   Modal,
   Platform,
 } from 'react-native'
-import { Search, X, ChevronDown, Info, Dumbbell } from 'lucide-react-native'
+import { Search, X, ChevronDown, Info, Dumbbell, Check } from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import {
   searchExercises,
@@ -125,32 +125,40 @@ export default function AddExerciseModal({
           {/* Equipment Dropdown */}
           {showEquipmentPicker && (
             <View style={styles.filterDropdown}>
-              {EQUIPMENTS_LIST.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  onPress={() => {
-                    setSelectedEquipment(opt)
-                    setShowEquipmentPicker(false)
-                  }}
-                  style={styles.filterDropdownItem}
-                >
-                  <Text
+              <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+                {EQUIPMENTS_LIST.map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => {
+                      setSelectedEquipment(opt)
+                      setShowEquipmentPicker(false)
+                    }}
                     style={[
-                      styles.filterDropdownItemText,
-                      selectedEquipment === opt && styles.filterDropdownItemTextActive,
+                      styles.filterDropdownItem,
+                      selectedEquipment === opt && styles.filterDropdownItemActive,
                     ]}
                   >
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.filterDropdownItemText,
+                        selectedEquipment === opt && styles.filterDropdownItemTextActive,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {selectedEquipment === opt && (
+                      <Check size={16} color="#38BDF8" strokeWidth={2.5} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
           {/* Category Dropdown */}
           {showCategoryPicker && (
             <View style={styles.filterDropdown}>
-              <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
                 {CATEGORIES_LIST.map((opt) => (
                   <TouchableOpacity
                     key={opt}
@@ -158,7 +166,10 @@ export default function AddExerciseModal({
                       setSelectedCategory(opt)
                       setShowCategoryPicker(false)
                     }}
-                    style={styles.filterDropdownItem}
+                    style={[
+                      styles.filterDropdownItem,
+                      selectedCategory === opt && styles.filterDropdownItemActive,
+                    ]}
                   >
                     <Text
                       style={[
@@ -168,6 +179,9 @@ export default function AddExerciseModal({
                     >
                       {opt}
                     </Text>
+                    {selectedCategory === opt && (
+                      <Check size={16} color="#38BDF8" strokeWidth={2.5} />
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -318,29 +332,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterDropdown: {
-    backgroundColor: '#1A1D28',
+    backgroundColor: '#161924',
     borderRadius: 14,
     padding: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    maxHeight: 220,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    maxHeight: 240,
     position: 'absolute',
     top: 110,
     left: 16,
     right: 16,
-    zIndex: 99,
-    elevation: 8,
+    zIndex: 9999,
+    elevation: 25,
     shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
+    shadowOpacity: 0.75,
+    shadowRadius: 16,
   },
   filterDropdownItem: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 8,
   },
+  filterDropdownItemActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+  },
   filterDropdownItemText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.75)',
     fontSize: 14,
     fontWeight: '500',
   },

@@ -4,10 +4,12 @@
     "slug": "carga-app",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "carga",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0a"
     },
@@ -18,6 +20,7 @@
     "android": {
       "package": "com.jjo.carga",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0a"
       },
       "permissions": [
@@ -42,7 +45,8 @@
           "photosPermission": "Permite a Carga acceder a tus fotos para registrar tus comidas.",
           "cameraPermission": "Permite a Carga usar la cámara para fotografiar alimentos y tablas nutricionales."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,0 +1,10 @@
+# Ignore large unnecessary folders for EAS build
+ejercicios/
+scratch/
+docs/
+fitai-guia-completa.md
+.git/
+node_modules/
+.expo/
+dist/
+web-build/

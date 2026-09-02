@@ -32,6 +32,8 @@ import {
 } from 'lucide-react-native'
 import { useNutrition } from '@/lib/hooks/useNutrition'
 import { MealType, FoodItemParsed } from '@/types'
+import SmartFoodScannerModal from '@/components/nutrition/SmartFoodScannerModal'
+import { aiService } from '@/lib/services/ai'
 
 const mealLabel: Record<string, string> = {
   breakfast: 'Desayuno',
@@ -118,8 +120,14 @@ const PHOTO_RESULTS: FoodItemParsed[] = [
   { name: 'Brócoli al vapor', quantity_g: 150, calories: 51, protein_g: 4.2, carbs_g: 9.9, fat_g: 0.6, confidence: 'medium' },
 ]
 
+import { useAuth } from '@/lib/hooks/useAuth'
+import { useDashboard } from '@/lib/hooks/useDashboard'
+import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
+
 export default function NutritionScreen() {
+  const { profile } = useAuth()
   const { summary, logs, loading, logFood, deleteFoodLog } = useNutrition()
+  const { metrics } = useDashboard()
 
   const [filterType, setFilterType] = useState<MealType | 'all'>('all')
   const [modalVisible, setModalVisible] = useState(false)
@@ -130,10 +138,36 @@ export default function NutritionScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const targetCals = 2400
-  const targetProtein = 160
-  const targetCarbs = 240
-  const targetFat = 65
+  // Smart Food Scanner Modal State
+  const [smartScannerVisible, setSmartScannerVisible] = useState(false)
+
+  // Smart Macro Closer Modal State
+  const [macroCloserVisible, setMacroCloserVisible] = useState(false)
+  const [macroCloserLoading, setMacroCloserLoading] = useState(false)
+  const [macroCloserData, setMacroCloserData] = useState<any>(null)
+
+  // Calcular objetivos dinámicos y resilientes para el usuario
+  const targets = metrics
+    ? {
+        targetCals: metrics.targetCalories,
+        targetProtein: metrics.proteinTarget,
+        targetCarbs: metrics.carbsTarget,
+        targetFat: metrics.fatTarget,
+      }
+    : (() => {
+        const computed = calculateDailyNutritionTargets(profile)
+        return {
+          targetCals: computed.targetCalories,
+          targetProtein: computed.proteinTarget,
+          targetCarbs: computed.carbsTarget,
+          targetFat: computed.fatTarget,
+        }
+      })()
+
+  const targetCals = targets.targetCals
+  const targetProtein = targets.targetProtein
+  const targetCarbs = targets.targetCarbs
+  const targetFat = targets.targetFat
 
   const consumedCals = summary?.total_calories || logs.reduce((s, l) => s + (l.calories || 0), 0)
   const consumedProtein = summary?.total_protein || logs.reduce((s, l) => s + (l.protein_g || 0), 0)
@@ -142,49 +176,53 @@ export default function NutritionScreen() {
 
   const filteredLogs = filterType === 'all' ? logs : logs.filter((l) => l.meal_type === filterType)
 
-  const handleLaunchCamera = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync()
-      if (!permission.granted) {
-        Alert.alert('Permiso Requerido', 'Se necesita acceso a la cámara para fotografiar alimentos.')
-        return
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.8,
-      })
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri)
-        setAnalysisState('loading')
-        setTimeout(() => {
-          setResults(PHOTO_RESULTS)
-          setAnalysisState('result')
-        }, 1500)
-      }
-    } catch (err) {
-      console.log('Error opening camera:', err)
-    }
+  const handleLaunchCamera = () => {
+    setModalVisible(false)
+    setSmartScannerVisible(true)
   }
 
-  const handleLaunchGallery = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        quality: 0.8,
-      })
+  const handleLaunchGallery = () => {
+    setModalVisible(false)
+    setSmartScannerVisible(true)
+  }
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri)
-        setAnalysisState('loading')
-        setTimeout(() => {
-          setResults(PHOTO_RESULTS)
-          setAnalysisState('result')
-        }, 1500)
-      }
+  const handleSaveFromSmartScanner = async (foods: FoodItemParsed[], rawInput: string) => {
+    const totalC = foods.reduce((s, r) => s + r.calories, 0)
+    const totalP = foods.reduce((s, r) => s + r.protein_g, 0)
+    const totalCb = foods.reduce((s, r) => s + r.carbs_g, 0)
+    const totalF = foods.reduce((s, r) => s + r.fat_g, 0)
+
+    await logFood({
+      mealType: modalMealType,
+      rawInput: rawInput || 'Escaneo Inteligente',
+      foodsParsed: foods,
+      calories: totalC,
+      proteinG: totalP,
+      carbsG: totalCb,
+      fatG: totalF,
+    })
+  }
+
+  const handleOpenMacroCloser = async () => {
+    const remainingCalories = Math.max(0, targetCals - consumedCals)
+    const remainingProtein = Math.max(0, targetProtein - consumedProtein)
+    const remainingCarbs = Math.max(0, targetCarbs - consumedCarbs)
+    const remainingFat = Math.max(0, targetFat - consumedFat)
+
+    setMacroCloserVisible(true)
+    setMacroCloserLoading(true)
+    try {
+      const { data } = await aiService.closeMacros({
+        remainingCalories,
+        remainingProtein,
+        remainingCarbs,
+        remainingFat,
+      })
+      setMacroCloserData(data)
     } catch (err) {
-      console.log('Error opening gallery:', err)
+      console.warn('Error closing macros:', err)
+    } finally {
+      setMacroCloserLoading(false)
     }
   }
 
@@ -266,6 +304,28 @@ export default function NutritionScreen() {
               )
             })}
           </View>
+        </View>
+
+        {/* AI Smart Actions Row */}
+        <View style={styles.aiActionRow}>
+          <TouchableOpacity
+            style={styles.aiActionBtnPrimary}
+            onPress={() => setSmartScannerVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Camera size={16} color="#0F172A" />
+            <Text style={styles.aiActionBtnPrimaryText}>Escáner Visión & Código</Text>
+            <Sparkles size={14} color="#0F172A" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.aiActionBtnSecondary}
+            onPress={handleOpenMacroCloser}
+            activeOpacity={0.85}
+          >
+            <Sparkles size={15} color="#38BDF8" />
+            <Text style={styles.aiActionBtnSecondaryText}>Cierra tus Macros</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Meal Type Filter Pills */}
@@ -561,6 +621,152 @@ export default function NutritionScreen() {
                 </View>
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Smart Food Scanner Modal (Modulo 2) */}
+      <SmartFoodScannerModal
+        visible={smartScannerVisible}
+        onClose={() => setSmartScannerVisible(false)}
+        mealType={modalMealType}
+        onSaveToMeal={handleSaveFromSmartScanner}
+      />
+
+      {/* Modal Cierra tus Macros */}
+      <Modal
+        visible={macroCloserVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMacroCloserVisible(false)}
+      >
+        <View style={styles.macroCloserOverlay}>
+          <View style={styles.macroCloserSheet}>
+            <View style={styles.macroCloserHeader}>
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Sparkles size={14} color="#38BDF8" />
+                  <Text style={styles.macroCloserBadge}>CIERRA TUS MACROS</Text>
+                </View>
+                <Text style={styles.macroCloserTitle}>Recetas Rápidas para Cuadrar</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMacroCloserVisible(false)}
+                style={styles.closeBtn}
+              >
+                <X size={18} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </View>
+
+            {macroCloserLoading ? (
+              <View style={styles.macroCloserLoading}>
+                <ActivityIndicator size="large" color="#38BDF8" />
+                <Text style={styles.macroCloserLoadingText}>
+                  Calculando recetas con ingredientes comunes...
+                </Text>
+              </View>
+            ) : macroCloserData ? (
+              <ScrollView style={styles.macroCloserBody} showsVerticalScrollIndicator={false}>
+                {/* Targets Restantes */}
+                <View style={styles.remainingCard}>
+                  <Text style={styles.remainingCardTitle}>Te faltan para tu meta:</Text>
+                  <View style={styles.remainingGrid}>
+                    <View style={styles.remainingBox}>
+                      <Text style={styles.remainingVal}>
+                        {Math.round(macroCloserData.remainingTarget?.calories || 0)}
+                      </Text>
+                      <Text style={styles.remainingLabel}>kcal</Text>
+                    </View>
+                    <View style={styles.remainingBox}>
+                      <Text style={[styles.remainingVal, { color: '#38BDF8' }]}>
+                        {Math.round(macroCloserData.remainingTarget?.protein || 0)}g
+                      </Text>
+                      <Text style={styles.remainingLabel}>Proteína</Text>
+                    </View>
+                    <View style={styles.remainingBox}>
+                      <Text style={[styles.remainingVal, { color: '#FBBF24' }]}>
+                        {Math.round(macroCloserData.remainingTarget?.carbs || 0)}g
+                      </Text>
+                      <Text style={styles.remainingLabel}>Carbos</Text>
+                    </View>
+                    <View style={styles.remainingBox}>
+                      <Text style={[styles.remainingVal, { color: '#EC4899' }]}>
+                        {Math.round(macroCloserData.remainingTarget?.fat || 0)}g
+                      </Text>
+                      <Text style={styles.remainingLabel}>Grasas</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Sugerencias de Recetas */}
+                {macroCloserData.suggestions?.map((sug: any, idx: number) => (
+                  <View key={sug.id || idx} style={styles.suggestionCard}>
+                    <View style={styles.suggestionHeader}>
+                      <Text style={styles.suggestionName}>{sug.name}</Text>
+                      <Text style={styles.prepTimeTag}>{sug.prepTimeMinutes} min</Text>
+                    </View>
+
+                    {/* Ingredientes */}
+                    <View style={styles.ingredientsListBox}>
+                      {sug.ingredients?.map((ing: any, i: number) => (
+                        <Text key={i} style={styles.ingredientItemText}>
+                          • {ing.name} ({ing.amount})
+                        </Text>
+                      ))}
+                    </View>
+
+                    {/* Instrucciones */}
+                    <Text style={styles.instructionText}>
+                      {sug.quickRecipeInstructions}
+                    </Text>
+
+                    {/* Macros de la sugerencia */}
+                    <View style={styles.suggestionMacrosRow}>
+                      <Text style={styles.sugCalText}>{sug.macros?.calories} kcal</Text>
+                      <Text style={styles.sugPText}>P: {sug.macros?.protein}g</Text>
+                      <Text style={styles.sugCText}>C: {sug.macros?.carbs}g</Text>
+                      <Text style={styles.sugFText}>G: {sug.macros?.fat}g</Text>
+                    </View>
+
+                    {/* Botón de Añadir */}
+                    <TouchableOpacity
+                      style={styles.addRecipeBtn}
+                      onPress={async () => {
+                        const parsedFoods: FoodItemParsed[] = (sug.ingredients || []).map((ing: any) => ({
+                          name: ing.name,
+                          quantity_g: ing.gramsApprox || 100,
+                          calories: Math.round((sug.macros?.calories || 200) / Math.max(1, sug.ingredients.length)),
+                          protein_g: Number(((sug.macros?.protein || 20) / Math.max(1, sug.ingredients.length)).toFixed(1)),
+                          carbs_g: Number(((sug.macros?.carbs || 10) / Math.max(1, sug.ingredients.length)).toFixed(1)),
+                          fat_g: Number(((sug.macros?.fat || 5) / Math.max(1, sug.ingredients.length)).toFixed(1)),
+                          confidence: 'high',
+                        }))
+
+                        await logFood({
+                          mealType: 'snack',
+                          rawInput: sug.name,
+                          foodsParsed: parsedFoods,
+                          calories: sug.macros?.calories || 0,
+                          proteinG: sug.macros?.protein || 0,
+                          carbsG: sug.macros?.carbs || 0,
+                          fatG: sug.macros?.fat || 0,
+                        })
+                        setMacroCloserVisible(false)
+                      }}
+                    >
+                      <Check size={16} color="#0F172A" />
+                      <Text style={styles.addRecipeBtnText}>Registrar como Snack</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                {macroCloserData.nutritionalTip && (
+                  <Text style={styles.macroCloserTip}>
+                    💡 {macroCloserData.nutritionalTip}
+                  </Text>
+                )}
+              </ScrollView>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -1108,5 +1314,219 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1.5,
+  },
+  aiActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  aiActionBtnPrimary: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  aiActionBtnPrimaryText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  aiActionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#0F172A',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#0284C7',
+  },
+  aiActionBtnSecondaryText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  macroCloserOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+  },
+  macroCloserSheet: {
+    backgroundColor: '#090D16',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '88%',
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  macroCloserHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  macroCloserBadge: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  macroCloserTitle: {
+    color: '#F8FAFC',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  macroCloserLoading: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  macroCloserLoadingText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginTop: 12,
+  },
+  macroCloserBody: {
+    padding: 20,
+  },
+  remainingCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  remainingCardTitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  remainingGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  remainingBox: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  remainingVal: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  remainingLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  suggestionCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  suggestionName: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
+  prepTimeTag: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: '#0B2238',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  ingredientsListBox: {
+    marginBottom: 8,
+  },
+  ingredientItemText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  instructionText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 17,
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  suggestionMacrosRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  sugCalText: {
+    color: '#FB923C',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  sugPText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sugCText: {
+    color: '#FBBF24',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sugFText: {
+    color: '#EC4899',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  addRecipeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  addRecipeBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  macroCloserTip: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 30,
+    lineHeight: 18,
   },
 })

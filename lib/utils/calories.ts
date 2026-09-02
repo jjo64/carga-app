@@ -86,3 +86,54 @@ export function calculateTargetCalories(
       return Math.round(tdee)
   }
 }
+
+export interface NutritionTargets {
+  weightKg: number
+  bmr: number
+  tdee: number
+  targetCalories: number
+  proteinTarget: number
+  carbsTarget: number
+  fatTarget: number
+}
+
+/**
+ * Calcula de forma unificada y resiliente las calorías y macronutrientes del usuario
+ */
+export function calculateDailyNutritionTargets(
+  profile?: Partial<Profile> | null,
+  currentWeightKg?: number | null,
+  workoutBurnedCalories: number = 0
+): NutritionTargets {
+  const resolvedWeight =
+    currentWeightKg && currentWeightKg > 20
+      ? currentWeightKg
+      : profile?.initial_weight_kg || profile?.weight_kg || 75
+
+  const bmr = calculateBMR(profile, resolvedWeight)
+  const activity = profile?.activity_level || 'moderate'
+  const tdee = calculateTDEE(bmr, activity)
+  const baseTarget = calculateTargetCalories(tdee, profile?.goal)
+  const targetCalories = Math.max(1200, baseTarget + workoutBurnedCalories)
+
+  // Distribución óptima de macronutrientes:
+  // 1. Proteína: 2.0g por kg de peso corporal (4 kcal/g)
+  // 2. Grasas: 0.9g por kg de peso corporal (9 kcal/g)
+  // 3. Carbohidratos: el resto de calorías necesarias dividido entre 4 kcal/g
+  const proteinTarget = Math.round(resolvedWeight * 2.0)
+  const fatTarget = Math.round(resolvedWeight * 0.9)
+  const calFromProteinAndFat = proteinTarget * 4 + fatTarget * 9
+  const remainingCalories = Math.max(0, targetCalories - calFromProteinAndFat)
+  const carbsTarget = Math.max(30, Math.round(remainingCalories / 4))
+
+  return {
+    weightKg: resolvedWeight,
+    bmr,
+    tdee,
+    targetCalories,
+    proteinTarget,
+    carbsTarget,
+    fatTarget,
+  }
+}
+

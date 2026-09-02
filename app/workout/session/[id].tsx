@@ -10,17 +10,30 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import AddExerciseModal from '@/components/workout/AddExerciseModal'
 import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
+import PainAdaptorModal from '@/components/workout/PainAdaptorModal'
+import VoiceSetLoggerModal from '@/components/workout/VoiceSetLoggerModal'
 import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
 import { DEFAULT_STARTER_ROUTINES, recordWorkoutSession } from '@/lib/hooks/useWorkout'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import Svg, { Circle } from 'react-native-svg'
+import * as Notifications from 'expo-notifications'
+import {
+  setupWorkoutNotifications,
+  updateWorkoutActiveNotification,
+  scheduleRestFinishedNotification,
+  cancelRestFinishedNotification,
+  clearAllWorkoutNotifications,
+  NOTIFICATION_ACTIONS,
+} from '@/lib/services/notifications'
 
 interface SetRowData {
   id: string
@@ -48,10 +61,18 @@ export default function LiveWorkoutSessionScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [restSeconds, setRestSeconds] = useState(0)
   const [isResting, setIsResting] = useState(false)
+  const [restTimerEnabled, setRestTimerEnabled] = useState(true)
+  const [defaultRestSeconds, setDefaultRestSeconds] = useState(90)
+  const [showEditDurationModal, setShowEditDurationModal] = useState(false)
+  const [manualDurationInput, setManualDurationInput] = useState('45')
+  const [finishEditedMinutes, setFinishEditedMinutes] = useState(45)
   const [saving, setSaving] = useState(false)
   const [showFinishModal, setShowFinishModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showPainModal, setShowPainModal] = useState(false)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [detailModalExercise, setDetailModalExercise] = useState<ExerciseDefinition | null>(null)
+  const startTimeRef = useRef<number>(Date.now())
 
   // Calculated finish stats
   const [finishStats, setFinishStats] = useState({
@@ -175,13 +196,123 @@ export default function LiveWorkoutSessionScreen() {
     loadRoutine()
   }, [params.id])
 
-  // Global live workout chronometer timer
+  // Global live workout chronometer with background timestamp persistence
   useEffect(() => {
+    const storageKey = `@workout_session_start_${params.id || 'current'}`
+    async function initTimer() {
+      try {
+        const saved = await AsyncStorage.getItem(storageKey)
+        if (saved) {
+          const parsed = parseInt(saved, 10)
+          if (parsed && Date.now() - parsed < 86400000) {
+            startTimeRef.current = parsed
+            const diff = Math.floor((Date.now() - parsed) / 1000)
+            setElapsedSeconds(diff >= 0 ? diff : 0)
+          } else {
+            startTimeRef.current = Date.now()
+            await AsyncStorage.setItem(storageKey, String(startTimeRef.current))
+          }
+        } else {
+          startTimeRef.current = Date.now()
+          await AsyncStorage.setItem(storageKey, String(startTimeRef.current))
+        }
+      } catch (e) {
+        startTimeRef.current = Date.now()
+      }
+    }
+    initTimer()
+
     const timer = setInterval(() => {
-      setElapsedSeconds((s) => s + 1)
+      const diff = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      setElapsedSeconds(diff >= 0 ? diff : 0)
     }, 1000)
+
     return () => clearInterval(timer)
+  }, [params.id])
+
+  const activeSessionExercise = exercises[activeExerciseIndex] || exercises[0]
+  const currentExercise = activeSessionExercise?.exercise || EXERCISE_DATABASE[0]
+
+  const formatChronometer = (totalSecs: number) => {
+    const hours = Math.floor(totalSecs / 3600)
+    const mins = Math.floor((totalSecs % 3600) / 60)
+    const secs = totalSecs % 60
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Setup Notification Channels & Categories
+  useEffect(() => {
+    setupWorkoutNotifications()
+    return () => {
+      clearAllWorkoutNotifications()
+    }
   }, [])
+
+  // Interactive Notification Actions Listener (Tick / +30s / Skip)
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const actionId = response.actionIdentifier
+      if (actionId === NOTIFICATION_ACTIONS.COMPLETE_SET) {
+        // Complete current active set from notifications bar
+        setExercises((prev) => {
+          let completedAny = false
+          return prev.map((ex, exIdx) => {
+            if (exIdx !== activeExerciseIndex) return ex
+            return {
+              ...ex,
+              sets: ex.sets.map((st) => {
+                if (!completedAny && !st.completed) {
+                  completedAny = true
+                  if (restTimerEnabled && defaultRestSeconds > 0) {
+                    setRestSeconds(defaultRestSeconds)
+                    setIsResting(true)
+                    scheduleRestFinishedNotification(
+                      currentExercise.name,
+                      st.setNum + 1,
+                      defaultRestSeconds
+                    )
+                  }
+                  return { ...st, completed: true }
+                }
+                return st
+              }),
+            }
+          })
+        })
+      } else if (actionId === NOTIFICATION_ACTIONS.REST_PLUS_30) {
+        setRestSeconds((s) => s + 30)
+      } else if (actionId === NOTIFICATION_ACTIONS.SKIP_REST) {
+        setIsResting(false)
+        cancelRestFinishedNotification()
+      }
+    })
+
+    return () => subscription.remove()
+  }, [activeExerciseIndex, currentExercise, defaultRestSeconds, restTimerEnabled])
+
+  // Sync active notification with current exercise, sets progress & elapsed chronometer
+  useEffect(() => {
+    const activeEx = exercises[activeExerciseIndex] || exercises[0]
+    if (!activeEx) return
+
+    const currentSetData = activeEx.sets.find((s) => !s.completed) || activeEx.sets[activeEx.sets.length - 1]
+    const currentSetNum = currentSetData ? currentSetData.setNum : 1
+
+    updateWorkoutActiveNotification({
+      routineName: routineTitle,
+      exerciseName: activeEx.exercise.name,
+      currentSet: currentSetNum,
+      totalSets: activeEx.sets.length,
+      targetWeight: currentSetData?.weightKg || '0',
+      targetReps: currentSetData?.reps || '10',
+      durationFormatted: formatChronometer(elapsedSeconds),
+      isResting,
+      restSecondsLeft: restSeconds,
+    })
+  }, [exercises, activeExerciseIndex, elapsedSeconds, isResting, restSeconds, routineTitle])
 
   // Rest countdown timer
   useEffect(() => {
@@ -200,19 +331,6 @@ export default function LiveWorkoutSessionScreen() {
     return () => clearInterval(restTimer)
   }, [isResting, restSeconds])
 
-  const activeSessionExercise = exercises[activeExerciseIndex] || exercises[0]
-  const currentExercise = activeSessionExercise?.exercise || EXERCISE_DATABASE[0]
-
-  const formatChronometer = (totalSecs: number) => {
-    const hours = Math.floor(totalSecs / 3600)
-    const mins = Math.floor((totalSecs % 3600) / 60)
-    const secs = totalSecs % 60
-    if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
   const toggleSetComplete = (setId: string) => {
     setExercises((prev) =>
       prev.map((ex, exIdx) => {
@@ -222,10 +340,15 @@ export default function LiveWorkoutSessionScreen() {
           sets: ex.sets.map((st) => {
             if (st.id === setId) {
               const nextState = !st.completed
-              if (nextState) {
-                // Trigger rest timer
-                setRestSeconds(90)
+              if (nextState && restTimerEnabled && defaultRestSeconds > 0) {
+                // Trigger rest timer with configured seconds & schedule notification
+                setRestSeconds(defaultRestSeconds)
                 setIsResting(true)
+                scheduleRestFinishedNotification(
+                  currentExercise.name,
+                  st.setNum + 1,
+                  defaultRestSeconds
+                )
               }
               return { ...st, completed: nextState }
             }
@@ -282,9 +405,93 @@ export default function LiveWorkoutSessionScreen() {
     setShowAddModal(false)
   }
 
+  const handleApplyPainReplacement = (
+    newExercise: ExerciseDefinition,
+    sets: number,
+    reps: string,
+    notes: string
+  ) => {
+    setExercises((prev) => {
+      const next = [...prev]
+      if (next[activeExerciseIndex]) {
+        const remainingSets: SetRowData[] = Array.from({ length: sets || 3 }).map((_, sIdx) => ({
+          id: `s-pain-${Date.now()}-${sIdx + 1}`,
+          setNum: sIdx + 1,
+          previous: `Variante Segura (${reps} reps)`,
+          weightKg: '20',
+          reps: reps.split('-')[0] || '10',
+          completed: false,
+        }))
+        next[activeExerciseIndex] = {
+          id: `ex-pain-${Date.now()}`,
+          exercise: newExercise,
+          sets: remainingSets,
+        }
+      }
+      return next
+    })
+    setShowPainModal(false)
+    Alert.alert(
+      'Variante Adaptada',
+      `Se ha reemplazado por "${newExercise.name}". Las series han sido adaptadas biomecánicamente.`
+    )
+  }
+
+  const handleLogVoiceSet = (data: {
+    setNum?: number
+    weightKg: number
+    reps: number
+    rpe?: number
+    notes?: string
+  }) => {
+    let completedSetNumber = 1
+    setExercises((prev) =>
+      prev.map((ex, exIdx) => {
+        if (exIdx !== activeExerciseIndex) return ex
+
+        let targetIndex = ex.sets.findIndex((s) => !s.completed)
+        if (targetIndex === -1) {
+          targetIndex = ex.sets.length
+        }
+
+        const setsCopy = [...ex.sets]
+        const targetSet: SetRowData = setsCopy[targetIndex] || {
+          id: `s-voice-${Date.now()}`,
+          setNum: targetIndex + 1,
+          previous: `${data.weightKg} kg x ${data.reps}`,
+          weightKg: String(data.weightKg),
+          reps: String(data.reps),
+          completed: true,
+        }
+
+        targetSet.weightKg = String(data.weightKg)
+        targetSet.reps = String(data.reps)
+        targetSet.completed = true
+        completedSetNumber = targetSet.setNum
+        setsCopy[targetIndex] = targetSet
+
+        return { ...ex, sets: setsCopy }
+      })
+    )
+
+    // Trigger rest timer & schedule notification
+    if (restTimerEnabled && defaultRestSeconds > 0) {
+      setRestSeconds(defaultRestSeconds)
+      setIsResting(true)
+      scheduleRestFinishedNotification(
+        currentExercise.name,
+        completedSetNumber + 1,
+        defaultRestSeconds
+      )
+    }
+
+    setShowVoiceModal(false)
+  }
+
   // Calculate real metrics and finish workout
   const handleInitiateFinish = async () => {
     const durationMins = Math.max(1, Math.round(elapsedSeconds / 60))
+    setFinishEditedMinutes(durationMins)
     const hours = Math.floor(durationMins / 60)
     const mins = durationMins % 60
     const durationFormatted = hours > 0 ? (mins > 0 ? `${hours}h ${mins}min` : `${hours}h`) : `${mins} min`
@@ -298,7 +505,7 @@ export default function LiveWorkoutSessionScreen() {
       const setsData = ex.sets.map((s) => {
         const w = parseFloat(s.weightKg.replace(',', '.')) || 0
         const r = parseInt(s.reps, 10) || 0
-        const isDone = s.completed || true // consider completed upon final save
+        const isDone = s.completed || true
         if (isDone) {
           totalVol += w * r
           completedCount += 1
@@ -311,7 +518,6 @@ export default function LiveWorkoutSessionScreen() {
         }
       })
 
-      // Check PRs: if max weight in this session >= standard reference
       const sessionMax = Math.max(...setsData.map((s) => s.weightKg), 0)
       if (sessionMax >= (ex.exercise.records?.maxWeight || 50)) {
         recordsAchieved += 1
@@ -342,29 +548,93 @@ export default function LiveWorkoutSessionScreen() {
     })
 
     setShowFinishModal(true)
+    handleConfirmSaveWorkout(durationMins)
+  }
 
-    // Save session in background
+  const handleConfirmSaveWorkout = async (customMins?: number) => {
+    const finalMins = customMins ?? finishEditedMinutes ?? Math.max(1, Math.round(elapsedSeconds / 60))
+    let totalVol = 0
+    let recordsAchieved = 0
+
+    const exerciseDataForSave = exercises.map((ex) => {
+      const setsData = ex.sets.map((s) => {
+        const w = parseFloat(s.weightKg.replace(',', '.')) || 0
+        const r = parseInt(s.reps, 10) || 0
+        const isDone = s.completed || true
+        if (isDone) {
+          totalVol += w * r
+        }
+        return {
+          setNum: s.setNum,
+          weightKg: w,
+          reps: r,
+          completed: isDone,
+        }
+      })
+
+      const sessionMax = Math.max(...setsData.map((s) => s.weightKg), 0)
+      if (sessionMax >= (ex.exercise.records?.maxWeight || 50)) {
+        recordsAchieved += 1
+      }
+
+      return {
+        name: ex.exercise.name,
+        muscleGroup: ex.exercise.muscleGroup,
+        sets: setsData,
+      }
+    })
+
+    if (recordsAchieved === 0 && totalVol > 3000) {
+      recordsAchieved = 1
+    }
+
     setSaving(true)
     try {
       await recordWorkoutSession({
         userId: user?.id,
         routineId: params.id,
         routineName: routineTitle,
-        durationMinutes: durationMins,
+        durationMinutes: finalMins,
         totalVolumeKg: Math.round(totalVol * 10) / 10,
         recordsCount: recordsAchieved,
         exercises: exerciseDataForSave,
       })
+
+      await AsyncStorage.removeItem(`@workout_session_start_${params.id || 'current'}`)
+      await clearAllWorkoutNotifications()
     } catch (e) {
-      console.log('Error in background recordWorkoutSession:', e)
+      console.log('Error in recordWorkoutSession:', e)
     } finally {
       setSaving(false)
     }
   }
 
+  const handleShareWorkoutSession = async () => {
+    try {
+      const durationStr = `${finishEditedMinutes} min`
+      const exercisesSummary = exercises
+        .map((ex) => {
+          const setsStr = ex.sets
+            .map((s) => `  • Serie ${s.setNum}: ${s.weightKg} kg x ${s.reps} reps ${s.completed ? '✅' : '⏳'}`)
+            .join('\n')
+          return `🏋️ ${ex.exercise.name} (${ex.exercise.muscleGroup}):\n${setsStr}`
+        })
+        .join('\n\n')
+
+      const shareText = `⚡ ENTRENAMIENTO COMPLETADO EN CARGA APP\n📋 Rutina: ${routineTitle}\n⏱️ Duración: ${durationStr}\n🏋️ Volumen total: ${finishStats.totalVolumeKg.toLocaleString('es-ES')} kg\n🥇 Récords PR: ${finishStats.recordsCount}\n\nDetalle de Series:\n${exercisesSummary}\n\n¡Entrena con Carga App! 💪🔥`
+
+      await Share.share({
+        title: `Entrenamiento - ${routineTitle}`,
+        message: shareText,
+      })
+    } catch (e) {
+      console.log('Share error:', e)
+    }
+  }
+
   return (
     <View style={styles.container}>
-      {/* ── Top Bar with Live Chronometer ── */}
+      {/* ── Top Bar with Live Chronometer & Rest Settings ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -374,12 +644,39 @@ export default function LiveWorkoutSessionScreen() {
           <Ionicons name="chevron-down" size={26} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Live Running Stopwatch Chronometer Pill */}
-        <View style={styles.liveTimerPill}>
+        {/* Live Running Stopwatch Chronometer Pill (Tap to Edit Duration) */}
+        <TouchableOpacity
+          onPress={() => {
+            setManualDurationInput(String(Math.max(1, Math.round(elapsedSeconds / 60))))
+            setShowEditDurationModal(true)
+          }}
+          style={styles.liveTimerPill}
+          activeOpacity={0.8}
+        >
           <View style={styles.timerLiveDot} />
           <Ionicons name="timer-outline" size={15} color="#38BDF8" />
           <Text style={styles.liveTimerText}>{formatChronometer(elapsedSeconds)}</Text>
-        </View>
+          <Ionicons name="pencil-outline" size={12} color="rgba(56, 189, 248, 0.7)" style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
+
+        {/* Rest Timer Toggle Button */}
+        <TouchableOpacity
+          onPress={() => {
+            setRestTimerEnabled((prev) => !prev)
+            if (isResting) setIsResting(false)
+          }}
+          style={[styles.restTogglePill, !restTimerEnabled && { opacity: 0.45 }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={restTimerEnabled ? 'hourglass-outline' : 'hourglass'}
+            size={14}
+            color={restTimerEnabled ? '#38BDF8' : 'rgba(255,255,255,0.4)'}
+          />
+          <Text style={[styles.restToggleText, !restTimerEnabled && { color: 'rgba(255,255,255,0.4)' }]}>
+            {restTimerEnabled ? `${defaultRestSeconds}s` : 'Off'}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleInitiateFinish}
@@ -484,6 +781,24 @@ export default function LiveWorkoutSessionScreen() {
           </Text>
 
           <View style={styles.exerciseHeaderIcons}>
+            <TouchableOpacity
+              style={styles.voiceLoggerBtn}
+              onPress={() => setShowVoiceModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="mic" size={13} color="#38BDF8" />
+              <Text style={styles.voiceLoggerBtnText}>Voz</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.painAdaptorBtn}
+              onPress={() => setShowPainModal(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="medkit" size={13} color="#F59E0B" />
+              <Text style={styles.painAdaptorBtnText}>Molestia</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => {
@@ -590,9 +905,16 @@ export default function LiveWorkoutSessionScreen() {
           <View style={styles.restBarActions}>
             <TouchableOpacity
               style={styles.restAdjustBtn}
-              onPress={() => setRestSeconds((s) => s + 30)}
+              onPress={() => setRestSeconds((s) => Math.max(0, s - 15))}
             >
-              <Text style={styles.restAdjustText}>+30s</Text>
+              <Text style={styles.restAdjustText}>-15s</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.restAdjustBtn}
+              onPress={() => setRestSeconds((s) => s + 15)}
+            >
+              <Text style={styles.restAdjustText}>+15s</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -620,7 +942,96 @@ export default function LiveWorkoutSessionScreen() {
         onClose={() => setDetailModalExercise(null)}
       />
 
-      {/* Finish Session Modal with Dynamic Recorded Data */}
+      {/* Pain Adaptor Live Modal (Modulo 3) */}
+      <PainAdaptorModal
+        visible={showPainModal}
+        onClose={() => setShowPainModal(false)}
+        currentExerciseName={currentExercise.name}
+        onApplyReplacement={handleApplyPainReplacement}
+      />
+
+      {/* Hands-Free Voice Logger Modal (Modulo 4) */}
+      <VoiceSetLoggerModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        currentExerciseName={currentExercise.name}
+        nextSetNumber={
+          activeSessionExercise?.sets.find((s) => !s.completed)?.setNum ||
+          (activeSessionExercise?.sets.length || 0) + 1
+        }
+        onLogVoiceSet={handleLogVoiceSet}
+      />
+
+      {/* Live Chronometer Edit Modal */}
+      <Modal
+        visible={showEditDurationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditDurationModal(false)}
+      >
+        <View style={styles.finishOverlay}>
+          <View style={[styles.finishCard, { maxWidth: 360 }]}>
+            <Text style={styles.finishTitle}>⏱️ Ajustar Cronómetro</Text>
+            <Text style={styles.finishSubtitle}>
+              Modifica los minutos transcurridos de tu entrenamiento.
+            </Text>
+
+            <View style={styles.editDurationInputRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  const curr = parseInt(manualDurationInput, 10) || 1
+                  setManualDurationInput(String(Math.max(1, curr - 5)))
+                }}
+                style={styles.durationStepBtn}
+              >
+                <Text style={styles.durationStepBtnText}>-5 min</Text>
+              </TouchableOpacity>
+
+              <TextInput
+                style={styles.editDurationTextInput}
+                value={manualDurationInput}
+                onChangeText={setManualDurationInput}
+                keyboardType="number-pad"
+                selectTextOnFocus
+              />
+
+              <TouchableOpacity
+                onPress={() => {
+                  const curr = parseInt(manualDurationInput, 10) || 1
+                  setManualDurationInput(String(curr + 5))
+                }}
+                style={styles.durationStepBtn}
+              >
+                <Text style={styles.durationStepBtnText}>+5 min</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEditDurationModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={() => {
+                  const parsed = parseInt(manualDurationInput, 10) || 1
+                  const newSecs = parsed * 60
+                  setElapsedSeconds(newSecs)
+                  startTimeRef.current = Date.now() - newSecs * 1000
+                  setShowEditDurationModal(false)
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Finish Session Modal with Editable Duration and Detailed Sharing */}
       <Modal
         visible={showFinishModal}
         transparent
@@ -632,9 +1043,34 @@ export default function LiveWorkoutSessionScreen() {
             <Text style={{ fontSize: 36, textAlign: 'center' }}>🏆</Text>
             <Text style={styles.finishTitle}>¡Entrenamiento Guardado!</Text>
             <Text style={styles.finishRoutineName}>{routineTitle}</Text>
-            <Text style={styles.finishSubtitle}>
-              ⏱️ Tiempo cronometrado: {finishStats.durationFormatted} ({formatChronometer(elapsedSeconds)})
-            </Text>
+
+            {/* Editable Duration Row in Finish Modal */}
+            <View style={styles.finishDurationEditRow}>
+              <Text style={styles.finishDurationLabel}>⏱️ Duración total:</Text>
+              <View style={styles.finishDurationControls}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const next = Math.max(1, finishEditedMinutes - 5)
+                    setFinishEditedMinutes(next)
+                    handleConfirmSaveWorkout(next)
+                  }}
+                  style={styles.finishMiniStepBtn}
+                >
+                  <Text style={styles.finishMiniStepText}>-5</Text>
+                </TouchableOpacity>
+                <Text style={styles.finishDurationValText}>{finishEditedMinutes} min</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const next = finishEditedMinutes + 5
+                    setFinishEditedMinutes(next)
+                    handleConfirmSaveWorkout(next)
+                  }}
+                  style={styles.finishMiniStepBtn}
+                >
+                  <Text style={styles.finishMiniStepText}>+5</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.finishStatsGrid}>
               <View style={styles.finishStatBox}>
@@ -660,6 +1096,16 @@ export default function LiveWorkoutSessionScreen() {
                 <Text style={styles.finishStatLabel}>Récords PR</Text>
               </View>
             </View>
+
+            {/* Share Workout Button */}
+            <TouchableOpacity
+              style={styles.finishShareBtn}
+              onPress={handleShareWorkoutSession}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="share-social-outline" size={18} color="#38BDF8" />
+              <Text style={styles.finishShareBtnText}>COMPARTIR ENTRENAMIENTO</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.finishSaveBtn}
@@ -1036,5 +1482,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1.5,
+  },
+  restTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#181C28',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  restToggleText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  editDurationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 14,
+  },
+  durationStepBtn: {
+    backgroundColor: '#1E2332',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  durationStepBtnText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  editDurationTextInput: {
+    flex: 1,
+    backgroundColor: '#0D0E16',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  finishDurationEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: '#161924',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  finishDurationLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  finishDurationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  finishMiniStepBtn: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  finishMiniStepText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  finishDurationValText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  finishShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  finishShareBtnText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  voiceLoggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0B2238',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0284C740',
+    marginRight: 4,
+  },
+  voiceLoggerBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  painAdaptorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#78350F25',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B40',
+    marginRight: 4,
+  },
+  painAdaptorBtnText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '800',
   },
 })

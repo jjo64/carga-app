@@ -25,6 +25,7 @@ import RoutineAnatomicalCover from '@/components/visuals/RoutineAnatomicalCover'
 import Svg, { Polyline } from 'react-native-svg'
 
 import { useNutrition } from '@/lib/hooks/useNutrition'
+import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
 
 const mealLabel: Record<string, string> = {
   breakfast: 'Desayuno',
@@ -87,14 +88,15 @@ export default function DashboardScreen() {
   const hour = todayDateObj.getHours()
   const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
 
+  const defaultTargets = calculateDailyNutritionTargets(profile)
   const consumed = metrics?.consumedCalories ?? 0
-  const target = metrics?.targetCalories || 2200
+  const target = metrics?.targetCalories || defaultTargets.targetCalories
   const protein = metrics?.protein ?? 0
-  const proteinTarget = metrics?.proteinTarget || 140
+  const proteinTarget = metrics?.proteinTarget || defaultTargets.proteinTarget
   const carbs = metrics?.carbs ?? 0
-  const carbsTarget = metrics?.carbsTarget || 220
+  const carbsTarget = metrics?.carbsTarget || defaultTargets.carbsTarget
   const fat = metrics?.fat ?? 0
-  const fatTarget = metrics?.fatTarget || 60
+  const fatTarget = metrics?.fatTarget || defaultTargets.fatTarget
   const streak = calculateStreak(history)
 
   // Check if completed workout today

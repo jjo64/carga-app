@@ -12,11 +12,12 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Plus, Trash2, Dumbbell, Clock, Layers, Flame, Calendar } from 'lucide-react-native'
+import { Plus, Trash2, Dumbbell, Clock, Layers, Flame, Calendar, Sparkles, ChevronRight } from 'lucide-react-native'
 import { ExerciseDefinition, getExerciseById } from '@/constants/exerciseDatabase'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import AddExerciseModal from '@/components/workout/AddExerciseModal'
 import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
+import AiRoutineGeneratorModal from '@/components/workout/AiRoutineGeneratorModal'
 import {
   useRoutines,
   parseRoutineDays,
@@ -66,6 +67,7 @@ export default function CreateRoutineModal({
   const [assignedDays, setAssignedDays] = useState<string[]>([])
   const [routineExercises, setRoutineExercises] = useState<SelectedRoutineExercise[]>([])
   const [showAddExerciseSearch, setShowAddExerciseSearch] = useState(false)
+  const [showAiGenerator, setShowAiGenerator] = useState(false)
   const [infoModalExercise, setInfoModalExercise] = useState<ExerciseDefinition | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -151,6 +153,16 @@ export default function CreateRoutineModal({
     setRoutineExercises((prev) => prev.filter((item) => item.id !== id))
   }
 
+  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= routineExercises.length) return
+    const updated = [...routineExercises]
+    const temp = updated[index]
+    updated[index] = updated[newIndex]
+    updated[newIndex] = temp
+    setRoutineExercises(updated)
+  }
+
   const updateExerciseSets = (id: string, delta: number) => {
     setRoutineExercises((prev) =>
       prev.map((item) => {
@@ -166,6 +178,12 @@ export default function CreateRoutineModal({
   const updateExerciseReps = (id: string, reps: string) => {
     setRoutineExercises((prev) =>
       prev.map((item) => (item.id === id ? { ...item, targetReps: reps } : item))
+    )
+  }
+
+  const updateExerciseRest = (id: string, restSecs: number) => {
+    setRoutineExercises((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, restSeconds: Math.max(0, restSecs) } : item))
     )
   }
 
@@ -261,6 +279,26 @@ export default function CreateRoutineModal({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* AI Routine Generator Banner */}
+          {!isEditMode && (
+            <TouchableOpacity
+              style={styles.aiBannerBtn}
+              onPress={() => setShowAiGenerator(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.aiBannerIconBox}>
+                <Sparkles size={18} color="#0F172A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiBannerTitle}>Generar Rutina con IA</Text>
+                <Text style={styles.aiBannerSub}>
+                  Crea una rutina personalizada por objetivo, días y equipamiento.
+                </Text>
+              </View>
+              <ChevronRight size={18} color="#38BDF8" />
+            </TouchableOpacity>
+          )}
+
           {/* ── Routine Details Card ── */}
           <View style={styles.card}>
             <Text style={styles.cardLabel}>DETALLES DE LA RUTINA</Text>
@@ -385,9 +423,25 @@ export default function CreateRoutineModal({
           {routineExercises.map((item, index) => (
             <View key={item.id} style={styles.exerciseCard}>
               <View style={styles.exerciseCardTop}>
-                {/* Index & Thumbnail */}
-                <View style={styles.exerciseIndexBadge}>
-                  <Text style={styles.exerciseIndexText}>{index + 1}</Text>
+                {/* Reorder Arrows & Index */}
+                <View style={styles.exerciseReorderCol}>
+                  <TouchableOpacity
+                    onPress={() => handleMoveExercise(index, 'up')}
+                    disabled={index === 0}
+                    style={[styles.miniReorderBtn, index === 0 && { opacity: 0.2 }]}
+                  >
+                    <Ionicons name="chevron-up" size={14} color="#38BDF8" />
+                  </TouchableOpacity>
+                  <View style={styles.exerciseIndexBadge}>
+                    <Text style={styles.exerciseIndexText}>{index + 1}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleMoveExercise(index, 'down')}
+                    disabled={index === routineExercises.length - 1}
+                    style={[styles.miniReorderBtn, index === routineExercises.length - 1 && { opacity: 0.2 }]}
+                  >
+                    <Ionicons name="chevron-down" size={14} color="#38BDF8" />
+                  </TouchableOpacity>
                 </View>
 
                 <ExerciseIllustration
@@ -464,12 +518,28 @@ export default function CreateRoutineModal({
                   />
                 </View>
 
-                {/* Rest Seconds */}
+                {/* Rest Seconds (Optional & Custom in seconds) */}
                 <View style={styles.controlBox}>
                   <Text style={styles.controlLabel}>Descanso</Text>
-                  <View style={styles.restBadge}>
-                    <Clock color="rgba(255,255,255,0.4)" size={12} strokeWidth={2} />
-                    <Text style={styles.restBadgeText}>{item.restSeconds}s</Text>
+                  <View style={styles.restStepper}>
+                    <TouchableOpacity
+                      onPress={() => updateExerciseRest(item.id, Math.max(0, item.restSeconds - 15))}
+                      style={styles.restAdjustSmallBtn}
+                    >
+                      <Text style={styles.restAdjustText}>-15</Text>
+                    </TouchableOpacity>
+                    <View style={styles.restBadge}>
+                      <Clock color="rgba(255,255,255,0.4)" size={11} strokeWidth={2} />
+                      <Text style={styles.restBadgeText}>
+                        {item.restSeconds > 0 ? `${item.restSeconds}s` : 'Sin desc.'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => updateExerciseRest(item.id, item.restSeconds + 15)}
+                      style={styles.restAdjustSmallBtn}
+                    >
+                      <Text style={styles.restAdjustText}>+15</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -505,6 +575,16 @@ export default function CreateRoutineModal({
             onClose={() => setInfoModalExercise(null)}
           />
         )}
+
+        {/* ── AI Routine Generator Modal (Modulo 3) ── */}
+        <AiRoutineGeneratorModal
+          visible={showAiGenerator}
+          onClose={() => setShowAiGenerator(false)}
+          onRoutineCreated={() => {
+            onRoutineCreated?.()
+            onClose()
+          }}
+        />
       </View>
     </Modal>
   )
@@ -829,6 +909,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     minWidth: 55,
   },
+  exerciseReorderCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
+    gap: 1,
+  },
+  miniReorderBtn: {
+    padding: 1,
+  },
+  restStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  restAdjustSmallBtn: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  restAdjustText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   restBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -860,5 +965,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  aiBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#0284C7',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  aiBannerIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBannerTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  aiBannerSub: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
   },
 })

@@ -68,7 +68,7 @@
   },
   {
     "id": "1512",
-    "name": "All fours squad Estiramiento",
+    "name": "Estiramiento de cuádriceps en cuadrupedia",
     "nameEn": "all fours squad stretch",
     "category": "Cuádriceps",
     "equipment": "Peso Corporal",
@@ -300,7 +300,7 @@
     "name": "Chest Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted chest dip (kneeling)",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -342,7 +342,7 @@
   },
   {
     "id": "0010",
-    "name": "Knee raise with thRemo down colgado asistido",
+    "name": "Knee raise with lanzamiento down colgado asistido",
     "nameEn": "assisted hanging knee raise with throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -430,7 +430,7 @@
   },
   {
     "id": "0012",
-    "name": "Leg raise with lateral thRemo down tumbado asistido",
+    "name": "Leg raise with lateral lanzamiento down tumbado asistido",
     "nameEn": "assisted lying leg raise with lateral throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -455,7 +455,7 @@
   },
   {
     "id": "0013",
-    "name": "Leg raise with thRemo down tumbado asistido",
+    "name": "Leg raise with lanzamiento down tumbado asistido",
     "nameEn": "assisted lying leg raise with throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -508,7 +508,7 @@
     "name": "Parallel close grip Dominadas pronas asistido",
     "nameEn": "assisted parallel close grip pull-up",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -601,7 +601,7 @@
     "name": "Dominadas pronas asistido",
     "nameEn": "assisted pull-up",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -696,7 +696,7 @@
     "name": "Dominadas supinas de pie asistido",
     "nameEn": "assisted standing chin-up",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -721,7 +721,7 @@
     "name": "Dominadas pronas de pie asistido",
     "nameEn": "assisted standing pull-up",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -768,7 +768,7 @@
     "name": "Triceps Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted triceps dip (kneeling)",
     "category": "Tríceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -791,7 +791,7 @@
     "name": "Wide-grip chest Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted wide-grip chest dip (kneeling)",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -10818,7 +10818,7 @@
     "name": "Cycle cross trainer",
     "nameEn": "cycle cross trainer",
     "category": "Cardio",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [
@@ -20184,7 +20184,7 @@
   },
   {
     "id": "1564",
-    "name": "Intermediate hip flexor and quad Estiramiento",
+    "name": "Intermediate hip flexor and Estiramiento de cuádriceps",
     "nameEn": "intermediate hip flexor and quad stretch",
     "category": "Cuádriceps",
     "equipment": "Cuerda",
@@ -21989,7 +21989,7 @@
     "name": "Prensa de piernas alterno en máquina",
     "nameEn": "lever alternate leg press",
     "category": "Cuádriceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -22014,7 +22014,7 @@
     "name": "Narrow grip Remo sentado alterno en máquina",
     "nameEn": "lever alternating narrow grip seated row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22040,7 +22040,7 @@
     "name": "Assisted Dominadas supinas en máquina",
     "nameEn": "lever assisted chin-up",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22065,7 +22065,7 @@
     "name": "Extensiones lumbares en máquina",
     "nameEn": "lever back extension",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22114,7 +22114,7 @@
     "name": "Bent-over Remo with v-bar en máquina",
     "nameEn": "lever bent-over row with v-bar",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22137,7 +22137,7 @@
     "name": "Bicep Curl en máquina",
     "nameEn": "lever bicep curl",
     "category": "Bíceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22160,7 +22160,7 @@
     "name": "Calf press en máquina",
     "nameEn": "lever calf press",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -22184,7 +22184,7 @@
     "name": "Press de pecho en máquina",
     "nameEn": "lever chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22207,7 +22207,7 @@
     "name": "Press de pecho en máquina",
     "nameEn": "lever chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22230,7 +22230,7 @@
     "name": "Peso muerto en máquina",
     "nameEn": "lever deadlift",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22256,7 +22256,7 @@
     "name": "Press de pecho declinado en máquina",
     "nameEn": "lever decline chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22281,7 +22281,7 @@
     "name": "Donkey Elevación de talones en máquina",
     "nameEn": "lever donkey calf raise",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -22305,7 +22305,7 @@
     "name": "Front Jalón al pecho en máquina",
     "nameEn": "lever front pulldown",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22330,7 +22330,7 @@
     "name": "Gripless Encogimientos de trapecios en máquina",
     "nameEn": "lever gripless shrug",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22353,7 +22353,7 @@
     "name": "Gripless Encogimientos de trapecios v. 2 en máquina",
     "nameEn": "lever gripless shrug v. 2",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22376,7 +22376,7 @@
     "name": "Gripper hands en máquina",
     "nameEn": "lever gripper hands",
     "category": "Antebrazos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Antebrazos",
     "muscleGroup": "Antebrazos",
     "secondaryMuscles": [
@@ -22399,7 +22399,7 @@
     "name": "Hammer grip Curl predicador en máquina",
     "nameEn": "lever hammer grip preacher curl",
     "category": "Bíceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22423,7 +22423,7 @@
     "name": "High Remo en máquina",
     "nameEn": "lever high row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22448,7 +22448,7 @@
     "name": "Hip extension v. 2 en máquina",
     "nameEn": "lever hip extension v. 2",
     "category": "Glúteos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -22470,7 +22470,7 @@
     "name": "Horizontal one Prensa de piernas en máquina",
     "nameEn": "lever horizontal one leg press",
     "category": "Glúteos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -22495,7 +22495,7 @@
     "name": "Press de pecho inclinado en máquina",
     "nameEn": "lever incline chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22519,7 +22519,7 @@
     "name": "Press de pecho v. 2 inclinado en máquina",
     "nameEn": "lever incline chest press v. 2",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22543,7 +22543,7 @@
     "name": "Curl femoral de piernas de rodillas en máquina",
     "nameEn": "lever kneeling leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22567,7 +22567,7 @@
     "name": "Twist de rodillas en máquina",
     "nameEn": "lever kneeling twist",
     "category": "Abdomen / Core",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -22591,7 +22591,7 @@
     "name": "Elevaciones laterales en máquina",
     "nameEn": "lever lateral raise",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22614,7 +22614,7 @@
     "name": "Extensión de cuádriceps en máquina",
     "nameEn": "lever leg extension",
     "category": "Cuádriceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -22637,7 +22637,7 @@
     "name": "Curl femoral de piernas tumbado en máquina",
     "nameEn": "lever lying leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22661,7 +22661,7 @@
     "name": "Two-one Curl femoral de piernas tumbado en máquina",
     "nameEn": "lever lying two-one leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22684,7 +22684,7 @@
     "name": "Press militar en máquina",
     "nameEn": "lever military press",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22707,7 +22707,7 @@
     "name": "Narrow grip Remo sentado en máquina",
     "nameEn": "lever narrow grip seated row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22758,7 +22758,7 @@
     "name": "Lateral high Remo a 1 mano en máquina",
     "nameEn": "lever one arm lateral high row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22782,7 +22782,7 @@
     "name": "Lateral wide Jalón al pecho a 1 mano en máquina",
     "nameEn": "lever one arm lateral wide pulldown",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22806,7 +22806,7 @@
     "name": "Press de hombros a 1 mano en máquina",
     "nameEn": "lever one arm shoulder press",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22829,7 +22829,7 @@
     "name": "Overhand triceps Fondos en paralelas en máquina",
     "nameEn": "lever overhand triceps dip",
     "category": "Tríceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -22853,7 +22853,7 @@
     "name": "Curl predicador en máquina",
     "nameEn": "lever preacher curl",
     "category": "Bíceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22877,7 +22877,7 @@
     "name": "Curl predicador v. 2 en máquina",
     "nameEn": "lever preacher curl v. 2",
     "category": "Bíceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22900,7 +22900,7 @@
     "name": "Pullover en máquina",
     "nameEn": "lever pullover",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22924,7 +22924,7 @@
     "name": "Reverse grip Jalón al pecho en máquina",
     "nameEn": "lever reverse grip lateral pulldown",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22949,7 +22949,7 @@
     "name": "Reverse grip Curl predicador en máquina",
     "nameEn": "lever reverse grip preacher curl",
     "category": "Bíceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22973,7 +22973,7 @@
     "name": "Reverse grip vertical Remo en máquina",
     "nameEn": "lever reverse grip vertical row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22998,7 +22998,7 @@
     "name": "Reverse Hiperextensiones lumbares en máquina",
     "nameEn": "lever reverse hyperextension",
     "category": "Glúteos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23022,7 +23022,7 @@
     "name": "Reverse Remo en barra T en máquina",
     "nameEn": "lever reverse t-bar row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23047,7 +23047,7 @@
     "name": "Rotary calf en máquina",
     "nameEn": "lever rotary calf",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23071,7 +23071,7 @@
     "name": "Calf press sentado en máquina",
     "nameEn": "lever seated calf press",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23095,7 +23095,7 @@
     "name": "Elevación de talones sentado en máquina",
     "nameEn": "lever seated calf raise",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23119,7 +23119,7 @@
     "name": "Crunch abdominal sentado en máquina",
     "nameEn": "lever seated crunch",
     "category": "Abdomen / Core",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23142,7 +23142,7 @@
     "name": "Crunch abdominal (chest pad) sentado en máquina",
     "nameEn": "lever seated crunch (chest pad)",
     "category": "Abdomen / Core",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23166,7 +23166,7 @@
     "name": "Crunch abdominal v. 2 sentado en máquina",
     "nameEn": "lever seated crunch v. 2",
     "category": "Abdomen / Core",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23190,7 +23190,7 @@
     "name": "Fondos en paralelas sentado en máquina",
     "nameEn": "lever seated dip",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23213,7 +23213,7 @@
     "name": "Fly sentado en máquina",
     "nameEn": "lever seated fly",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23237,7 +23237,7 @@
     "name": "Buenos días sentado en máquina",
     "nameEn": "lever seated good morning",
     "category": "Glúteos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23261,7 +23261,7 @@
     "name": "Abducción de cadera sentado en máquina",
     "nameEn": "lever seated hip abduction",
     "category": "Glúteos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23285,7 +23285,7 @@
     "name": "Aducción de cadera sentado en máquina",
     "nameEn": "lever seated hip adduction",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23308,7 +23308,7 @@
     "name": "Curl femoral de piernas sentado en máquina",
     "nameEn": "lever seated leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -23332,7 +23332,7 @@
     "name": "Leg raise Crunch abdominal sentado en máquina",
     "nameEn": "lever seated leg raise crunch",
     "category": "Abdomen / Core",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23354,7 +23354,7 @@
     "name": "Reverse fly sentado en máquina",
     "nameEn": "lever seated reverse fly",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23377,7 +23377,7 @@
     "name": "Reverse fly (parallel grip) sentado en máquina",
     "nameEn": "lever seated reverse fly (parallel grip)",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23400,7 +23400,7 @@
     "name": "Remo sentado en máquina",
     "nameEn": "lever seated row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23426,7 +23426,7 @@
     "name": "Sentadilla calf raise on leg press machine sentado en máquina",
     "nameEn": "lever seated squat calf raise on leg press machine",
     "category": "Cuádriceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -23452,7 +23452,7 @@
     "name": "Press de hombros en máquina",
     "nameEn": "lever shoulder press",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23475,7 +23475,7 @@
     "name": "Press de hombros v. 2 en máquina",
     "nameEn": "lever shoulder press v. 2",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23499,7 +23499,7 @@
     "name": "Press de hombros v. 3 en máquina",
     "nameEn": "lever shoulder press v. 3",
     "category": "Hombros",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23523,7 +23523,7 @@
     "name": "Encogimientos de trapecios en máquina",
     "nameEn": "lever shrug",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23545,7 +23545,7 @@
     "name": "Elevación de talones de pie en máquina",
     "nameEn": "lever standing calf raise",
     "category": "Gemelos",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23568,7 +23568,7 @@
     "name": "Press de pecho de pie en máquina",
     "nameEn": "lever standing chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23591,7 +23591,7 @@
     "name": "T bar Remo en máquina",
     "nameEn": "lever t bar row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23616,7 +23616,7 @@
     "name": "T-bar reverse grip Remo en máquina",
     "nameEn": "lever t-bar reverse grip row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23640,7 +23640,7 @@
     "name": "Extensión de tríceps en máquina",
     "nameEn": "lever triceps extension",
     "category": "Tríceps",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -23662,7 +23662,7 @@
     "name": "Unilateral Remo en máquina",
     "nameEn": "lever unilateral row",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23897,7 +23897,7 @@
     "name": "Machine inner Press de pecho",
     "nameEn": "machine inner chest press",
     "category": "Pecho",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23941,7 +23941,7 @@
   },
   {
     "id": "1353",
-    "name": "Catch and overhead thRemo con balón medicinal",
+    "name": "Catch and overhead lanzamiento con balón medicinal",
     "nameEn": "medicine ball catch and overhead throw",
     "category": "Espalda",
     "equipment": "Balón Medicinal",
@@ -24125,7 +24125,7 @@
   },
   {
     "id": "1750",
-    "name": "Supine chest thRemo con balón medicinal",
+    "name": "Supine chest lanzamiento con balón medicinal",
     "nameEn": "medicine ball supine chest throw",
     "category": "Tríceps",
     "equipment": "Balón Medicinal",
@@ -25885,7 +25885,7 @@
     "name": "Reverse grip machine Jalón al pecho",
     "nameEn": "reverse grip machine lat pulldown",
     "category": "Espalda",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -29554,7 +29554,7 @@
     "name": "Stationary bike walk",
     "nameEn": "stationary bike walk",
     "category": "Cardio",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [
@@ -30366,7 +30366,7 @@
     "name": "Walking on incline treadmill",
     "nameEn": "walking on incline treadmill",
     "category": "Cardio",
-    "equipment": "Leverage machine",
+    "equipment": "Máquina de palancas",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [

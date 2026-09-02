@@ -40,12 +40,17 @@ export function getMuscleGroupsForExercises(
       cat === 'pecho' ||
       target === 'pectorales' ||
       norm.includes('pecho') ||
-      norm.includes('banca') ||
-      norm.includes('fly') ||
+      norm.includes('press banca') ||
+      norm.includes('press de banca') ||
+      norm.includes('press plano') ||
+      norm.includes('press inclinado') ||
+      norm.includes('press declinado') ||
       norm.includes('apertura') ||
       norm.includes('pec deck') ||
       norm.includes('flexiones') ||
-      norm.includes('push-up')
+      norm.includes('push-up') ||
+      norm.includes('cruce de poleas') ||
+      norm.includes('chest')
     ) {
       active.add('Pecho')
       frontScore += 3
@@ -62,7 +67,8 @@ export function getMuscleGroupsForExercises(
       norm.includes('dominada') ||
       norm.includes('pulldown') ||
       norm.includes('pull-up') ||
-      norm.includes('chin-up')
+      norm.includes('chin-up') ||
+      norm.includes('lat pulldown')
     ) {
       active.add('Dorsales')
       backScore += 3
@@ -84,8 +90,8 @@ export function getMuscleGroupsForExercises(
       target === 'erectores espinales' ||
       norm.includes('hiperextension') ||
       norm.includes('lumbares') ||
-      norm.includes('deadlift') ||
-      norm.includes('muerto')
+      norm.includes('peso muerto') ||
+      norm.includes('deadlift')
     ) {
       active.add('Espalda Baja')
       backScore += 2
@@ -96,12 +102,16 @@ export function getMuscleGroupsForExercises(
       cat === 'hombros' ||
       target === 'deltoides' ||
       norm.includes('hombro') ||
-      norm.includes('militar') ||
-      norm.includes('lateral') ||
+      norm.includes('press militar') ||
+      norm.includes('elevacion lateral') ||
+      norm.includes('elevación lateral') ||
+      norm.includes('elevacion frontal') ||
+      norm.includes('elevación frontal') ||
       norm.includes('arnold') ||
       norm.includes('deltoide') ||
       norm.includes('pajaro') ||
-      norm.includes('pájaro')
+      norm.includes('pájaro') ||
+      norm.includes('face pull')
     ) {
       active.add('Hombros')
       frontScore += 1.5
@@ -117,6 +127,7 @@ export function getMuscleGroupsForExercises(
       norm.includes('bícep') ||
       (norm.includes('curl') &&
         !norm.includes('femoral') &&
+        !norm.includes('isquio') &&
         !norm.includes('muñeca') &&
         !norm.includes('nordic'))
     ) {
@@ -133,9 +144,13 @@ export function getMuscleGroupsForExercises(
       norm.includes('trícep') ||
       norm.includes('frances') ||
       norm.includes('francés') ||
-      norm.includes('fondo') ||
+      norm.includes('fondos en paralelas') ||
+      norm.includes('fondos') ||
       norm.includes('pushdown') ||
-      norm.includes('skull crusher')
+      norm.includes('skull crusher') ||
+      norm.includes('patada de tríceps') ||
+      norm.includes('extension de triceps') ||
+      norm.includes('extensión de tríceps')
     ) {
       active.add('Tríceps')
       backScore += 2
@@ -146,13 +161,19 @@ export function getMuscleGroupsForExercises(
       cat === 'cuadriceps' ||
       cat === 'cuádriceps' ||
       target === 'cuádriceps' ||
+      norm.includes('cuadricep') ||
+      norm.includes('cuádricep') ||
       norm.includes('sentadilla') ||
+      norm.includes('squat') ||
       norm.includes('prensa') ||
-      norm.includes('extension') ||
-      norm.includes('extensión') ||
+      norm.includes('extension de pierna') ||
+      norm.includes('extensión de pierna') ||
+      norm.includes('extension de cuadriceps') ||
+      norm.includes('extensión de cuádriceps') ||
       norm.includes('zancada') ||
       norm.includes('lunge') ||
-      norm.includes('step-up')
+      norm.includes('step-up') ||
+      norm.includes('sissy')
     ) {
       active.add('Cuádriceps')
       frontScore += 3
@@ -167,6 +188,8 @@ export function getMuscleGroupsForExercises(
       norm.includes('rumano') ||
       norm.includes('rdl') ||
       norm.includes('nordic') ||
+      norm.includes('buenos dias') ||
+      norm.includes('buenos días') ||
       norm.includes('good morning')
     ) {
       active.add('Isquiotibiales')
@@ -181,8 +204,8 @@ export function getMuscleGroupsForExercises(
       norm.includes('gluteo') ||
       norm.includes('glúteo') ||
       norm.includes('hip thrust') ||
-      norm.includes('puente') ||
-      norm.includes('patada') ||
+      norm.includes('puente de gluteo') ||
+      norm.includes('patada de gluteo') ||
       norm.includes('abduccion') ||
       norm.includes('abducción')
     ) {
@@ -197,7 +220,9 @@ export function getMuscleGroupsForExercises(
       norm.includes('gemelo') ||
       norm.includes('talon') ||
       norm.includes('talón') ||
-      norm.includes('pantorrilla')
+      norm.includes('pantorrilla') ||
+      norm.includes('elevacion de talon') ||
+      norm.includes('elevación de talón')
     ) {
       active.add('Gemelos')
       frontScore += 1
@@ -210,11 +235,14 @@ export function getMuscleGroupsForExercises(
       cat.includes('core') ||
       target === 'abdominales' ||
       norm.includes('abdomen') ||
+      norm.includes('abdominal') ||
       norm.includes('abs') ||
       norm.includes('crunch') ||
       norm.includes('plank') ||
       norm.includes('plancha') ||
-      norm.includes('sit-up')
+      norm.includes('sit-up') ||
+      norm.includes('elevacion de piernas') ||
+      norm.includes('rueda abdominal')
     ) {
       active.add('Abdomen')
       frontScore += 2
@@ -226,17 +254,13 @@ export function getMuscleGroupsForExercises(
       target === 'antebrazos' ||
       norm.includes('antebrazo') ||
       norm.includes('muñeca') ||
-      norm.includes('granjero')
+      norm.includes('paseo del granjero') ||
+      norm.includes('farmer')
     ) {
       active.add('Antebrazos')
       frontScore += 1
     }
   })
-
-  if (active.size === 0) {
-    active.add('Pecho')
-    frontScore = 1
-  }
 
   return {
     activeMuscles: active,

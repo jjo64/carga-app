@@ -198,6 +198,39 @@ export function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
+export function calculateStreak(history: { date?: string; finishedAt?: string | null }[]): number {
+  if (!history || history.length === 0) return 0
+  const dates = Array.from(
+    new Set(
+      history
+        .map((h) => h.date || (h.finishedAt ? h.finishedAt.split('T')[0] : ''))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+
+  if (dates.length === 0) return 0
+
+  const today = new Date().toISOString().split('T')[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+
+  if (dates[0] !== today && dates[0] !== yesterday) {
+    return 0
+  }
+
+  let streak = 1
+  for (let i = 0; i < dates.length - 1; i++) {
+    const curr = new Date(dates[i])
+    const prev = new Date(dates[i + 1])
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 3600 * 24))
+    if (diffDays === 1) {
+      streak++
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
 export function useWorkoutHistory() {
   const { user } = useAuth()
   const [history, setHistory] = useState<UserWorkoutHistoryItem[]>(localHistoryCache)
@@ -785,12 +818,59 @@ export function useRoutines() {
     return { error: null }
   }
 
+  async function reorderRoutines(newOrder: Routine[]) {
+    const updated = newOrder.map((r, idx) => ({ ...r, sort_order: idx }))
+    localRoutinesCache = updated
+    setRoutines(updated)
+    notifyRoutinesListeners()
+    saveRoutinesToStorage(updated, Array.from(dismissedStarterIds))
+
+    if (user) {
+      try {
+        const promises = updated
+          .filter((r) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.id))
+          .map((r, idx) => supabase.from('routines').update({ sort_order: idx }).eq('id', r.id))
+        await Promise.all(promises)
+      } catch (err) {
+        console.log('Error saving reordered routines:', err)
+      }
+    }
+    return { error: null }
+  }
+
+  async function reorderRoutineExercises(routineId: string, newExercises: RoutineExercise[]) {
+    const updatedExercises = newExercises.map((e, idx) => ({ ...e, sort_order: idx }))
+    localRoutinesCache = localRoutinesCache.map((r) => {
+      if (r.id === routineId) {
+        return { ...r, exercises: updatedExercises }
+      }
+      return r
+    })
+    setRoutines([...localRoutinesCache])
+    notifyRoutinesListeners()
+    saveRoutinesToStorage(localRoutinesCache, Array.from(dismissedStarterIds))
+
+    if (user && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(routineId)) {
+      try {
+        const promises = updatedExercises
+          .filter((e) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.id))
+          .map((e, idx) => supabase.from('routine_exercises').update({ sort_order: idx }).eq('id', e.id))
+        await Promise.all(promises)
+      } catch (err) {
+        console.log('Error saving reordered routine exercises:', err)
+      }
+    }
+    return { error: null }
+  }
+
   return {
     routines,
     loading,
     createRoutine,
     updateRoutine,
     deleteRoutine,
+    reorderRoutines,
+    reorderRoutineExercises,
     addExerciseToRoutine,
     deleteExercise,
     refetch: fetchRoutines,
