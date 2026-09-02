@@ -8,10 +8,11 @@ import { recordApiCall } from './cache'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
-const PROMPT_CACHING_BETA = 'prompt-caching-2024-07-25'
 
-export const MODEL_HAIKU = 'claude-3-5-haiku-20241022'
-export const MODEL_SONNET = 'claude-3-5-sonnet-20241022'
+export const MODEL_HAIKU =
+  process.env.EXPO_PUBLIC_ANTHROPIC_HAIKU_MODEL || 'claude-3-5-haiku-latest'
+export const MODEL_SONNET =
+  process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL || 'claude-3-5-sonnet-latest'
 
 // Costes por millón de tokens (USD)
 const PRICING = {
