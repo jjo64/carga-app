@@ -697,31 +697,84 @@ export default function SmartFoodScannerModal({
                           const portion = parseFloat(selectedPortionG) || 100
                           const ratio = portion / 100
                           return (
-                            <View style={styles.macrosGrid}>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {Math.round(scannedProduct.calories * ratio)}
-                                </Text>
-                                <Text style={styles.macroCellLabel}>kcal</Text>
+                            <View>
+                              <View style={styles.macrosGrid}>
+                                <View style={styles.macroCell}>
+                                  <Text style={styles.macroCellVal}>
+                                    {Math.round(scannedProduct.calories * ratio)}
+                                  </Text>
+                                  <Text style={styles.macroCellLabel}>kcal</Text>
+                                </View>
+                                <View style={styles.macroCell}>
+                                  <Text style={styles.macroCellVal}>
+                                    {(scannedProduct.protein * ratio).toFixed(1)}g
+                                  </Text>
+                                  <Text style={styles.macroCellLabel}>Proteína</Text>
+                                </View>
+                                <View style={styles.macroCell}>
+                                  <Text style={styles.macroCellVal}>
+                                    {(scannedProduct.carbs * ratio).toFixed(1)}g
+                                  </Text>
+                                  <Text style={styles.macroCellLabel}>Carbos</Text>
+                                </View>
+                                <View style={styles.macroCell}>
+                                  <Text style={styles.macroCellVal}>
+                                    {(scannedProduct.fat * ratio).toFixed(1)}g
+                                  </Text>
+                                  <Text style={styles.macroCellLabel}>Grasas</Text>
+                                </View>
                               </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(scannedProduct.protein * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Proteína</Text>
+
+                              {/* Detalle de Sub-Macros (Saturadas, Azúcares, Sal) */}
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                                {typeof scannedProduct.sugars === 'number' && (
+                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                      Azúcares: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.sugars * ratio).toFixed(1)}g</Text>
+                                    </Text>
+                                  </View>
+                                )}
+                                {typeof scannedProduct.saturatedFat === 'number' && (
+                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                      Sat: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.saturatedFat * ratio).toFixed(1)}g</Text>
+                                    </Text>
+                                  </View>
+                                )}
+                                {typeof scannedProduct.saltG === 'number' && scannedProduct.saltG > 0 && (
+                                  <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                    <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                      Sal: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(scannedProduct.saltG * ratio).toFixed(2)}g</Text>
+                                    </Text>
+                                  </View>
+                                )}
+                                {scannedProduct.barcode && (
+                                  <View style={{ backgroundColor: '#0284C720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#0284C750' }}>
+                                    <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600' }}>
+                                      EAN: {scannedProduct.barcode}
+                                    </Text>
+                                  </View>
+                                )}
                               </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(scannedProduct.carbs * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Carbos</Text>
-                              </View>
-                              <View style={styles.macroCell}>
-                                <Text style={styles.macroCellVal}>
-                                  {(scannedProduct.fat * ratio).toFixed(1)}g
-                                </Text>
-                                <Text style={styles.macroCellLabel}>Grasas</Text>
-                              </View>
+
+                              {/* Vitaminas y Minerales */}
+                              {scannedProduct.micronutrients && scannedProduct.micronutrients.length > 0 && (
+                                <View style={{ backgroundColor: '#0F172A', borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: '#1E293B' }}>
+                                  <Text style={{ color: '#38BDF8', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+                                    🌿 Vitaminas y Minerales
+                                  </Text>
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                    {scannedProduct.micronutrients.map((m, idx) => (
+                                      <View key={idx} style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                        <Text style={{ color: '#E2E8F0', fontSize: 11 }}>
+                                          {m.name}: <Text style={{ color: '#38BDF8', fontWeight: '700' }}>{m.amountPerServing || m.amount || m.amountPer100g}</Text>
+                                          {typeof m.vrnPercent === 'number' ? ` (${m.vrnPercent}% VRN)` : ''}
+                                        </Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                </View>
+                              )}
                             </View>
                           )
                         })()}
@@ -855,30 +908,64 @@ export default function SmartFoodScannerModal({
                         const portion = parseFloat(barcodePortionG) || 100
                         const ratio = portion / 100
                         return (
-                          <View style={styles.macrosGrid}>
-                            <View style={styles.macroCell}>
-                              <Text style={styles.macroCellVal}>
-                                {Math.round(barcodeProduct.calories * ratio)}
-                              </Text>
-                              <Text style={styles.macroCellLabel}>kcal</Text>
+                          <View>
+                            <View style={styles.macrosGrid}>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {Math.round(barcodeProduct.calories * ratio)}
+                                </Text>
+                                <Text style={styles.macroCellLabel}>kcal</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.protein * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Proteína</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.carbs * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Carbos</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(barcodeProduct.fat * ratio).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Grasas</Text>
+                              </View>
                             </View>
-                            <View style={styles.macroCell}>
-                              <Text style={styles.macroCellVal}>
-                                {(barcodeProduct.protein * ratio).toFixed(1)}g
-                              </Text>
-                              <Text style={styles.macroCellLabel}>Proteína</Text>
-                            </View>
-                            <View style={styles.macroCell}>
-                              <Text style={styles.macroCellVal}>
-                                {(barcodeProduct.carbs * ratio).toFixed(1)}g
-                              </Text>
-                              <Text style={styles.macroCellLabel}>Carbos</Text>
-                            </View>
-                            <View style={styles.macroCell}>
-                              <Text style={styles.macroCellVal}>
-                                {(barcodeProduct.fat * ratio).toFixed(1)}g
-                              </Text>
-                              <Text style={styles.macroCellLabel}>Grasas</Text>
+
+                            {/* Sub-Macros */}
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                              {typeof barcodeProduct.sugars === 'number' && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Azúcares: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.sugars * ratio).toFixed(1)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {typeof barcodeProduct.saturatedFat === 'number' && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Sat: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saturatedFat * ratio).toFixed(1)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {typeof barcodeProduct.saltG === 'number' && barcodeProduct.saltG > 0 && (
+                                <View style={{ backgroundColor: '#1E293B', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                  <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                                    Sal: <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>{(barcodeProduct.saltG * ratio).toFixed(2)}g</Text>
+                                  </Text>
+                                </View>
+                              )}
+                              {barcodeProduct.barcode && (
+                                <View style={{ backgroundColor: '#0284C720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#0284C750' }}>
+                                  <Text style={{ color: '#38BDF8', fontSize: 11, fontWeight: '600' }}>
+                                    EAN: {barcodeProduct.barcode}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
                           </View>
                         )

@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { aiService } from './ai'
-import { FoodPlateItem, NutritionalLabelResult } from './ai/types'
+import { FoodPlateItem, NutritionalLabelResult, MicronutrientItem } from './ai/types'
 
 export interface FoodProduct {
   id: string
@@ -10,13 +10,17 @@ export interface FoodProduct {
   brand?: string | null
   servingSizeG: number
   servingName: string
-  calories: number
+  calories: number // ¡Siempre en kcal!
+  energyKj?: number
   protein: number
   carbs: number
   fat: number
   sugars?: number
+  saturatedFat?: number
+  saltG?: number
   fiber?: number
   sodiumMg?: number
+  micronutrients?: MicronutrientItem[]
   ingredients?: string[]
   ultraProcessedScore?: number // 1 (Limpio) a 10 (Ultraprocesado)
   dataSource: 'verified' | 'openfoodfacts' | 'ai_scan' | 'user'
@@ -261,22 +265,26 @@ export const foodScannerService = {
 
     const product: FoodProduct = {
       id: `ai-label-${Date.now()}`,
-      barcode: optionalBarcode || null,
+      barcode: optionalBarcode || aiResult.barcode || null,
       name: aiResult.productName || 'Producto Escaneado por IA',
       brand: aiResult.brand || null,
       servingSizeG: aiResult.packageServingSizeG || 100,
-      servingName: aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}g/ml` : '100g',
+      servingName: aiResult.servingName || (aiResult.packageServingSizeG ? `${aiResult.packageServingSizeG}ml/g` : '100g'),
       calories: aiResult.per100g.calories,
+      energyKj: aiResult.per100g.energyKj,
       protein: aiResult.per100g.protein,
       carbs: aiResult.per100g.carbs,
       fat: aiResult.per100g.fat,
       sugars: aiResult.per100g.sugars || 0,
+      saturatedFat: aiResult.per100g.saturatedFat || 0,
+      saltG: aiResult.per100g.saltG || 0,
       fiber: aiResult.per100g.fiber || 0,
       sodiumMg: aiResult.per100g.sodiumMg || 0,
+      micronutrients: aiResult.micronutrients || [],
       ingredients: aiResult.ingredientsList || [],
       ultraProcessedScore: aiResult.ultraProcessedScore || 3,
       dataSource: 'ai_scan',
-      sourceLabel: 'Auditoría IA Claude 3.5 Sonnet',
+      sourceLabel: 'Escaneo IA',
     }
 
     // Si tiene código de barras, lo guardamos para que el próximo usuario lo tenga a $0

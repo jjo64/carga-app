@@ -130,20 +130,33 @@ export interface DeloadAdviceResult {
 // ==========================================
 // 5. Nutritional Label Scanner (Etiquetas e Ingredientes)
 // ==========================================
+export interface MicronutrientItem {
+  name: string
+  amount?: string
+  amountPer100g?: string
+  amountPerServing?: string
+  vrnPercent?: number
+}
+
 export interface NutritionalLabelResult {
   productName: string
   brand?: string
+  barcode?: string | null
   per100g: {
-    calories: number
+    calories: number // ¡Siempre en kcal!
+    energyKj?: number
     protein: number
     carbs: number
     fat: number
     sugars: number
     saturatedFat?: number
+    saltG?: number
     sodiumMg?: number
     fiber?: number
   }
   packageServingSizeG?: number
+  servingName?: string
+  micronutrients?: MicronutrientItem[]
   ingredientsList: string[]
   ultraProcessedScore: number // 1 (Muy natural/limpio) a 10 (Ultraprocesado extremo)
   classification: 'clean' | 'moderate' | 'ultra_processed'
