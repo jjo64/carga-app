@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   View,
   Text,
@@ -26,6 +26,11 @@ import Svg, { Polyline } from 'react-native-svg'
 
 import { useNutrition } from '@/lib/hooks/useNutrition'
 import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
+import { useSleep } from '@/lib/hooks/useSleep'
+import { useSteps } from '@/lib/hooks/useSteps'
+import { calculateReadinessScore } from '@/lib/services/readinessService'
+import ReadinessScoreCard from '@/components/recovery/ReadinessScoreCard'
+import MorningSleepCheckinModal from '@/components/sleep/MorningSleepCheckinModal'
 
 const mealLabel: Record<string, string> = {
   breakfast: 'Desayuno',
@@ -123,10 +128,40 @@ export default function DashboardScreen() {
       return days.includes(todayDayName)
     }) || null
 
+  // Sleep & Steps & Readiness evaluation
+  const { todayRecord: todaySleep, estimatedSleep, logSleep } = useSleep()
+  const { todayRecord: todaySteps } = useSteps()
+  const [sleepModalVisible, setSleepModalVisible] = useState(false)
+
+  const readiness = calculateReadinessScore({
+    todaySleep,
+    estimatedSleepHours: todaySleep ? todaySleep.durationMinutes / 60 : 7.5,
+    recentWorkouts: history,
+    yesterdaySteps: todaySteps?.steps || 7000,
+    yesterdayNutritionMet: true,
+  })
+
+  const handleSaveSleep = async (data: any) => {
+    const today = new Date().toISOString().split('T')[0]
+    await logSleep({
+      date: today,
+      bedtime: data.bedtime,
+      wakeTime: data.wakeTime,
+      durationMinutes: data.durationMinutes,
+      qualityScore: data.qualityScore,
+      awakeningsCount: data.awakeningsCount,
+      deepSleepMinutes: data.deepSleepMinutes,
+      remSleepMinutes: data.remSleepMinutes,
+      source: 'manual_checkin',
+    })
+    setSleepModalVisible(false)
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
+    <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={loading}
@@ -161,6 +196,14 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── AI Readiness & Recovery Score Card (Sueño, SNC, Muscular, Pasos) ── */}
+      <ReadinessScoreCard
+        readiness={readiness}
+        todaySleep={todaySleep}
+        todaySteps={todaySteps}
+        onOpenSleepModal={() => setSleepModalVisible(true)}
+      />
 
       {/* ── Activity Rings Card ── */}
       <View style={styles.ringsCard}>
@@ -430,6 +473,15 @@ export default function DashboardScreen() {
         </View>
       </View>
     </ScrollView>
+
+    {/* Morning Sleep Check-in Modal */}
+    <MorningSleepCheckinModal
+      visible={sleepModalVisible || !!estimatedSleep}
+      estimated={estimatedSleep}
+      onClose={() => setSleepModalVisible(false)}
+      onSave={handleSaveSleep}
+    />
+    </View>
   )
 }
 
