@@ -6,6 +6,8 @@ export interface BodyMeasurementEntry {
   id: string
   date: string // YYYY-MM-DD
   weightKg?: number | null
+  bodyFatPct?: number | null
+  muscleMassPct?: number | null
   chestCm?: number | null
   waistCm?: number | null
   hipsCm?: number | null

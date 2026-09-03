@@ -68,7 +68,7 @@
   },
   {
     "id": "1512",
-    "name": "Estiramiento de cuádriceps en cuadrupedia",
+    "name": "All fours squad Estiramiento",
     "nameEn": "all fours squad stretch",
     "category": "Cuádriceps",
     "equipment": "Peso Corporal",
@@ -116,7 +116,7 @@
     "name": "Jalón al pecho alterno",
     "nameEn": "alternate lateral pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -300,7 +300,7 @@
     "name": "Chest Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted chest dip (kneeling)",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -342,7 +342,7 @@
   },
   {
     "id": "0010",
-    "name": "Knee raise with lanzamiento down colgado asistido",
+    "name": "Knee raise with thRemo down colgado asistido",
     "nameEn": "assisted hanging knee raise with throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -430,7 +430,7 @@
   },
   {
     "id": "0012",
-    "name": "Leg raise with lateral lanzamiento down tumbado asistido",
+    "name": "Leg raise with lateral thRemo down tumbado asistido",
     "nameEn": "assisted lying leg raise with lateral throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -455,7 +455,7 @@
   },
   {
     "id": "0013",
-    "name": "Leg raise with lanzamiento down tumbado asistido",
+    "name": "Leg raise with thRemo down tumbado asistido",
     "nameEn": "assisted lying leg raise with throw down",
     "category": "Espalda",
     "equipment": "Asistido",
@@ -508,7 +508,7 @@
     "name": "Parallel close grip Dominadas pronas asistido",
     "nameEn": "assisted parallel close grip pull-up",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -601,7 +601,7 @@
     "name": "Dominadas pronas asistido",
     "nameEn": "assisted pull-up",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -696,7 +696,7 @@
     "name": "Dominadas supinas de pie asistido",
     "nameEn": "assisted standing chin-up",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -721,7 +721,7 @@
     "name": "Dominadas pronas de pie asistido",
     "nameEn": "assisted standing pull-up",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -768,7 +768,7 @@
     "name": "Triceps Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted triceps dip (kneeling)",
     "category": "Tríceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -791,7 +791,7 @@
     "name": "Wide-grip chest Fondos en paralelas (kneeling) asistido",
     "nameEn": "assisted wide-grip chest dip (kneeling)",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6389,7 +6389,7 @@
     "name": "Press de hombros alterno en polea",
     "nameEn": "cable alternate shoulder press",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -6411,10 +6411,10 @@
   },
   {
     "id": "0149",
-    "name": "Extensión de tríceps alterno en polea",
+    "name": "Extensión de tríceps alterna en polea",
     "nameEn": "cable alternate triceps extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -6437,7 +6437,7 @@
     "name": "Assisted inverse Curl femoral de piernas en polea",
     "nameEn": "cable assisted inverse leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -6462,7 +6462,7 @@
     "name": "Bar Jalón al pecho en polea",
     "nameEn": "cable bar lateral pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6488,7 +6488,7 @@
     "name": "Press de banca en polea",
     "nameEn": "cable bench press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6514,7 +6514,7 @@
     "name": "Close grip Curl en polea",
     "nameEn": "cable close grip curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -6539,7 +6539,7 @@
     "name": "Curl concentrado en polea",
     "nameEn": "cable concentration curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -6561,7 +6561,7 @@
     "name": "Concentration extension (on knee) en polea",
     "nameEn": "cable concentration extension (on knee)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -6583,7 +6583,7 @@
     "name": "Cross-over Jalón al pecho en polea",
     "nameEn": "cable cross-over lateral pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6609,7 +6609,7 @@
     "name": "Cross-over revers fly en polea",
     "nameEn": "cable cross-over revers fly",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -6633,7 +6633,7 @@
     "name": "Cross-over variation en polea",
     "nameEn": "cable cross-over variation",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6658,7 +6658,7 @@
     "name": "Curl en polea",
     "nameEn": "cable curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -6682,7 +6682,7 @@
     "name": "Peso muerto en polea",
     "nameEn": "cable deadlift",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6707,7 +6707,7 @@
     "name": "Fly declinado en polea",
     "nameEn": "cable decline fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6731,7 +6731,7 @@
     "name": "One arm press declinado en polea",
     "nameEn": "cable decline one arm press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6755,7 +6755,7 @@
     "name": "Press declinado en polea",
     "nameEn": "cable decline press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -6781,7 +6781,7 @@
     "name": "Seated wide-grip Remo declinado en polea",
     "nameEn": "cable decline seated wide-grip row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6805,7 +6805,7 @@
     "name": "Curl drag en polea",
     "nameEn": "cable drag curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -6828,7 +6828,7 @@
     "name": "Floor seated wide-grip Remo en polea",
     "nameEn": "cable floor seated wide-grip row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6853,7 +6853,7 @@
     "name": "Forward raise en polea",
     "nameEn": "cable forward raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -6876,7 +6876,7 @@
     "name": "Elevaciones frontales en polea",
     "nameEn": "cable front raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -6900,7 +6900,7 @@
     "name": "Front shoulder raise en polea",
     "nameEn": "cable front shoulder raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -6924,7 +6924,7 @@
     "name": "Curl martillo (with rope) en polea",
     "nameEn": "cable hammer curl (with rope)",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -6948,7 +6948,7 @@
     "name": "High pulley overhead tricep extension en polea",
     "nameEn": "cable high pulley overhead tricep extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -6971,7 +6971,7 @@
     "name": "High Remo (kneeling) en polea",
     "nameEn": "cable high row (kneeling)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -6995,7 +6995,7 @@
     "name": "Aducción de cadera en polea",
     "nameEn": "cable hip adduction",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7019,7 +7019,7 @@
     "name": "Press de banca inclinado en polea",
     "nameEn": "cable incline bench press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7044,7 +7044,7 @@
     "name": "Bench Remo inclinado en polea",
     "nameEn": "cable incline bench row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7069,7 +7069,7 @@
     "name": "Fly inclinado en polea",
     "nameEn": "cable incline fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7093,7 +7093,7 @@
     "name": "Fly (on stability ball) inclinado en polea",
     "nameEn": "cable incline fly (on stability ball)",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7120,7 +7120,7 @@
     "name": "Extensión en polea inclinado en polea",
     "nameEn": "cable incline pushdown",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7145,7 +7145,7 @@
     "name": "Extensión de tríceps inclinado en polea",
     "nameEn": "cable incline triceps extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7170,7 +7170,7 @@
     "name": "Judo flip en polea",
     "nameEn": "cable judo flip",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -7196,7 +7196,7 @@
     "name": "Patada de tríceps en polea",
     "nameEn": "cable kickback",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7220,7 +7220,7 @@
     "name": "Crunch abdominal de rodillas en polea",
     "nameEn": "cable kneeling crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -7242,7 +7242,7 @@
     "name": "Remo para deltoides posterior (with rope) de rodillas en polea",
     "nameEn": "cable kneeling rear delt row (with rope) (male)",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -7267,7 +7267,7 @@
     "name": "Extensión de tríceps de rodillas en polea",
     "nameEn": "cable kneeling triceps extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7290,7 +7290,7 @@
     "name": "Jalón al pecho full range of motion en polea",
     "nameEn": "cable lat pulldown full range of motion",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7315,7 +7315,7 @@
     "name": "Jalón al pecho (with rope attachment) en polea",
     "nameEn": "cable lateral pulldown (with rope attachment)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7341,7 +7341,7 @@
     "name": "Jalón al pecho with v-bar en polea",
     "nameEn": "cable lateral pulldown with v-bar",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7365,7 +7365,7 @@
     "name": "Elevaciones laterales en polea",
     "nameEn": "cable lateral raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -7388,7 +7388,7 @@
     "name": "Low fly en polea",
     "nameEn": "cable low fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7413,7 +7413,7 @@
     "name": "Low Remo sentado en polea",
     "nameEn": "cable low seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7437,7 +7437,7 @@
     "name": "Bicep Curl tumbado en polea",
     "nameEn": "cable lying bicep curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7462,7 +7462,7 @@
     "name": "Close-grip Curl tumbado en polea",
     "nameEn": "cable lying close-grip curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7487,7 +7487,7 @@
     "name": "Extension Pullover (with rope attachment) tumbado en polea",
     "nameEn": "cable lying extension pullover (with rope attachment)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7511,7 +7511,7 @@
     "name": "Fly tumbado en polea",
     "nameEn": "cable lying fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7534,7 +7534,7 @@
     "name": "Extensión de tríceps v. 2 tumbado en polea",
     "nameEn": "cable lying triceps extension v. 2",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7557,7 +7557,7 @@
     "name": "Middle fly en polea",
     "nameEn": "cable middle fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7582,7 +7582,7 @@
     "name": "Remo inclinado a 1 mano en polea",
     "nameEn": "cable one arm bent over row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7606,7 +7606,7 @@
     "name": "Curl a 1 mano en polea",
     "nameEn": "cable one arm curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7628,7 +7628,7 @@
     "name": "Decline Aperturas de pecho a 1 mano en polea",
     "nameEn": "cable one arm decline chest fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7652,7 +7652,7 @@
     "name": "Fly on exercise ball a 1 mano en polea",
     "nameEn": "cable one arm fly on exercise ball",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7676,7 +7676,7 @@
     "name": "Incline fly on exercise ball a 1 mano en polea",
     "nameEn": "cable one arm incline fly on exercise ball",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7699,7 +7699,7 @@
     "name": "Incline press a 1 mano en polea",
     "nameEn": "cable one arm incline press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7724,7 +7724,7 @@
     "name": "Incline press on exercise ball a 1 mano en polea",
     "nameEn": "cable one arm incline press on exercise ball",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7747,7 +7747,7 @@
     "name": "Lateral bent-over a 1 mano en polea",
     "nameEn": "cable one arm lateral bent-over",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7771,7 +7771,7 @@
     "name": "Elevaciones laterales a 1 mano en polea",
     "nameEn": "cable one arm lateral raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -7794,7 +7794,7 @@
     "name": "Curl predicador a 1 mano en polea",
     "nameEn": "cable one arm preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7820,7 +7820,7 @@
     "name": "Press on exercise ball a 1 mano en polea",
     "nameEn": "cable one arm press on exercise ball",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -7844,7 +7844,7 @@
     "name": "Jalón al pecho a 1 mano en polea",
     "nameEn": "cable one arm pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7871,7 +7871,7 @@
     "name": "Reverse Curl predicador a 1 mano en polea",
     "nameEn": "cable one arm reverse preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7897,7 +7897,7 @@
     "name": "Straight back high Remo (kneeling) a 1 mano en polea",
     "nameEn": "cable one arm straight back high row (kneeling)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -7923,7 +7923,7 @@
     "name": "Tricep Extensión en polea a 1 mano en polea",
     "nameEn": "cable one arm tricep pushdown",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -7948,7 +7948,7 @@
     "name": "Overhead Curl en polea",
     "nameEn": "cable overhead curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7974,7 +7974,7 @@
     "name": "Overhead Curl on exercise ball en polea",
     "nameEn": "cable overhead curl on exercise ball",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -7997,7 +7997,7 @@
     "name": "Overhead Extensión de tríceps (rope attachment) en polea",
     "nameEn": "cable overhead triceps extension (rope attachment)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8021,7 +8021,7 @@
     "name": "Palm rotational Remo en polea",
     "nameEn": "cable palm rotational row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8047,7 +8047,7 @@
     "name": "Curl predicador en polea",
     "nameEn": "cable preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8070,7 +8070,7 @@
     "name": "Press on exercise ball en polea",
     "nameEn": "cable press on exercise ball",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -8093,7 +8093,7 @@
     "name": "Pull through (with rope) en polea",
     "nameEn": "cable pull through (with rope)",
     "category": "Glúteos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -8116,7 +8116,7 @@
     "name": "Jalón al pecho en polea",
     "nameEn": "cable pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8141,7 +8141,7 @@
     "name": "Jalón al pecho (pro lat bar) en polea",
     "nameEn": "cable pulldown (pro lat bar)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8165,7 +8165,7 @@
     "name": "Jalón al pecho bicep curl en polea",
     "nameEn": "cable pulldown bicep curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8190,7 +8190,7 @@
     "name": "Extensión en polea en polea",
     "nameEn": "cable pushdown",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8214,7 +8214,7 @@
     "name": "Extensión en polea (straight arm) v. 2 en polea",
     "nameEn": "cable pushdown (straight arm) v. 2",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8238,7 +8238,7 @@
     "name": "Extensión en polea (with rope attachment) en polea",
     "nameEn": "cable pushdown (with rope attachment)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8262,7 +8262,7 @@
     "name": "Remo para deltoides posterior (stirrups) en polea",
     "nameEn": "cable rear delt row (stirrups)",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -8288,7 +8288,7 @@
     "name": "Remo para deltoides posterior (with rope) en polea",
     "nameEn": "cable rear delt row (with rope)",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -8314,7 +8314,7 @@
     "name": "Rear drive en polea",
     "nameEn": "cable rear drive",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8336,7 +8336,7 @@
     "name": "Rear Jalón al pecho en polea",
     "nameEn": "cable rear pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8362,7 +8362,7 @@
     "name": "Reverse Crunch abdominal en polea",
     "nameEn": "cable reverse crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -8385,7 +8385,7 @@
     "name": "Curl inverso en polea",
     "nameEn": "cable reverse curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8410,7 +8410,7 @@
     "name": "Reverse grip Extensión de tríceps en polea (sz-bar) (with arm blaster) en polea",
     "nameEn": "cable reverse grip triceps pushdown (sz-bar) (with arm blaster)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8434,7 +8434,7 @@
     "name": "Reverse one arm Curl en polea",
     "nameEn": "cable reverse one arm curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8456,7 +8456,7 @@
     "name": "Reverse Curl predicador en polea",
     "nameEn": "cable reverse preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8480,7 +8480,7 @@
     "name": "Reverse wrist Curl en polea",
     "nameEn": "cable reverse wrist curl",
     "category": "Antebrazos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Antebrazos",
     "muscleGroup": "Antebrazos",
     "secondaryMuscles": [
@@ -8504,7 +8504,7 @@
     "name": "Reverse-grip Extensión en polea en polea",
     "nameEn": "cable reverse-grip pushdown",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8528,7 +8528,7 @@
     "name": "Reverse-grip straight back seated high Remo en polea",
     "nameEn": "cable reverse-grip straight back seated high row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8552,7 +8552,7 @@
     "name": "Rope crossover Remo sentado en polea",
     "nameEn": "cable rope crossover seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8576,7 +8576,7 @@
     "name": "Rope elevated Remo sentado en polea",
     "nameEn": "cable rope elevated seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8601,7 +8601,7 @@
     "name": "Rope extension incline bench Remo en polea",
     "nameEn": "cable rope extension incline bench row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8626,7 +8626,7 @@
     "name": "Rope hammer Curl predicador en polea",
     "nameEn": "cable rope hammer preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8651,7 +8651,7 @@
     "name": "Rope high pulley overhead tricep extension en polea",
     "nameEn": "cable rope high pulley overhead tricep extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8675,7 +8675,7 @@
     "name": "Rope incline tricep extension en polea",
     "nameEn": "cable rope incline tricep extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8699,7 +8699,7 @@
     "name": "Rope lying on floor tricep extension en polea",
     "nameEn": "cable rope lying on floor tricep extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -8722,7 +8722,7 @@
     "name": "Rope one arm hammer Curl predicador en polea",
     "nameEn": "cable rope one arm hammer preacher curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8747,7 +8747,7 @@
     "name": "Rope Remo sentado en polea",
     "nameEn": "cable rope seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8771,7 +8771,7 @@
     "name": "Giros rusoss (on stability ball) en polea",
     "nameEn": "cable russian twists (on stability ball)",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -8795,7 +8795,7 @@
     "name": "Press de pecho sentado en polea",
     "nameEn": "cable seated chest press",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -8819,7 +8819,7 @@
     "name": "Crunch abdominal sentado en polea",
     "nameEn": "cable seated crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -8841,7 +8841,7 @@
     "name": "Curl sentado en polea",
     "nameEn": "cable seated curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8864,7 +8864,7 @@
     "name": "High Remo (v-bar) sentado en polea",
     "nameEn": "cable seated high row (v-bar)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8889,7 +8889,7 @@
     "name": "One arm alternate Remo sentado en polea",
     "nameEn": "cable seated one arm alternate row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -8914,7 +8914,7 @@
     "name": "One arm Curl concentrado sentado en polea",
     "nameEn": "cable seated one arm concentration curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8937,7 +8937,7 @@
     "name": "Overhead Curl sentado en polea",
     "nameEn": "cable seated overhead curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -8962,7 +8962,7 @@
     "name": "Rear Elevaciones laterales sentado en polea",
     "nameEn": "cable seated rear lateral raise",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -8982,10 +8982,10 @@
   },
   {
     "id": "0861",
-    "name": "Remo sentado en polea",
+    "name": "Remo sentado en polea (Gironda)",
     "nameEn": "cable seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9008,7 +9008,7 @@
     "name": "Shoulder internal rotation sentado en polea",
     "nameEn": "cable seated shoulder internal rotation",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9032,7 +9032,7 @@
     "name": "Twist sentado en polea",
     "nameEn": "cable seated twist",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9055,7 +9055,7 @@
     "name": "Wide-grip Remo sentado en polea",
     "nameEn": "cable seated wide-grip row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9080,7 +9080,7 @@
     "name": "Press de hombros en polea",
     "nameEn": "cable shoulder press",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9104,7 +9104,7 @@
     "name": "Encogimientos de trapecios en polea",
     "nameEn": "cable shrug",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9126,7 +9126,7 @@
     "name": "Flexión lateral de tronco en polea",
     "nameEn": "cable side bend",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9149,7 +9149,7 @@
     "name": "Side bend Crunch abdominal (bosu ball) en polea",
     "nameEn": "cable side bend crunch (bosu ball)",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9171,7 +9171,7 @@
     "name": "Side Crunch abdominal en polea",
     "nameEn": "cable side crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9194,7 +9194,7 @@
     "name": "Sentadilla row (with rope attachment) en polea",
     "nameEn": "cable squat row (with rope attachment)",
     "category": "Cuádriceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -9221,7 +9221,7 @@
     "name": "Sentadillating curl en polea",
     "nameEn": "cable squatting curl",
     "category": "Cuádriceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -9246,7 +9246,7 @@
     "name": "Back wrist Curl de pie en polea",
     "nameEn": "cable standing back wrist curl",
     "category": "Antebrazos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Antebrazos",
     "muscleGroup": "Antebrazos",
     "secondaryMuscles": [
@@ -9270,7 +9270,7 @@
     "name": "Elevación de talones de pie en polea",
     "nameEn": "cable standing calf raise",
     "category": "Gemelos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -9293,7 +9293,7 @@
     "name": "Cross-over high reverse fly de pie en polea",
     "nameEn": "cable standing cross-over high reverse fly",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9319,7 +9319,7 @@
     "name": "Crunch abdominal de pie en polea",
     "nameEn": "cable standing crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9342,7 +9342,7 @@
     "name": "Crunch abdominal (with rope attachment) de pie en polea",
     "nameEn": "cable standing crunch (with rope attachment)",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9365,7 +9365,7 @@
     "name": "Fly de pie en polea",
     "nameEn": "cable standing fly",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -9392,7 +9392,7 @@
     "name": "Hip extension de pie en polea",
     "nameEn": "cable standing hip extension",
     "category": "Glúteos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -9417,7 +9417,7 @@
     "name": "Inner Curl de pie en polea",
     "nameEn": "cable standing inner curl",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -9441,7 +9441,7 @@
     "name": "Lift de pie en polea",
     "nameEn": "cable standing lift",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9465,7 +9465,7 @@
     "name": "One arm Extensión de tríceps de pie en polea",
     "nameEn": "cable standing one arm triceps extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -9488,7 +9488,7 @@
     "name": "One leg Elevación de talones de pie en polea",
     "nameEn": "cable standing one leg calf raise",
     "category": "Gemelos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -9512,7 +9512,7 @@
     "name": "Jalón al pecho (with rope) de pie en polea",
     "nameEn": "cable standing pulldown (with rope)",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -9537,7 +9537,7 @@
     "name": "Remo para deltoides posterior (with rope) de pie en polea",
     "nameEn": "cable standing rear delt row (with rope)",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9562,7 +9562,7 @@
     "name": "Reverse grip one arm overhead tricep extension de pie en polea",
     "nameEn": "cable standing reverse grip one arm overhead tricep extension",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -9584,7 +9584,7 @@
     "name": "Remo (v-bar) de pie en polea",
     "nameEn": "cable standing row (v-bar)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9608,7 +9608,7 @@
     "name": "Shoulder external rotation de pie en polea",
     "nameEn": "cable standing shoulder external rotation",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9632,7 +9632,7 @@
     "name": "Twist Remo (v-bar) de pie en polea",
     "nameEn": "cable standing twist row (v-bar)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9660,7 +9660,7 @@
     "name": "Up straight crossovers de pie en polea",
     "nameEn": "cable standing up straight crossovers",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -9683,7 +9683,7 @@
     "name": "Straight arm Jalón al pecho en polea",
     "nameEn": "cable straight arm pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9707,7 +9707,7 @@
     "name": "Straight arm Jalón al pecho (with rope) en polea",
     "nameEn": "cable straight arm pulldown (with rope)",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9732,7 +9732,7 @@
     "name": "Straight back Remo sentado en polea",
     "nameEn": "cable straight back seated row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9757,7 +9757,7 @@
     "name": "Supine reverse fly en polea",
     "nameEn": "cable supine reverse fly",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -9780,7 +9780,7 @@
     "name": "Thibaudeau kayak Remo en polea",
     "nameEn": "cable thibaudeau kayak row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9805,7 +9805,7 @@
     "name": "Extensión de tríceps en polea (v-bar) en polea",
     "nameEn": "cable triceps pushdown (v-bar)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -9830,7 +9830,7 @@
     "name": "Extensión de tríceps en polea (v-bar) (with arm blaster) en polea",
     "nameEn": "cable triceps pushdown (v-bar) (with arm blaster)",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -9855,7 +9855,7 @@
     "name": "Tuck reverse Crunch abdominal en polea",
     "nameEn": "cable tuck reverse crunch",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9878,7 +9878,7 @@
     "name": "Twist en polea",
     "nameEn": "cable twist",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9902,7 +9902,7 @@
     "name": "Twist (up-down) en polea",
     "nameEn": "cable twist (up-down)",
     "category": "Abdomen / Core",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -9926,7 +9926,7 @@
     "name": "Twisting pull en polea",
     "nameEn": "cable twisting pull",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -9952,7 +9952,7 @@
     "name": "Two arm Curl on incline bench en polea",
     "nameEn": "cable two arm curl on incline bench",
     "category": "Bíceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -9975,7 +9975,7 @@
     "name": "Two arm tricep Patada de tríceps en polea",
     "nameEn": "cable two arm tricep kickback",
     "category": "Tríceps",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -9997,7 +9997,7 @@
     "name": "Underhand Jalón al pecho en polea",
     "nameEn": "cable underhand pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -10021,7 +10021,7 @@
     "name": "Upper chest crossovers en polea",
     "nameEn": "cable upper chest crossovers",
     "category": "Pecho",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -10047,7 +10047,7 @@
     "name": "Upper Remo en polea",
     "nameEn": "cable upper row",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -10073,7 +10073,7 @@
     "name": "Upright Remo en polea",
     "nameEn": "cable upright row",
     "category": "Hombros",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -10097,7 +10097,7 @@
     "name": "Wide grip rear Jalón al pecho behind neck en polea",
     "nameEn": "cable wide grip rear pulldown behind neck",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -10122,7 +10122,7 @@
     "name": "Wrist Curl en polea",
     "nameEn": "cable wrist curl",
     "category": "Antebrazos",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Antebrazos",
     "muscleGroup": "Antebrazos",
     "secondaryMuscles": [
@@ -10818,7 +10818,7 @@
     "name": "Cycle cross trainer",
     "nameEn": "cycle cross trainer",
     "category": "Cardio",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [
@@ -15835,10 +15835,10 @@
     "id": "3547",
     "name": "Biceps curl to Press de hombros sentado con mancuernas",
     "nameEn": "dumbbell seated biceps curl to shoulder press",
-    "category": "Bíceps",
+    "category": "Hombros",
     "equipment": "Mancuerna",
-    "target": "Bíceps",
-    "muscleGroup": "Bíceps",
+    "target": "Deltoides",
+    "muscleGroup": "Hombros",
     "secondaryMuscles": [
       "shoulders"
     ],
@@ -19581,10 +19581,10 @@
     "id": "3302",
     "name": "Pino / Parada de manos",
     "nameEn": "handstand",
-    "category": "Tríceps",
+    "category": "Hombros",
     "equipment": "Peso Corporal",
-    "target": "Tríceps",
-    "muscleGroup": "Tríceps",
+    "target": "Deltoides",
+    "muscleGroup": "Hombros",
     "secondaryMuscles": [
       "shoulders",
       "core"
@@ -19606,10 +19606,10 @@
     "id": "0471",
     "name": "Flexiones de pino",
     "nameEn": "handstand push-up",
-    "category": "Tríceps",
+    "category": "Hombros",
     "equipment": "Peso Corporal",
-    "target": "Tríceps",
-    "muscleGroup": "Tríceps",
+    "target": "Deltoides",
+    "muscleGroup": "Hombros",
     "secondaryMuscles": [
       "shoulders",
       "chest",
@@ -20184,7 +20184,7 @@
   },
   {
     "id": "1564",
-    "name": "Intermediate hip flexor and Estiramiento de cuádriceps",
+    "name": "Intermediate hip flexor and quad Estiramiento",
     "nameEn": "intermediate hip flexor and quad stretch",
     "category": "Cuádriceps",
     "equipment": "Cuerda",
@@ -21989,7 +21989,7 @@
     "name": "Prensa de piernas alterno en máquina",
     "nameEn": "lever alternate leg press",
     "category": "Cuádriceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -22014,7 +22014,7 @@
     "name": "Narrow grip Remo sentado alterno en máquina",
     "nameEn": "lever alternating narrow grip seated row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22040,7 +22040,7 @@
     "name": "Assisted Dominadas supinas en máquina",
     "nameEn": "lever assisted chin-up",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22065,7 +22065,7 @@
     "name": "Extensiones lumbares en máquina",
     "nameEn": "lever back extension",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22114,7 +22114,7 @@
     "name": "Bent-over Remo with v-bar en máquina",
     "nameEn": "lever bent-over row with v-bar",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22137,7 +22137,7 @@
     "name": "Bicep Curl en máquina",
     "nameEn": "lever bicep curl",
     "category": "Bíceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22160,7 +22160,7 @@
     "name": "Calf press en máquina",
     "nameEn": "lever calf press",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -22184,7 +22184,7 @@
     "name": "Press de pecho en máquina",
     "nameEn": "lever chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22207,7 +22207,7 @@
     "name": "Press de pecho en máquina",
     "nameEn": "lever chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22230,7 +22230,7 @@
     "name": "Peso muerto en máquina",
     "nameEn": "lever deadlift",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22256,7 +22256,7 @@
     "name": "Press de pecho declinado en máquina",
     "nameEn": "lever decline chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22281,7 +22281,7 @@
     "name": "Donkey Elevación de talones en máquina",
     "nameEn": "lever donkey calf raise",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -22305,7 +22305,7 @@
     "name": "Front Jalón al pecho en máquina",
     "nameEn": "lever front pulldown",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22330,7 +22330,7 @@
     "name": "Gripless Encogimientos de trapecios en máquina",
     "nameEn": "lever gripless shrug",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22353,7 +22353,7 @@
     "name": "Gripless Encogimientos de trapecios v. 2 en máquina",
     "nameEn": "lever gripless shrug v. 2",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22376,7 +22376,7 @@
     "name": "Gripper hands en máquina",
     "nameEn": "lever gripper hands",
     "category": "Antebrazos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Antebrazos",
     "muscleGroup": "Antebrazos",
     "secondaryMuscles": [
@@ -22399,7 +22399,7 @@
     "name": "Hammer grip Curl predicador en máquina",
     "nameEn": "lever hammer grip preacher curl",
     "category": "Bíceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22423,7 +22423,7 @@
     "name": "High Remo en máquina",
     "nameEn": "lever high row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22448,7 +22448,7 @@
     "name": "Hip extension v. 2 en máquina",
     "nameEn": "lever hip extension v. 2",
     "category": "Glúteos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -22470,7 +22470,7 @@
     "name": "Horizontal one Prensa de piernas en máquina",
     "nameEn": "lever horizontal one leg press",
     "category": "Glúteos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -22495,7 +22495,7 @@
     "name": "Press de pecho inclinado en máquina",
     "nameEn": "lever incline chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22519,7 +22519,7 @@
     "name": "Press de pecho v. 2 inclinado en máquina",
     "nameEn": "lever incline chest press v. 2",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -22543,7 +22543,7 @@
     "name": "Curl femoral de piernas de rodillas en máquina",
     "nameEn": "lever kneeling leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22567,7 +22567,7 @@
     "name": "Twist de rodillas en máquina",
     "nameEn": "lever kneeling twist",
     "category": "Abdomen / Core",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -22591,7 +22591,7 @@
     "name": "Elevaciones laterales en máquina",
     "nameEn": "lever lateral raise",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22614,7 +22614,7 @@
     "name": "Extensión de cuádriceps en máquina",
     "nameEn": "lever leg extension",
     "category": "Cuádriceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -22637,7 +22637,7 @@
     "name": "Curl femoral de piernas tumbado en máquina",
     "nameEn": "lever lying leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22661,7 +22661,7 @@
     "name": "Two-one Curl femoral de piernas tumbado en máquina",
     "nameEn": "lever lying two-one leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -22684,7 +22684,7 @@
     "name": "Press militar en máquina",
     "nameEn": "lever military press",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22707,7 +22707,7 @@
     "name": "Narrow grip Remo sentado en máquina",
     "nameEn": "lever narrow grip seated row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22758,7 +22758,7 @@
     "name": "Lateral high Remo a 1 mano en máquina",
     "nameEn": "lever one arm lateral high row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22782,7 +22782,7 @@
     "name": "Lateral wide Jalón al pecho a 1 mano en máquina",
     "nameEn": "lever one arm lateral wide pulldown",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22806,7 +22806,7 @@
     "name": "Press de hombros a 1 mano en máquina",
     "nameEn": "lever one arm shoulder press",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -22829,7 +22829,7 @@
     "name": "Overhand triceps Fondos en paralelas en máquina",
     "nameEn": "lever overhand triceps dip",
     "category": "Tríceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -22853,7 +22853,7 @@
     "name": "Curl predicador en máquina",
     "nameEn": "lever preacher curl",
     "category": "Bíceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22877,7 +22877,7 @@
     "name": "Curl predicador v. 2 en máquina",
     "nameEn": "lever preacher curl v. 2",
     "category": "Bíceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22900,7 +22900,7 @@
     "name": "Pullover en máquina",
     "nameEn": "lever pullover",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22924,7 +22924,7 @@
     "name": "Reverse grip Jalón al pecho en máquina",
     "nameEn": "lever reverse grip lateral pulldown",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22949,7 +22949,7 @@
     "name": "Reverse grip Curl predicador en máquina",
     "nameEn": "lever reverse grip preacher curl",
     "category": "Bíceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Bíceps",
     "muscleGroup": "Bíceps",
     "secondaryMuscles": [
@@ -22973,7 +22973,7 @@
     "name": "Reverse grip vertical Remo en máquina",
     "nameEn": "lever reverse grip vertical row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -22998,7 +22998,7 @@
     "name": "Reverse Hiperextensiones lumbares en máquina",
     "nameEn": "lever reverse hyperextension",
     "category": "Glúteos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23022,7 +23022,7 @@
     "name": "Reverse Remo en barra T en máquina",
     "nameEn": "lever reverse t-bar row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23047,7 +23047,7 @@
     "name": "Rotary calf en máquina",
     "nameEn": "lever rotary calf",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23071,7 +23071,7 @@
     "name": "Calf press sentado en máquina",
     "nameEn": "lever seated calf press",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23095,7 +23095,7 @@
     "name": "Elevación de talones sentado en máquina",
     "nameEn": "lever seated calf raise",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23119,7 +23119,7 @@
     "name": "Crunch abdominal sentado en máquina",
     "nameEn": "lever seated crunch",
     "category": "Abdomen / Core",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23142,7 +23142,7 @@
     "name": "Crunch abdominal (chest pad) sentado en máquina",
     "nameEn": "lever seated crunch (chest pad)",
     "category": "Abdomen / Core",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23166,7 +23166,7 @@
     "name": "Crunch abdominal v. 2 sentado en máquina",
     "nameEn": "lever seated crunch v. 2",
     "category": "Abdomen / Core",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23190,7 +23190,7 @@
     "name": "Fondos en paralelas sentado en máquina",
     "nameEn": "lever seated dip",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23213,7 +23213,7 @@
     "name": "Fly sentado en máquina",
     "nameEn": "lever seated fly",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23237,7 +23237,7 @@
     "name": "Buenos días sentado en máquina",
     "nameEn": "lever seated good morning",
     "category": "Glúteos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23261,7 +23261,7 @@
     "name": "Abducción de cadera sentado en máquina",
     "nameEn": "lever seated hip abduction",
     "category": "Glúteos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Glúteos",
     "muscleGroup": "Glúteos",
     "secondaryMuscles": [
@@ -23285,7 +23285,7 @@
     "name": "Aducción de cadera sentado en máquina",
     "nameEn": "lever seated hip adduction",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23308,7 +23308,7 @@
     "name": "Curl femoral de piernas sentado en máquina",
     "nameEn": "lever seated leg curl",
     "category": "Isquiotibiales",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Isquiotibiales",
     "muscleGroup": "Isquiotibiales",
     "secondaryMuscles": [
@@ -23332,7 +23332,7 @@
     "name": "Leg raise Crunch abdominal sentado en máquina",
     "nameEn": "lever seated leg raise crunch",
     "category": "Abdomen / Core",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Abdominales",
     "muscleGroup": "Abdomen / Core",
     "secondaryMuscles": [
@@ -23354,7 +23354,7 @@
     "name": "Reverse fly sentado en máquina",
     "nameEn": "lever seated reverse fly",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23377,7 +23377,7 @@
     "name": "Reverse fly (parallel grip) sentado en máquina",
     "nameEn": "lever seated reverse fly (parallel grip)",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23400,7 +23400,7 @@
     "name": "Remo sentado en máquina",
     "nameEn": "lever seated row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23426,7 +23426,7 @@
     "name": "Sentadilla calf raise on leg press machine sentado en máquina",
     "nameEn": "lever seated squat calf raise on leg press machine",
     "category": "Cuádriceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cuádriceps",
     "muscleGroup": "Cuádriceps",
     "secondaryMuscles": [
@@ -23452,7 +23452,7 @@
     "name": "Press de hombros en máquina",
     "nameEn": "lever shoulder press",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23475,7 +23475,7 @@
     "name": "Press de hombros v. 2 en máquina",
     "nameEn": "lever shoulder press v. 2",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23499,7 +23499,7 @@
     "name": "Press de hombros v. 3 en máquina",
     "nameEn": "lever shoulder press v. 3",
     "category": "Hombros",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Deltoides",
     "muscleGroup": "Hombros",
     "secondaryMuscles": [
@@ -23523,7 +23523,7 @@
     "name": "Encogimientos de trapecios en máquina",
     "nameEn": "lever shrug",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23545,7 +23545,7 @@
     "name": "Elevación de talones de pie en máquina",
     "nameEn": "lever standing calf raise",
     "category": "Gemelos",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Gemelos",
     "muscleGroup": "Gemelos",
     "secondaryMuscles": [
@@ -23568,7 +23568,7 @@
     "name": "Press de pecho de pie en máquina",
     "nameEn": "lever standing chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23591,7 +23591,7 @@
     "name": "T bar Remo en máquina",
     "nameEn": "lever t bar row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23616,7 +23616,7 @@
     "name": "T-bar reverse grip Remo en máquina",
     "nameEn": "lever t-bar reverse grip row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23640,7 +23640,7 @@
     "name": "Extensión de tríceps en máquina",
     "nameEn": "lever triceps extension",
     "category": "Tríceps",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Tríceps",
     "muscleGroup": "Tríceps",
     "secondaryMuscles": [
@@ -23662,7 +23662,7 @@
     "name": "Unilateral Remo en máquina",
     "nameEn": "lever unilateral row",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -23897,7 +23897,7 @@
     "name": "Machine inner Press de pecho",
     "nameEn": "machine inner chest press",
     "category": "Pecho",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Pectorales",
     "muscleGroup": "Pecho",
     "secondaryMuscles": [
@@ -23941,7 +23941,7 @@
   },
   {
     "id": "1353",
-    "name": "Catch and overhead lanzamiento con balón medicinal",
+    "name": "Catch and overhead thRemo con balón medicinal",
     "nameEn": "medicine ball catch and overhead throw",
     "category": "Espalda",
     "equipment": "Balón Medicinal",
@@ -24125,7 +24125,7 @@
   },
   {
     "id": "1750",
-    "name": "Supine chest lanzamiento con balón medicinal",
+    "name": "Supine chest thRemo con balón medicinal",
     "nameEn": "medicine ball supine chest throw",
     "category": "Tríceps",
     "equipment": "Balón Medicinal",
@@ -25885,7 +25885,7 @@
     "name": "Reverse grip machine Jalón al pecho",
     "nameEn": "reverse grip machine lat pulldown",
     "category": "Espalda",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -29554,7 +29554,7 @@
     "name": "Stationary bike walk",
     "nameEn": "stationary bike walk",
     "category": "Cardio",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [
@@ -30073,7 +30073,7 @@
     "name": "Twin handle parallel grip Jalón al pecho",
     "nameEn": "twin handle parallel grip lat pulldown",
     "category": "Espalda",
-    "equipment": "Cable / Polea",
+    "equipment": "Polea",
     "target": "Dorsales",
     "muscleGroup": "Espalda",
     "secondaryMuscles": [
@@ -30366,7 +30366,7 @@
     "name": "Walking on incline treadmill",
     "nameEn": "walking on incline treadmill",
     "category": "Cardio",
-    "equipment": "Máquina de palancas",
+    "equipment": "Leverage machine",
     "target": "Cardio",
     "muscleGroup": "Cardio",
     "secondaryMuscles": [

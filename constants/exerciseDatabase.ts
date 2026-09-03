@@ -144,23 +144,15 @@ export const EXERCISE_DATABASE: ExerciseDefinition[] = rawList.map((item: any) =
     defaultReps: '8-12',
     defaultRestSec: 90,
     records: {
-      maxWeight: 60,
-      maxWeightPrev: 50,
-      changePct: 15,
-      period: '18 ago – 1 sep 2026',
-      volumeSet: '50kg × 10',
-      volumeSession: '1.500kg',
-      oneRepMax: '60kg',
+      maxWeight: 0,
+      maxWeightPrev: 0,
+      changePct: 0,
+      period: 'Sin registros',
+      volumeSet: '0kg',
+      volumeSession: '0kg',
+      oneRepMax: '—',
     },
-    history: [
-      {
-        date: '28 ago 2026',
-        sets: [
-          { setNum: 1, weightKg: 50, reps: 10 },
-          { setNum: 2, weightKg: 55, reps: 8 },
-        ],
-      },
-    ],
+    history: [],
   }
 })
 
@@ -244,11 +236,12 @@ export function searchExercises(
         exEquipNorm === normEquipment ||
         exEquipNorm.includes(normEquipment) ||
         normEquipment.includes(exEquipNorm) ||
+        ((normEquipment.includes('polea') || normEquipment.includes('cable')) && (exEquipNorm.includes('polea') || exEquipNorm.includes('cable'))) ||
         (normEquipment.includes('smith') && exEquipNorm.includes('smith')) ||
         (normEquipment.includes('mancuerna') && exEquipNorm.includes('mancuerna')) ||
         (normEquipment.includes('barra') && exEquipNorm.includes('barra')) ||
-        (normEquipment.includes('cable') && exEquipNorm.includes('cable')) ||
-        (normEquipment.includes('maquina') && exEquipNorm.includes('maquina'))
+        (normEquipment.includes('banda') && exEquipNorm.includes('banda')) ||
+        (normEquipment.includes('maquina') && (exEquipNorm.includes('maquina') || exEquipNorm.includes('palanca')))
       if (!matchEquip) continue
     }
 
@@ -307,13 +300,17 @@ export const CATEGORIES_LIST = [
 
 export const EQUIPMENTS_LIST = [
   'Todo el Equipamiento',
+  'Polea',
+  'Máquina',
   'Mancuerna',
   'Barra',
-  'Cable / Polea',
-  'Máquina',
   'Máquina Smith',
   'Peso Corporal',
   'Pesa Rusa (Kettlebell)',
   'Banda Elástica',
   'Barra Z',
+  'Con Lastre',
+  'Fitball',
+  'Balón Medicinal',
+  'Cuerda',
 ]

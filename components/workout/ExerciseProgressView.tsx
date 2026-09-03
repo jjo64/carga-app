@@ -9,12 +9,21 @@ import {
   Platform,
   Share,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { Award, Flame, Dumbbell, TrendingUp, Calendar, ChevronDown, Share2, X, Info } from 'lucide-react-native'
+import {
+  Award,
+  Flame,
+  Dumbbell,
+  TrendingUp,
+  Calendar,
+  ChevronDown,
+  Share2,
+  X,
+  ArrowLeft,
+  Info,
+} from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import { ExerciseDefinition } from '@/constants/exerciseDatabase'
-
-import { useWorkoutHistory } from '@/lib/hooks/useWorkout'
+import { useWorkoutHistory, getExerciseRecordData } from '@/lib/hooks/useWorkout'
 
 interface Props {
   exercise: ExerciseDefinition | null
@@ -35,28 +44,49 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('max_weight')
   const [showMetricDropdown, setShowMetricDropdown] = useState(false)
 
-  if (!exercise) return null
-
-  // Find all user workout sessions that contained this exercise
+  // Find all user workout sessions that contained this exercise (unconditionally at top)
   const exerciseSessions = useMemo(() => {
-    const norm = exercise.name.toLowerCase()
-    return userWorkouts.filter((w) =>
-      w.exercises?.some((e) => e.name.toLowerCase().includes(norm) || norm.includes(e.name.toLowerCase()))
+    if (!exercise || !exercise.name) return []
+    const norm = exercise.name.toLowerCase().trim()
+    return (userWorkouts || []).filter((w) =>
+      w.exercises?.some(
+        (e) =>
+          e &&
+          e.name &&
+          (e.name.toLowerCase().includes(norm) || norm.includes(e.name.toLowerCase()))
+      )
     )
-  }, [userWorkouts, exercise.name])
+  }, [userWorkouts, exercise?.name])
 
-  const hasRealRecords = exerciseSessions.length > 0
+  const recordData = useMemo(() => {
+    if (!exercise || !exercise.name) {
+      return {
+        maxWeightOverall: 0,
+        maxWeightPerSet: {},
+        lastSessionSets: [],
+        bestSetSummary: 'Sin registros',
+      }
+    }
+    return getExerciseRecordData(exercise.name)
+  }, [exercise?.name, userWorkouts])
+
+  const hasRealRecords = recordData.maxWeightOverall > 0 || exerciseSessions.length > 0
 
   // Real max weight, or 0 if never performed
-  const maxWeight = hasRealRecords
-    ? Math.max(...exerciseSessions.map((s) => s.volumeKg > 0 ? Math.round(s.volumeKg / 10) : 0), 0)
-    : 0
+  const maxWeight = recordData.maxWeightOverall > 0 ? recordData.maxWeightOverall : 0
+  const oneRepMax = maxWeight > 0 ? `${Math.round(maxWeight * 1.15)} kg` : '—'
+  const volumeSet =
+    recordData.bestSetSummary && recordData.bestSetSummary !== 'Sin registros'
+      ? recordData.bestSetSummary
+      : '—'
 
-  const oneRepMax = maxWeight > 0 ? `${Math.round(maxWeight * 1.15)} kg` : '0 kg'
-  const volumeSet = maxWeight > 0 ? `${maxWeight}kg × 8` : '0 kg'
-  const volumeSession = hasRealRecords
-    ? `${Math.max(...exerciseSessions.map((s) => s.volumeKg || 0)).toLocaleString('es-ES')} kg`
-    : '0 kg'
+  const maxSessionVol = useMemo(() => {
+    if (exerciseSessions.length === 0) return 0
+    const volumes = exerciseSessions.map((s) => Number(s.volumeKg) || 0)
+    return Math.max(0, ...volumes)
+  }, [exerciseSessions])
+
+  const volumeSession = maxSessionVol > 0 ? `${Math.round(maxSessionVol)} kg` : '0 kg'
 
   // Calculate Best Set Records / Personal Marks per rep range
   const bestSetRecords = useMemo(() => {
@@ -81,9 +111,10 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
   }, [hasRealRecords, maxWeight])
 
   const handleShare = async () => {
+    if (!exercise) return
     try {
       await Share.share({
-        message: `🔥 ¡Mis récords en ${exercise.name}!\n🏋️ Mayor Peso: ${maxWeight} kg\n🥇 1RM Estimado: ${oneRepMax}\n⚡ Mejor Volumen (Serie): ${volumeSet}\n💪 Mejor Volumen (Sesión): ${volumeSession}\n\nRegistrado en FitAI 🚀`,
+        message: `🔥 ¡Mis récords en ${exercise.name}!\n🏋️ Mayor Peso: ${maxWeight} kg\n🥇 1RM Estimado: ${oneRepMax}\n⚡ Mejor Volumen (Serie): ${volumeSet}\n💪 Mejor Volumen (Sesión): ${volumeSession}\n\nRegistrado en Carga App 🚀`,
       })
     } catch (e) {
       console.log('Share error:', e)
@@ -96,6 +127,8 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
     return oneRepMax
   }
 
+  if (!exercise) return null
+
   return (
     <Modal
       visible={visible}
@@ -106,7 +139,7 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
         {/* Top Header */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <ArrowLeft size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
           <Text style={styles.topBarTitle} numberOfLines={1}>
@@ -114,7 +147,7 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
           </Text>
 
           <View style={styles.topBarActions}>
-            <TouchableOpacity onPress={handleShare} style={styles.iconBtn}>
+            <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
               <Share2 size={20} color="#38BDF8" />
             </TouchableOpacity>
           </View>
@@ -274,12 +307,16 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
             ) : (
               exerciseSessions.map((sess, idx) => {
                 const exSummary = sess.exercises?.find(
-                  (e) => e.name.toLowerCase().includes(exercise.name.toLowerCase()) || exercise.name.toLowerCase().includes(e.name.toLowerCase())
+                  (e) =>
+                    e?.name &&
+                    (e.name.toLowerCase().includes(exercise.name.toLowerCase()) ||
+                      exercise.name.toLowerCase().includes(e.name.toLowerCase()))
                 )
+                const vol = Number(sess.volumeKg) || 0
                 return (
                   <View key={sess.id || idx} style={styles.historyCard}>
                     <View style={styles.historyCardHeader}>
-                      <Text style={styles.historyDateText}>{sess.dateLabel || sess.date}</Text>
+                      <Text style={styles.historyDateText}>{sess.dateLabel || sess.date || 'Entrenamiento'}</Text>
                       <Text style={styles.historySetsCount}>
                         {exSummary?.sets || 0} series completadas
                       </Text>
@@ -288,7 +325,7 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
                     <View style={styles.historySetsList}>
                       <View style={styles.historySetRow}>
                         <Text style={styles.historySetStats}>
-                          {sess.volumeKg > 0 ? `${sess.volumeKg.toLocaleString('es-ES')} kg vol` : 'Completado'} · {sess.durationFormatted}
+                          {vol > 0 ? `${Math.round(vol)} kg vol` : 'Completado'} · {sess.durationFormatted || '45 min'}
                         </Text>
                       </View>
                     </View>

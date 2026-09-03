@@ -150,6 +150,18 @@ export default function CreateRoutineModal({
     setShowAddExerciseSearch(false)
   }
 
+  const handleAddExercises = (exercisesList: ExerciseDefinition[]) => {
+    const newEntries: SelectedRoutineExercise[] = exercisesList.map((ex, i) => ({
+      id: `ex-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+      exercise: ex,
+      targetSets: ex.defaultSets || 3,
+      targetReps: ex.defaultReps || '8-10',
+      restSeconds: ex.defaultRestSec || 90,
+    }))
+    setRoutineExercises((prev) => [...prev, ...newEntries])
+    setShowAddExerciseSearch(false)
+  }
+
   const handleRemoveExercise = (id: string) => {
     setRoutineExercises((prev) => prev.filter((item) => item.id !== id))
   }
@@ -578,6 +590,7 @@ export default function CreateRoutineModal({
           visible={showAddExerciseSearch}
           onClose={() => setShowAddExerciseSearch(false)}
           onSelectExercise={handleAddExercise}
+          onAddExercises={handleAddExercises}
           onOpenInfo={(ex) => setInfoModalExercise(ex)}
         />
 

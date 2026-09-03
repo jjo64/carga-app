@@ -2,11 +2,14 @@ import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const isOngoing = notification.request.content.data?.type === 'workout_ongoing'
+    return {
+      shouldShowAlert: !isOngoing,
+      shouldPlaySound: !isOngoing,
+      shouldSetBadge: false,
+    }
+  },
 })
 
 export const NOTIFICATION_CATEGORIES = {
@@ -109,13 +112,10 @@ export async function updateWorkoutActiveNotification({
 
     const body = isResting
       ? `Próximo: Serie ${currentSet} de ${exerciseName} | Tiempo: ${durationFormatted}`
-      : `Objetivo: ${targetWeight || '0'} kg x ${targetReps || '10'} reps | ${durationFormatted}`
-
-    if (activeWorkoutNotificationId) {
-      await Notifications.dismissNotificationAsync(activeWorkoutNotificationId).catch(() => {})
-    }
+      : `Objetivo: ${targetWeight ? `${targetWeight} kg` : '—'} x ${targetReps || '10'} reps | ${durationFormatted}`
 
     activeWorkoutNotificationId = await Notifications.scheduleNotificationAsync({
+      identifier: 'carga_active_workout',
       content: {
         title,
         body,
@@ -139,11 +139,10 @@ export async function scheduleRestFinishedNotification(
 ) {
   if (Platform.OS === 'web' || restSeconds <= 0) return
   try {
-    if (restFinishedNotificationId) {
-      await Notifications.cancelScheduledNotificationAsync(restFinishedNotificationId).catch(() => {})
-    }
+    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
 
     restFinishedNotificationId = await Notifications.scheduleNotificationAsync({
+      identifier: 'carga_rest_finished',
       content: {
         title: 'Descanso Terminado',
         body: `Es hora de la Serie ${nextSetNum} de ${nextExerciseName}. ¡A por todas!`,
@@ -153,7 +152,7 @@ export async function scheduleRestFinishedNotification(
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, restSeconds),
+        seconds: Math.max(1, Math.round(restSeconds)),
       },
     })
   } catch (err) {
@@ -164,10 +163,9 @@ export async function scheduleRestFinishedNotification(
 export async function cancelRestFinishedNotification() {
   if (Platform.OS === 'web') return
   try {
-    if (restFinishedNotificationId) {
-      await Notifications.cancelScheduledNotificationAsync(restFinishedNotificationId).catch(() => {})
-      restFinishedNotificationId = null
-    }
+    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
+    await Notifications.dismissNotificationAsync('carga_rest_finished').catch(() => {})
+    restFinishedNotificationId = null
   } catch (err) {
     console.log('Error canceling rest notification:', err)
   }
@@ -176,15 +174,12 @@ export async function cancelRestFinishedNotification() {
 export async function clearAllWorkoutNotifications() {
   if (Platform.OS === 'web') return
   try {
-    if (activeWorkoutNotificationId) {
-      await Notifications.dismissNotificationAsync(activeWorkoutNotificationId).catch(() => {})
-      activeWorkoutNotificationId = null
-    }
-    if (restFinishedNotificationId) {
-      await Notifications.cancelScheduledNotificationAsync(restFinishedNotificationId).catch(() => {})
-      restFinishedNotificationId = null
-    }
-    await Notifications.dismissAllNotificationsAsync().catch(() => {})
+    await Notifications.dismissNotificationAsync('carga_active_workout').catch(() => {})
+    await Notifications.cancelScheduledNotificationAsync('carga_active_workout').catch(() => {})
+    await Notifications.dismissNotificationAsync('carga_rest_finished').catch(() => {})
+    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
+    activeWorkoutNotificationId = null
+    restFinishedNotificationId = null
   } catch (err) {
     console.log('Error clearing workout notifications:', err)
   }

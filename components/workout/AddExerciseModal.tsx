@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Modal,
   Platform,
 } from 'react-native'
-import { Search, X, ChevronDown, Info, Dumbbell, Check } from 'lucide-react-native'
+import { Search, X, ChevronDown, Info, Dumbbell, Check, Plus, Layers } from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import {
   searchExercises,
@@ -22,7 +22,8 @@ import { useLanguage } from '@/lib/i18n'
 interface Props {
   visible: boolean
   onClose: () => void
-  onSelectExercise: (exercise: ExerciseDefinition) => void
+  onSelectExercise?: (exercise: ExerciseDefinition) => void
+  onAddExercises?: (exercises: ExerciseDefinition[]) => void
   onOpenInfo: (exercise: ExerciseDefinition) => void
 }
 
@@ -30,6 +31,7 @@ export default function AddExerciseModal({
   visible,
   onClose,
   onSelectExercise,
+  onAddExercises,
   onOpenInfo,
 }: Props) {
   const { t } = useLanguage()
@@ -39,24 +41,85 @@ export default function AddExerciseModal({
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
   const [showEquipmentPicker, setShowEquipmentPicker] = useState(false)
   const [limit, setLimit] = useState(50)
+  const [selectedExercises, setSelectedExercises] = useState<ExerciseDefinition[]>([])
+
+  // Reset filters and selected cart every time the modal is opened
+  useEffect(() => {
+    if (visible) {
+      setSearchQuery('')
+      setSelectedCategory('Todos los Músculos')
+      setSelectedEquipment('Todo el Equipamiento')
+      setShowCategoryPicker(false)
+      setShowEquipmentPicker(false)
+      setSelectedExercises([])
+      setLimit(50)
+    }
+  }, [visible])
 
   const filteredExercises = useMemo(() => {
     return searchExercises(searchQuery, selectedCategory, selectedEquipment, limit)
   }, [searchQuery, selectedCategory, selectedEquipment, limit])
+
+  const isExerciseSelected = (id: string) => {
+    return selectedExercises.some((ex) => ex.id === id)
+  }
+
+  const toggleExerciseSelection = (exercise: ExerciseDefinition) => {
+    setSelectedExercises((prev) => {
+      const exists = prev.some((ex) => ex.id === exercise.id)
+      if (exists) {
+        return prev.filter((ex) => ex.id !== exercise.id)
+      } else {
+        return [...prev, exercise]
+      }
+    })
+  }
+
+  const handleConfirmAdd = () => {
+    if (selectedExercises.length > 0) {
+      if (onAddExercises) {
+        onAddExercises(selectedExercises)
+      } else if (onSelectExercise) {
+        selectedExercises.forEach((ex) => onSelectExercise(ex))
+      }
+    }
+    onClose()
+  }
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Top Header */}
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.topBarActionBtn}>
             <Text style={styles.topBarBtnText}>{t('cancel')}</Text>
           </TouchableOpacity>
 
-          <Text style={styles.topBarTitle}>{t('add_exercise')}</Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.topBarTitle}>{t('add_exercise')}</Text>
+            {selectedExercises.length > 0 && (
+              <Text style={styles.topBarSubTitle}>
+                {selectedExercises.length} seleccionados
+              </Text>
+            )}
+          </View>
 
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
-            <Text style={styles.topBarBtnText}>{t('ready')}</Text>
+          <TouchableOpacity
+            onPress={handleConfirmAdd}
+            activeOpacity={0.7}
+            style={[
+              styles.topBarActionBtn,
+              selectedExercises.length > 0 && styles.topBarActionBtnActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.topBarBtnText,
+                selectedExercises.length > 0 && styles.topBarBtnTextActive,
+              ]}
+            >
+              {selectedExercises.length > 0 ? `Listo (${selectedExercises.length})` : t('ready')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -193,12 +256,18 @@ export default function AddExerciseModal({
             <Text style={styles.sectionHeader}>
               {searchQuery ? `Resultados (${filteredExercises.length})` : t('recent_exercises')}
             </Text>
+            <Text style={styles.sectionHeaderHint}>
+              Toca para seleccionar múltiples ejercicios
+            </Text>
           </View>
 
           {/* Exercises List */}
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
+            contentContainerStyle={[
+              styles.listContainer,
+              selectedExercises.length > 0 && { paddingBottom: 110 },
+            ]}
             onScroll={({ nativeEvent }) => {
               const { layoutMeasurement, contentOffset, contentSize } = nativeEvent
               if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 100) {
@@ -207,43 +276,72 @@ export default function AddExerciseModal({
             }}
             scrollEventThrottle={400}
           >
-            {filteredExercises.map((ex) => (
-              <TouchableOpacity
-                key={ex.id}
-                style={styles.exerciseRow}
-                onPress={() => onSelectExercise(ex)}
-                activeOpacity={0.7}
-              >
-                {/* 180x180 Medical Thumbnail */}
-                <ExerciseIllustration
-                  exerciseId={ex.id}
-                  exerciseName={ex.name}
-                  imageUrl={ex.imageUrl}
-                  gifUrl={ex.gifUrl}
-                  size={48}
-                  variant="circle-thumb"
-                />
-
-                {/* Exercise Info in Spanish */}
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName} numberOfLines={1}>
-                    {ex.name}
-                  </Text>
-                  <Text style={styles.exerciseMuscle}>
-                    {ex.category || ex.muscleGroup} · {ex.equipment}
-                  </Text>
-                </View>
-
-                {/* (i) Info Button */}
+            {filteredExercises.map((ex) => {
+              const isSelected = isExerciseSelected(ex.id)
+              return (
                 <TouchableOpacity
-                  style={styles.infoBtn}
-                  onPress={() => onOpenInfo(ex)}
+                  key={ex.id}
+                  style={[
+                    styles.exerciseRow,
+                    isSelected && styles.exerciseRowSelected,
+                  ]}
+                  onPress={() => toggleExerciseSelection(ex)}
                   activeOpacity={0.7}
                 >
-                  <Info color="rgba(255,255,255,0.4)" size={20} strokeWidth={2} />
+                  {/* Thumbnail */}
+                  <ExerciseIllustration
+                    exerciseId={ex.id}
+                    exerciseName={ex.name}
+                    imageUrl={ex.imageUrl}
+                    gifUrl={ex.gifUrl}
+                    size={48}
+                    variant="circle-thumb"
+                  />
+
+                  {/* Exercise Info */}
+                  <View style={styles.exerciseInfo}>
+                    <Text
+                      style={[
+                        styles.exerciseName,
+                        isSelected && { color: '#38BDF8' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {ex.name}
+                    </Text>
+                    <Text style={styles.exerciseMuscle}>
+                      {ex.category || ex.muscleGroup} · {ex.equipment}
+                    </Text>
+                  </View>
+
+                  {/* Selection Checkmark Button */}
+                  <View
+                    style={[
+                      styles.checkCircle,
+                      isSelected && styles.checkCircleSelected,
+                    ]}
+                  >
+                    {isSelected ? (
+                      <Check size={16} color="#0F172A" strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color="rgba(255,255,255,0.4)" strokeWidth={2} />
+                    )}
+                  </View>
+
+                  {/* (i) Info Button */}
+                  <TouchableOpacity
+                    style={styles.infoBtn}
+                    onPress={(e) => {
+                      e.stopPropagation?.()
+                      onOpenInfo(ex)
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Info color="rgba(255,255,255,0.4)" size={20} strokeWidth={2} />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              )
+            })}
 
             {filteredExercises.length === 0 && (
               <View style={styles.emptyBox}>
@@ -253,6 +351,31 @@ export default function AddExerciseModal({
             )}
           </ScrollView>
         </View>
+
+        {/* Floating Bottom Cart Bar */}
+        {selectedExercises.length > 0 && (
+          <View style={styles.floatingCartBar}>
+            <View style={styles.cartInfoBox}>
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{selectedExercises.length}</Text>
+              </View>
+              <Text style={styles.cartInfoText}>
+                {selectedExercises.length === 1 ? '1 ejercicio listo' : `${selectedExercises.length} ejercicios listos`}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.cartConfirmBtn}
+              onPress={handleConfirmAdd}
+              activeOpacity={0.85}
+            >
+              <Check size={18} color="#0F172A" strokeWidth={2.5} />
+              <Text style={styles.cartConfirmBtnText}>
+                AÑADIR A LA RUTINA ({selectedExercises.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </Modal>
   )
@@ -273,15 +396,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
+  topBarActionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  topBarActionBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
   topBarBtnText: {
     color: '#38BDF8',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  topBarBtnTextActive: {
+    color: '#38BDF8',
+    fontWeight: '800',
   },
   topBarTitle: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '800',
+  },
+  topBarSubTitle: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -370,6 +511,9 @@ const styles = StyleSheet.create({
   },
   sectionHeaderRow: {
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionHeader: {
     color: 'rgba(255,255,255,0.4)',
@@ -377,6 +521,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
+  },
+  sectionHeaderHint: {
+    color: 'rgba(56, 189, 248, 0.7)',
+    fontSize: 11,
+    fontWeight: '600',
   },
   listContainer: {
     gap: 8,
@@ -392,6 +541,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.04)',
     gap: 12,
   },
+  exerciseRowSelected: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderColor: 'rgba(56, 189, 248, 0.5)',
+  },
   exerciseInfo: {
     flex: 1,
     gap: 2,
@@ -405,8 +558,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
   },
+  checkCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  checkCircleSelected: {
+    backgroundColor: '#38BDF8',
+    borderColor: '#38BDF8',
+  },
   infoBtn: {
-    padding: 8,
+    padding: 6,
   },
   emptyBox: {
     alignItems: 'center',
@@ -417,5 +584,63 @@ const styles = StyleSheet.create({
   emptyText: {
     color: 'rgba(255,255,255,0.35)',
     fontSize: 14,
+  },
+  floatingCartBar: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 28 : 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1E2433',
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 20,
+    gap: 12,
+  },
+  cartInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cartBadge: {
+    backgroundColor: '#38BDF8',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: {
+    color: '#0F172A',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  cartInfoText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cartConfirmBtn: {
+    flex: 1,
+    backgroundColor: '#38BDF8',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  cartConfirmBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '800',
   },
 })

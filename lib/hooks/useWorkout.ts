@@ -101,15 +101,10 @@ export function getExerciseRecordData(exerciseName: string): ExerciseRecordData 
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 
-  const dbMatch = EXERCISE_DATABASE.find((e) => {
-    const eNorm = e.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-    return eNorm === normName || normName.includes(eNorm) || eNorm.includes(normName)
-  })
-
-  let maxWeightOverall = dbMatch?.records?.maxWeight || 50
+  let maxWeightOverall = 0
   const maxWeightPerSet: Record<number, number> = {}
   let lastSessionSets: Array<{ setNum: number; weightKg: number; reps: number; isWarmup?: boolean }> = []
-  let bestSetSummary = `${maxWeightOverall} kg`
+  let bestSetSummary = 'Sin registros'
 
   // Look through history from newest to oldest
   for (const session of localHistoryCache) {
@@ -142,13 +137,6 @@ export function getExerciseRecordData(exerciseName: string): ExerciseRecordData 
     }
   }
 
-  // Fallback set weights if not found in history
-  if (Object.keys(maxWeightPerSet).length === 0 && dbMatch?.records?.maxWeight) {
-    maxWeightPerSet[1] = Math.round(dbMatch.records.maxWeight * 0.8)
-    maxWeightPerSet[2] = Math.round(dbMatch.records.maxWeight * 0.9)
-    maxWeightPerSet[3] = dbMatch.records.maxWeight
-  }
-
   return {
     maxWeightOverall,
     maxWeightPerSet,
@@ -165,7 +153,12 @@ export function getSetPlaceholder(
   const records = getExerciseRecordData(exerciseName)
   const lastSet = records.lastSessionSets.find((s) => s.setNum === setNum)
 
-  const placeholderWeight = String(records.maxWeightPerSet[setNum] || records.maxWeightOverall || 50)
+  const placeholderWeight = records.maxWeightPerSet[setNum]
+    ? String(records.maxWeightPerSet[setNum])
+    : records.maxWeightOverall > 0
+    ? String(records.maxWeightOverall)
+    : ''
+
   const placeholderReps = lastSet
     ? String(lastSet.reps)
     : targetReps
@@ -176,7 +169,7 @@ export function getSetPlaceholder(
     ? `${lastSet.weightKg} kg × ${lastSet.reps}`
     : records.maxWeightOverall > 0
     ? `PR: ${records.maxWeightOverall} kg`
-    : `Obj: ${placeholderWeight} kg`
+    : '—'
 
   return {
     placeholderWeight,
@@ -996,6 +989,7 @@ export async function recordWorkoutSession(params: {
   durationMinutes: number
   totalVolumeKg: number
   recordsCount: number
+  userWeightKg?: number
   exercises: {
     name: string
     muscleGroup?: string
@@ -1009,7 +1003,7 @@ export async function recordWorkoutSession(params: {
 }) {
   const finishedAt = new Date().toISOString()
   const today = finishedAt.split('T')[0]
-  const userWeight = 78
+  const userWeight = params.userWeightKg && params.userWeightKg > 20 ? params.userWeightKg : 75
   const estimatedBurn = Math.round(
     5.0 * userWeight * (params.durationMinutes / 60) + (params.totalVolumeKg / 100) * 0.1
   )

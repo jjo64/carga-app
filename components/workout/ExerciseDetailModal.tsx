@@ -13,6 +13,7 @@ import { ArrowLeft, Share2, MoreHorizontal, Play, Pause } from 'lucide-react-nat
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import RoutineAnatomicalCover from '@/components/visuals/RoutineAnatomicalCover'
 import { ExerciseDefinition } from '@/constants/exerciseDatabase'
+import { getExerciseRecordData } from '@/lib/hooks/useWorkout'
 
 interface Props {
   exercise: ExerciseDefinition | null
@@ -27,6 +28,8 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
   const [isPlaying, setIsPlaying] = useState(false)
 
   if (!exercise) return null
+
+  const recordData = getExerciseRecordData(exercise.name)
 
   const handleShare = async () => {
     try {
@@ -152,12 +155,16 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
               <View style={styles.card}>
                 <Text style={styles.cardLabel}>RÉCORD ACTUAL</Text>
                 <View style={styles.quickRecordRow}>
-                  <Text style={styles.quickRecordVal}>{exercise.records.maxWeight} kg</Text>
-                  <View style={styles.quickRecordBadge}>
-                    <Text style={styles.quickRecordBadgeText}>
-                      +{exercise.records.changePct}% este mes
-                    </Text>
-                  </View>
+                  <Text style={styles.quickRecordVal}>
+                    {recordData.maxWeightOverall > 0 ? `${recordData.maxWeightOverall} kg` : 'Sin registros'}
+                  </Text>
+                  {recordData.maxWeightOverall > 0 && (
+                    <View style={styles.quickRecordBadge}>
+                      <Text style={styles.quickRecordBadgeText}>
+                        Mejor serie: {recordData.bestSetSummary}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -166,21 +173,28 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
           {/* TAB 2: HISTORIAL */}
           {activeTab === 'historial' && (
             <View style={styles.tabSection}>
-              {(exercise.history || []).map((sess, idx) => (
-                <View key={idx} style={styles.card}>
-                  <Text style={styles.cardDate}>{sess.date}</Text>
+              {recordData.lastSessionSets.length > 0 ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardDate}>Última sesión registrada</Text>
                   <View style={styles.setsList}>
-                    {sess.sets.map((s) => (
+                    {recordData.lastSessionSets.map((s) => (
                       <View key={s.setNum} style={styles.setRow}>
                         <Text style={styles.setLabel}>Serie {s.setNum}</Text>
                         <Text style={styles.setVal}>
-                          {s.weightKg} kg × {s.reps} reps
+                          {s.weightKg} kg × {s.reps} reps {s.isWarmup ? '(Calentamiento)' : ''}
                         </Text>
                       </View>
                     ))}
                   </View>
                 </View>
-              ))}
+              ) : (
+                <View style={styles.card}>
+                  <Text style={[styles.cardLabel, { marginBottom: 4 }]}>SIN HISTORIAL</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                    Aún no has completado series de este ejercicio en tus entrenamientos.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
