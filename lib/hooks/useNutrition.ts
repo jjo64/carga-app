@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from './useAuth'
 import { useDashboard } from './useDashboard'
-import { getDailyFoodLogs, getFoodLogsDateRange, deleteFoodLog as apiDeleteFoodLog } from '../api/nutrition'
+import {
+  getDailyFoodLogs,
+  getFoodLogsDateRange,
+  deleteFoodLog as apiDeleteFoodLog,
+  updateFoodLog as apiUpdateFoodLog,
+} from '../api/nutrition'
 import { supabase } from '../supabase'
 import { FoodLog, DailySummary, MealType, FoodItemParsed, NutritionDayStats } from '@/types'
 import { calculateDailyNutritionTargets } from '../utils/calories'
@@ -17,33 +22,50 @@ export function useNutrition(initialDate?: string) {
   const [logs, setLogs] = useState<FoodLog[]>([])
   const [rangeLogs, setRangeLogs] = useState<FoodLog[]>([])
   const [summary, setSummary] = useState<DailySummary | null>(null)
+  const [dayBurnedCalories, setDayBurnedCalories] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
 
-  // Targets calculados
+  // Targets calculados exactamente para la fecha seleccionada con su quema de entrenamiento
   const targets = useMemo(() => {
-    if (metrics) {
-      return {
-        targetCals: metrics.targetCalories || 2000,
-        targetProtein: metrics.proteinTarget || 140,
-        targetCarbs: metrics.carbsTarget || 200,
-        targetFat: metrics.fatTarget || 65,
-      }
-    }
-    const computed = calculateDailyNutritionTargets(profile)
+    const weight = profile?.weight_kg || profile?.initial_weight_kg || 75
+    const computed = calculateDailyNutritionTargets(profile, weight, dayBurnedCalories)
     return {
       targetCals: computed.targetCalories,
       targetProtein: computed.proteinTarget,
       targetCarbs: computed.carbsTarget,
       targetFat: computed.fatTarget,
+      baseTargetCals: computed.targetCalories - dayBurnedCalories,
+      burnedCalories: dayBurnedCalories,
     }
-  }, [metrics, profile])
+  }, [profile, dayBurnedCalories])
 
   const fetchLogs = useCallback(async () => {
     if (!user) return
     setLoading(true)
+
+    // 1. Obtener comidas de la fecha seleccionada
     const data = await getDailyFoodLogs(user.id, currentDate)
     setLogs(data)
+
+    // 2. Obtener sesiones de entrenamiento completadas en esta fecha exacta
+    let burnedCals = 0
+    try {
+      const { data: sessionData } = await supabase
+        .from('workout_sessions')
+        .select('estimated_calories_burned')
+        .eq('user_id', user.id)
+        .eq('date', currentDate)
+        .not('finished_at', 'is', null)
+
+      if (sessionData && sessionData.length > 0) {
+        burnedCals = sessionData.reduce((sum, s) => sum + (s.estimated_calories_burned || 0), 0)
+      }
+    } catch (e) {
+      console.log('Error fetching day workout session calories:', e)
+    }
+
+    setDayBurnedCalories(burnedCals)
 
     const totalCals = data.reduce((s, l) => s + (l.calories || 0), 0)
     const totalProt = data.reduce((s, l) => s + (l.protein_g || 0), 0)
@@ -58,7 +80,7 @@ export function useNutrition(initialDate?: string) {
       total_carbs: totalCarbs,
       total_fat: totalFat,
       meal_count: data.length,
-      calories_burned: 0,
+      calories_burned: burnedCals,
     })
     setLoading(false)
   }, [user, currentDate])
@@ -245,11 +267,128 @@ export function useNutrition(initialDate?: string) {
     return { data, error }
   }
 
+  const copyFoodLog = async (
+    logToCopy: FoodLog,
+    targetDate: string = currentDate,
+    targetMealType?: MealType
+  ) => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('food_logs')
+      .insert({
+        user_id: user.id,
+        date: targetDate,
+        meal_type: targetMealType || logToCopy.meal_type,
+        raw_input: logToCopy.raw_input,
+        foods_parsed: logToCopy.foods_parsed,
+        calories: logToCopy.calories,
+        protein_g: logToCopy.protein_g,
+        carbs_g: logToCopy.carbs_g,
+        fat_g: logToCopy.fat_g,
+        ai_confidence: logToCopy.ai_confidence || 'high',
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      if (targetDate === currentDate) {
+        setLogs((prev) => [data as FoodLog, ...prev])
+      }
+      setRangeLogs((prev) => [data as FoodLog, ...prev.filter((l) => l.id !== data.id)])
+    }
+    return { data, error }
+  }
+
   const deleteFoodLog = async (id: string) => {
     await apiDeleteFoodLog(id)
     setLogs((prev) => prev.filter((l) => l.id !== id))
     setRangeLogs((prev) => prev.filter((l) => l.id !== id))
   }
+
+  const updateFoodLog = async (
+    id: string,
+    params: {
+      mealType: MealType
+      rawInput: string
+      foodsParsed: FoodItemParsed[]
+      calories: number
+      proteinG: number
+      carbsG: number
+      fatG: number
+    }
+  ) => {
+    const { data, error } = await apiUpdateFoodLog({
+      foodLogId: id,
+      mealType: params.mealType,
+      rawInput: params.rawInput,
+      foodsParsed: params.foodsParsed,
+      calories: params.calories,
+      proteinG: params.proteinG,
+      carbsG: params.carbsG,
+      fatG: params.fatG,
+    })
+
+    if (!error && data) {
+      setLogs((prev) => prev.map((l) => (l.id === id ? (data as FoodLog) : l)))
+      setRangeLogs((prev) => prev.map((l) => (l.id === id ? (data as FoodLog) : l)))
+    }
+    return { data, error }
+  }
+
+  // Comidas frecuentes / recientes para selección rápida sin escanear de nuevo
+  const frequentMeals = useMemo(() => {
+    const mealMap = new Map<string, { log: FoodLog; count: number; lastUsed: string }>()
+    allKnownLogs.forEach((l) => {
+      const key =
+        l.foods_parsed && l.foods_parsed.length > 0
+          ? l.foods_parsed.map((f) => f.name).sort().join(' + ')
+          : l.raw_input?.trim() || 'Comida'
+      if (!key) return
+
+      const existing = mealMap.get(key)
+      if (existing) {
+        existing.count += 1
+        if (l.date > existing.lastUsed) {
+          existing.lastUsed = l.date
+          existing.log = l
+        }
+      } else {
+        mealMap.set(key, { log: l, count: 1, lastUsed: l.date })
+      }
+    })
+
+    return Array.from(mealMap.values())
+      .sort((a, b) => b.count - a.count || b.lastUsed.localeCompare(a.lastUsed))
+      .map((item) => item.log)
+  }, [allKnownLogs])
+
+  // Ingredientes individuales frecuentes extraídos de todas las comidas del historial
+  const frequentIngredients = useMemo(() => {
+    const itemMap = new Map<string, { food: FoodItemParsed; count: number }>()
+    allKnownLogs.forEach((l) => {
+      (l.foods_parsed || []).forEach((f) => {
+        if (!f.name || f.name.trim().length < 2) return
+        const key = f.name.trim().toLowerCase()
+        const existing = itemMap.get(key)
+        if (existing) {
+          existing.count += 1
+        } else {
+          itemMap.set(key, {
+            food: { ...f },
+            count: 1,
+          })
+        }
+      })
+    })
+
+    return Array.from(itemMap.values())
+      .sort((a, b) => b.count - a.count)
+      .map((item) => ({
+        ...item.food,
+        count: item.count,
+      }))
+  }, [allKnownLogs])
 
   return {
     selectedDate: currentDate,
@@ -268,11 +407,15 @@ export function useNutrition(initialDate?: string) {
     history7Days,
     history14Days,
     history30Days,
+    frequentMeals,
+    frequentIngredients,
     loading,
     historyLoading,
     refetch: fetchLogs,
     refreshHistory: fetchHistoryRange,
     logFood,
+    updateFoodLog,
+    copyFoodLog,
     deleteFoodLog,
   }
 }

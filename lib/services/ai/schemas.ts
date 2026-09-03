@@ -13,18 +13,45 @@ import {
   NutritionHealthAuditResult,
 } from './types'
 
+/**
+ * Coerces numeric inputs from AI (which might be strings like "250g", "12.5 kcal", "100", null, etc.) into numbers.
+ */
+export const flexibleNumber = (fallback: number = 0) =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === '') return fallback
+    if (typeof val === 'number') return isNaN(val) ? fallback : val
+    if (typeof val === 'string') {
+      const clean = val.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim()
+      const parsed = parseFloat(clean)
+      return isNaN(parsed) ? fallback : parsed
+    }
+    return fallback
+  }, z.number().default(fallback))
+
+export const flexibleOptionalNumber = () =>
+  z.preprocess((val) => {
+    if (val === null || val === undefined || val === '') return undefined
+    if (typeof val === 'number') return isNaN(val) ? undefined : val
+    if (typeof val === 'string') {
+      const clean = val.replace(/,/g, '.').replace(/[^0-9.-]/g, '').trim()
+      const parsed = parseFloat(clean)
+      return isNaN(parsed) ? undefined : parsed
+    }
+    return undefined
+  }, z.number().optional())
+
 // ==========================================
 // 1. Hands-Free Voice Logger Schema
 // ==========================================
 export const voiceLogResultSchema: z.ZodType<VoiceLogResult> = z.object({
   exerciseName: z.string().nullable().optional().transform((val) => val ?? undefined),
-  weightKg: z.number().nonnegative(),
-  reps: z.number().int().nonnegative(),
-  rpe: z.number().min(0).max(10).nullable().optional().transform((val) => val ?? undefined),
-  rir: z.number().min(0).max(10).nullable().optional().transform((val) => val ?? undefined),
-  setNum: z.number().int().positive().nullable().optional().transform((val) => val ?? undefined),
+  weightKg: flexibleNumber(0),
+  reps: flexibleNumber(0),
+  rpe: flexibleOptionalNumber(),
+  rir: flexibleOptionalNumber(),
+  setNum: flexibleOptionalNumber(),
   notes: z.string().nullable().optional().transform((val) => val ?? undefined),
-  confidence: z.number().min(0).max(1).default(1.0),
+  confidence: flexibleNumber(1.0),
   rawTranscript: z.string().default(''),
 })
 
@@ -82,7 +109,7 @@ export const VOICE_LOGGER_TOOL = {
 export const painAdaptorResultSchema: z.ZodType<PainAdaptorResult> = z.object({
   originalExercise: z.string(),
   painLocation: z.string(),
-  painIntensity: z.number().min(1).max(10),
+  painIntensity: flexibleNumber(5),
   suggestedExercise: z.object({
     id: z.string().optional(),
     name: z.string(),
@@ -91,9 +118,9 @@ export const painAdaptorResultSchema: z.ZodType<PainAdaptorResult> = z.object({
   }),
   biomechanicalReason: z.string(),
   setupAdjustments: z.array(z.string()).default([]),
-  replacementSets: z.number().default(3),
+  replacementSets: flexibleNumber(3),
   replacementReps: z.string().default('10-12'),
-  suggestedRestSeconds: z.number().default(90),
+  suggestedRestSeconds: flexibleNumber(90),
 })
 
 // ==========================================
@@ -102,30 +129,30 @@ export const painAdaptorResultSchema: z.ZodType<PainAdaptorResult> = z.object({
 export const macroCloserSuggestionSchema = z.object({
   id: z.string(),
   name: z.string(),
-  prepTimeMinutes: z.number().default(5),
+  prepTimeMinutes: flexibleNumber(5),
   difficulty: z.enum(['fácil', 'medio', 'rápido']).default('fácil'),
   ingredients: z.array(
     z.object({
       name: z.string(),
       amount: z.string(),
-      gramsApprox: z.number().default(0),
+      gramsApprox: flexibleNumber(0),
     })
   ).default([]),
   macros: z.object({
-    calories: z.number(),
-    protein: z.number(),
-    carbs: z.number(),
-    fat: z.number(),
+    calories: flexibleNumber(0),
+    protein: flexibleNumber(0),
+    carbs: flexibleNumber(0),
+    fat: flexibleNumber(0),
   }),
   quickRecipeInstructions: z.string().default(''),
 })
 
 export const macroCloserResultSchema: z.ZodType<MacroCloserResult> = z.object({
   remainingTarget: z.object({
-    calories: z.number(),
-    protein: z.number(),
-    carbs: z.number(),
-    fat: z.number(),
+    calories: flexibleNumber(0),
+    protein: flexibleNumber(0),
+    carbs: flexibleNumber(0),
+    fat: flexibleNumber(0),
   }),
   suggestions: z.array(macroCloserSuggestionSchema).default([]),
   nutritionalTip: z.string().default(''),
@@ -136,14 +163,14 @@ export const macroCloserResultSchema: z.ZodType<MacroCloserResult> = z.object({
 // ==========================================
 export const deloadAdviceResultSchema: z.ZodType<DeloadAdviceResult> = z.object({
   shouldDeload: z.boolean(),
-  fatigueScore: z.number().min(0).max(100),
+  fatigueScore: flexibleNumber(50),
   fatigueLevel: z.enum(['low', 'moderate', 'high', 'overreaching']),
   indicators: z.array(z.string()).default([]),
   recommendation: z.string(),
   protocol: z.object({
-    volumeReductionPercent: z.number().default(40),
-    intensityReductionPercent: z.number().default(10),
-    durationDays: z.number().default(7),
+    volumeReductionPercent: flexibleNumber(40),
+    intensityReductionPercent: flexibleNumber(10),
+    durationDays: flexibleNumber(7),
     focusAreas: z.array(z.string()).default([]),
   }),
 })
@@ -156,7 +183,7 @@ export const micronutrientItemSchema = z.object({
   amount: z.string().optional(),
   amountPer100g: z.string().optional(),
   amountPerServing: z.string().optional(),
-  vrnPercent: z.number().optional(),
+  vrnPercent: flexibleOptionalNumber(),
 })
 
 export const nutritionalLabelResultSchema: z.ZodType<NutritionalLabelResult> = z.object({
@@ -164,22 +191,22 @@ export const nutritionalLabelResultSchema: z.ZodType<NutritionalLabelResult> = z
   brand: z.string().nullable().optional().transform((val) => val ?? undefined),
   barcode: z.string().nullable().optional(),
   per100g: z.object({
-    calories: z.number(),
-    energyKj: z.number().nullable().optional().transform((val) => val ?? undefined),
-    protein: z.number().default(0),
-    carbs: z.number().default(0),
-    fat: z.number().default(0),
-    sugars: z.number().default(0),
-    saturatedFat: z.number().nullable().optional().transform((val) => val ?? undefined),
-    saltG: z.number().nullable().optional().transform((val) => val ?? undefined),
-    sodiumMg: z.number().nullable().optional().transform((val) => val ?? undefined),
-    fiber: z.number().nullable().optional().transform((val) => val ?? undefined),
+    calories: flexibleNumber(0),
+    energyKj: flexibleOptionalNumber(),
+    protein: flexibleNumber(0),
+    carbs: flexibleNumber(0),
+    fat: flexibleNumber(0),
+    sugars: flexibleNumber(0),
+    saturatedFat: flexibleOptionalNumber(),
+    saltG: flexibleOptionalNumber(),
+    sodiumMg: flexibleOptionalNumber(),
+    fiber: flexibleOptionalNumber(),
   }),
-  packageServingSizeG: z.number().nullable().optional().transform((val) => val ?? undefined),
+  packageServingSizeG: flexibleOptionalNumber(),
   servingName: z.string().nullable().optional().transform((val) => val ?? undefined),
   micronutrients: z.array(micronutrientItemSchema).optional().default([]),
   ingredientsList: z.array(z.string()).default([]),
-  ultraProcessedScore: z.number().min(1).max(10).default(5),
+  ultraProcessedScore: flexibleNumber(5),
   classification: z.enum(['clean', 'moderate', 'ultra_processed']).default('moderate'),
   warningFlags: z.array(z.string()).default([]),
   positiveHighlights: z.array(z.string()).default([]),
@@ -244,21 +271,21 @@ export const NUTRITION_LABEL_TOOL = {
 export const foodPlateItemSchema = z.object({
   name: z.string(),
   unitOrPortion: z.string().nullable().optional(),
-  estimatedGrams: z.number(),
-  calories: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fat: z.number(),
-  confidence: z.number().default(0.8),
+  estimatedGrams: flexibleNumber(100),
+  calories: flexibleNumber(0),
+  protein: flexibleNumber(0),
+  carbs: flexibleNumber(0),
+  fat: flexibleNumber(0),
+  confidence: flexibleNumber(0.8),
 })
 
 export const foodVisionResultSchema: z.ZodType<FoodVisionResult> = z.object({
-  mealName: z.string(),
-  estimatedTotalCalories: z.number(),
+  mealName: z.string().default('Comida escaneada'),
+  estimatedTotalCalories: flexibleNumber(0),
   estimatedTotalMacros: z.object({
-    protein: z.number(),
-    carbs: z.number(),
-    fat: z.number(),
+    protein: flexibleNumber(0),
+    carbs: flexibleNumber(0),
+    fat: flexibleNumber(0),
   }),
   items: z.array(foodPlateItemSchema).default([]),
   notes: z.string().nullable().optional().transform((val) => val ?? undefined),
@@ -271,11 +298,11 @@ export const naturalMealItemSchema = z.object({
   name: z.string(),
   brand: z.string().nullable().optional(),
   unitOrPortion: z.string().nullable().optional(),
-  grams: z.number().default(0),
-  calories: z.number().default(0),
-  protein: z.number().default(0),
-  carbs: z.number().default(0),
-  fat: z.number().default(0),
+  grams: flexibleNumber(0),
+  calories: flexibleNumber(0),
+  protein: flexibleNumber(0),
+  carbs: flexibleNumber(0),
+  fat: flexibleNumber(0),
   source: z.enum(['openfoodfacts', 'ai_estimate']).optional(),
   barcode: z.string().nullable().optional(),
 })
@@ -283,10 +310,10 @@ export const naturalMealItemSchema = z.object({
 export const naturalMealParseResultSchema: z.ZodType<NaturalMealParseResult> = z.object({
   rawText: z.string().default(''),
   items: z.array(naturalMealItemSchema).default([]),
-  totalCalories: z.number().default(0),
-  totalProtein: z.number().default(0),
-  totalCarbs: z.number().default(0),
-  totalFat: z.number().default(0),
+  totalCalories: flexibleNumber(0),
+  totalProtein: flexibleNumber(0),
+  totalCarbs: flexibleNumber(0),
+  totalFat: flexibleNumber(0),
 })
 
 // ==========================================
@@ -294,15 +321,15 @@ export const naturalMealParseResultSchema: z.ZodType<NaturalMealParseResult> = z
 // ==========================================
 export const loadAdvisorResultSchema: z.ZodType<LoadAdvisorResult> = z.object({
   exerciseName: z.string(),
-  suggestedWeightKg: z.number(),
-  suggestedReps: z.number(),
-  suggestedRpe: z.number(),
+  suggestedWeightKg: flexibleNumber(0),
+  suggestedReps: flexibleNumber(0),
+  suggestedRpe: flexibleNumber(0),
   rationale: z.string(),
   progressionType: z.enum(['weight_increase', 'reps_increase', 'hold_load', 'deload_set']),
   dropSetAlternative: z
     .object({
-      weightKg: z.number(),
-      reps: z.number(),
+      weightKg: flexibleNumber(0),
+      reps: flexibleNumber(0),
     })
     .nullable()
     .optional()
@@ -328,27 +355,27 @@ export const mesocycleExerciseSchema = z.object({
   name: z.string(),
   targetMuscle: z.string(),
   equipment: z.string(),
-  baseSets: z.number(),
+  baseSets: flexibleNumber(3),
   baseReps: z.string(),
-  targetRir: z.number(),
+  targetRir: flexibleNumber(2),
   tempo: z.string().optional(),
-  restSeconds: z.number().default(90),
+  restSeconds: flexibleNumber(90),
   substitutes: z.array(z.string()).optional().default([]),
   notes: z.string().optional(),
 })
 
 export const mesocycleDaySchema = z.object({
-  dayNumber: z.number(),
+  dayNumber: flexibleNumber(1),
   name: z.string(),
   targetMuscles: z.array(z.string()).default([]),
   exercises: z.array(mesocycleExerciseSchema).default([]),
 })
 
 export const mesocycleWeekSchema = z.object({
-  weekNumber: z.number(),
+  weekNumber: flexibleNumber(1),
   phase: z.enum(['accumulation', 'intensification', 'overreaching', 'deload']),
-  targetRir: z.number(),
-  volumeMultiplier: z.number().default(1),
+  targetRir: flexibleNumber(2),
+  volumeMultiplier: flexibleNumber(1),
   intensityDescription: z.string().default(''),
   isDeload: z.boolean().default(false),
   days: z.array(mesocycleDaySchema).default([]),
@@ -356,7 +383,7 @@ export const mesocycleWeekSchema = z.object({
 
 export const mesocyclePlanSchema: z.ZodType<MesocyclePlan> = z.object({
   planName: z.string(),
-  totalWeeks: z.number(),
+  totalWeeks: flexibleNumber(4),
   splitType: z.string(),
   goal: z.string(),
   weeklyVolumeDistribution: z.record(z.string(), z.number()).default({}),
@@ -394,7 +421,7 @@ export const foodHealthRecommendationSchema = z.object({
 })
 
 export const nutritionHealthAuditResultSchema: z.ZodType<NutritionHealthAuditResult> = z.object({
-  healthScore: z.number().min(1).max(100),
+  healthScore: flexibleNumber(70),
   overallSummary: z.string(),
   macroBalanceVerdict: z.string(),
   calorieAdherenceVerdict: z.string(),
@@ -402,8 +429,8 @@ export const nutritionHealthAuditResultSchema: z.ZodType<NutritionHealthAuditRes
   deficienciesAndNeeds: z.array(nutrientDeficiencyItemSchema).default([]),
   foodRecommendations: z.array(foodHealthRecommendationSchema).default([]),
   cleanEatingSummary: z.object({
-    processedPercent: z.number(),
-    naturalPercent: z.number(),
+    processedPercent: flexibleNumber(0),
+    naturalPercent: flexibleNumber(0),
     advice: z.string(),
   }),
 })

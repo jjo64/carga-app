@@ -90,6 +90,34 @@ export async function getFoodLogsDateRange(
 }
 
 
+export async function updateFoodLog(params: {
+  foodLogId: string
+  mealType: MealType
+  rawInput: string
+  foodsParsed: FoodItemParsed[]
+  calories: number
+  proteinG: number
+  carbsG: number
+  fatG: number
+}): Promise<{ data: FoodLog | null; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('food_logs')
+    .update({
+      meal_type: params.mealType,
+      raw_input: params.rawInput,
+      foods_parsed: params.foodsParsed,
+      calories: params.calories,
+      protein_g: params.proteinG,
+      carbs_g: params.carbsG,
+      fat_g: params.fatG,
+    })
+    .eq('id', params.foodLogId)
+    .select()
+    .single()
+
+  return { data: data as FoodLog, error }
+}
+
 export async function deleteFoodLog(foodLogId: string): Promise<{ error: Error | null }> {
   const { error } = await supabase
     .from('food_logs')

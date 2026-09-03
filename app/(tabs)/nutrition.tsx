@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   Alert,
 } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   Utensils,
   Sun,
@@ -22,6 +23,7 @@ import {
   Image as GalleryIcon,
   AlertTriangle,
   Plus,
+  Minus,
   Trash2,
   X,
   Flame,
@@ -34,13 +36,26 @@ import {
   HeartPulse,
   ShieldCheck,
   Zap,
+  Copy,
+  RotateCcw,
+  Layers,
+  ChevronDown,
+  CheckCircle2,
+  SlidersHorizontal,
+  Footprints,
 } from 'lucide-react-native'
 import { useNutrition } from '@/lib/hooks/useNutrition'
+import { useSteps } from '@/lib/hooks/useSteps'
 import { MealType, FoodItemParsed } from '@/types'
 import SmartFoodScannerModal from '@/components/nutrition/SmartFoodScannerModal'
 import NutritionEvolutionModal from '@/components/nutrition/NutritionEvolutionModal'
 import NutritionHealthAuditModal from '@/components/nutrition/NutritionHealthAuditModal'
+import CommonFoodsSelector from '@/components/nutrition/CommonFoodsSelector'
+import { CommonFoodItem } from '@/constants/commonFoodsDatabase'
 import { aiService } from '@/lib/services/ai'
+
+const MEAL_DRAFT_STORAGE_KEY = '@nutrition_active_meal_draft'
+type ModalTabType = 'basic' | 'frequent' | 'scanner' | 'plate'
 
 const mealLabel: Record<string, string> = {
   breakfast: 'Desayuno',
@@ -139,19 +154,34 @@ export default function NutritionScreen() {
     history7Days,
     history14Days,
     history30Days,
+    frequentMeals,
+    frequentIngredients,
     loading,
     logFood,
+    updateFoodLog,
+    copyFoodLog,
     deleteFoodLog,
   } = useNutrition()
 
+  const { steps, caloriesBurned: stepsCalories } = useSteps()
+
   const [filterType, setFilterType] = useState<MealType | 'all'>('all')
   const [modalVisible, setModalVisible] = useState(false)
+  const [modalTab, setModalTab] = useState<ModalTabType>('basic')
   const [modalMealType, setModalMealType] = useState<MealType>('lunch')
   const [foodText, setFoodText] = useState('')
   const [analysisState, setAnalysisState] = useState<'idle' | 'loading' | 'result'>('idle')
   const [results, setResults] = useState<FoodItemParsed[]>([])
   const [photoUri, setPhotoUri] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Editing existing logged food
+  const [editingFoodLogId, setEditingFoodLogId] = useState<string | null>(null)
+  const [editingFoodLogTitle, setEditingFoodLogTitle] = useState<string>('')
+
+  // Frequent sub-tab: 'meals' (platos completos) vs 'ingredients' (ingredientes individuales usados)
+  const [frequentSubTab, setFrequentSubTab] = useState<'meals' | 'ingredients'>('meals')
+  const [expandedMealIds, setExpandedMealIds] = useState<Record<string, boolean>>({})
 
   // Smart Food Scanner Modal State
   const [smartScannerVisible, setSmartScannerVisible] = useState(false)
@@ -166,6 +196,45 @@ export default function NutritionScreen() {
   const [macroCloserVisible, setMacroCloserVisible] = useState(false)
   const [macroCloserLoading, setMacroCloserLoading] = useState(false)
   const [macroCloserData, setMacroCloserData] = useState<any>(null)
+
+  // 1. Cargar borrador persistente de AsyncStorage al iniciar
+  useEffect(() => {
+    const loadDraft = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(MEAL_DRAFT_STORAGE_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed.results && Array.isArray(parsed.results) && parsed.results.length > 0) {
+            setResults(parsed.results)
+            if (parsed.modalMealType) setModalMealType(parsed.modalMealType)
+            if (parsed.foodText) setFoodText(parsed.foodText)
+          }
+        }
+      } catch (e) {
+        console.warn('Error loading meal draft:', e)
+      }
+    }
+    loadDraft()
+  }, [])
+
+  // 2. Guardar borrador en AsyncStorage cuando cambie el plato
+  useEffect(() => {
+    const saveDraft = async () => {
+      try {
+        if (results.length > 0) {
+          await AsyncStorage.setItem(
+            MEAL_DRAFT_STORAGE_KEY,
+            JSON.stringify({ results, modalMealType, foodText, date: selectedDate })
+          )
+        } else {
+          await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
+        }
+      } catch (e) {
+        console.warn('Error saving meal draft:', e)
+      }
+    }
+    saveDraft()
+  }, [results, modalMealType, foodText, selectedDate])
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
@@ -197,20 +266,51 @@ export default function NutritionScreen() {
   }
 
   const handleSaveFromSmartScanner = async (foods: FoodItemParsed[], rawInput: string) => {
-    const totalC = foods.reduce((s, r) => s + r.calories, 0)
-    const totalP = foods.reduce((s, r) => s + r.protein_g, 0)
-    const totalCb = foods.reduce((s, r) => s + r.carbs_g, 0)
-    const totalF = foods.reduce((s, r) => s + r.fat_g, 0)
+    setResults((prev) => [...prev, ...foods])
+    setSmartScannerVisible(false)
+    setModalVisible(true)
+    setModalTab('plate')
+  }
 
-    await logFood({
-      mealType: modalMealType,
-      rawInput: rawInput || 'Escaneo Inteligente',
-      foodsParsed: foods,
-      calories: totalC,
-      proteinG: totalP,
-      carbsG: totalCb,
-      fatG: totalF,
+  const handleAddCommonFood = (food: CommonFoodItem, customGrams?: number) => {
+    const quantityG = customGrams || food.defaultServingG
+    const ratio = quantityG / 100
+    const newItem: FoodItemParsed = {
+      name: food.name,
+      quantity_g: quantityG,
+      unit_or_portion: food.defaultServingName,
+      calories: Math.round(food.calories * ratio),
+      protein_g: Number((food.protein * ratio).toFixed(1)),
+      carbs_g: Number((food.carbs * ratio).toFixed(1)),
+      fat_g: Number((food.fat * ratio).toFixed(1)),
+      confidence: 'high',
+    }
+
+    setResults((prev) => {
+      const existingIndex = prev.findIndex(
+        (p) => p.name.toLowerCase() === food.name.toLowerCase()
+      )
+      if (existingIndex !== -1) {
+        const updated = [...prev]
+        const curr = updated[existingIndex]
+        const nextG = (curr.quantity_g || 100) + quantityG
+        const nextRatio = nextG / 100
+        updated[existingIndex] = {
+          ...curr,
+          quantity_g: nextG,
+          calories: Math.round(food.calories * nextRatio),
+          protein_g: Number((food.protein * nextRatio).toFixed(1)),
+          carbs_g: Number((food.carbs * nextRatio).toFixed(1)),
+          fat_g: Number((food.fat * nextRatio).toFixed(1)),
+        }
+        return updated
+      }
+      return [...prev, newItem]
     })
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setResults((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   const handleOpenMacroCloser = async () => {
@@ -252,43 +352,228 @@ export default function NutritionScreen() {
         fat_g: it.fat,
         confidence: 'high',
       }))
-      setResults(parsedFoods)
-      setAnalysisState('result')
+      setResults((prev) => [...prev, ...parsedFoods])
+      setAnalysisState('idle')
+      setFoodText('')
+      setModalTab('plate')
     } catch (err: any) {
       console.warn('[Nutrition] Fallback parsing food text:', err)
       const parsed = parseFoodText(foodText)
-      setResults(parsed)
-      setAnalysisState('result')
+      setResults((prev) => [...prev, ...parsed])
+      setAnalysisState('idle')
+      setFoodText('')
+      setModalTab('plate')
     }
   }
 
   const handleSaveMeal = async () => {
+    if (results.length === 0) return
     setSaving(true)
-    const totalC = results.reduce((s, r) => s + r.calories, 0)
-    const totalP = results.reduce((s, r) => s + r.protein_g, 0)
-    const totalCb = results.reduce((s, r) => s + r.carbs_g, 0)
-    const totalF = results.reduce((s, r) => s + r.fat_g, 0)
+    const totalC = results.reduce((s, r) => s + (r.calories || 0), 0)
+    const totalP = results.reduce((s, r) => s + (r.protein_g || 0), 0)
+    const totalCb = results.reduce((s, r) => s + (r.carbs_g || 0), 0)
+    const totalF = results.reduce((s, r) => s + (r.fat_g || 0), 0)
 
-    await logFood({
-      mealType: modalMealType,
-      rawInput: foodText || 'Comida registrada',
-      foodsParsed: results,
-      calories: totalC,
-      proteinG: totalP,
-      carbsG: totalCb,
-      fatG: totalF,
-    })
+    const foodNames = results.map((r) => r.name).join(', ')
+
+    if (editingFoodLogId) {
+      await updateFoodLog(editingFoodLogId, {
+        mealType: modalMealType,
+        rawInput: foodNames || editingFoodLogTitle || 'Comida editada',
+        foodsParsed: results,
+        calories: totalC,
+        proteinG: totalP,
+        carbsG: totalCb,
+        fatG: totalF,
+      })
+      setEditingFoodLogId(null)
+      setEditingFoodLogTitle('')
+    } else {
+      await logFood({
+        mealType: modalMealType,
+        rawInput: foodNames || foodText || 'Comida registrada',
+        foodsParsed: results,
+        calories: totalC,
+        proteinG: totalP,
+        carbsG: totalCb,
+        fatG: totalF,
+      })
+    }
 
     setSaving(false)
-    handleCloseModal()
-  }
-
-  const handleCloseModal = () => {
-    setModalVisible(false)
-    setAnalysisState('idle')
     setResults([])
     setFoodText('')
     setPhotoUri(null)
+    setAnalysisState('idle')
+    setModalVisible(false)
+    try {
+      await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
+    } catch {}
+  }
+
+  const updateItemGrams = (index: number, newGrams: number) => {
+    setResults((prev) => {
+      const updated = [...prev]
+      const item = updated[index]
+      if (!item) return prev
+      const safeGrams = Math.max(5, Math.min(3000, newGrams))
+      const oldGrams = item.quantity_g && item.quantity_g > 0 ? item.quantity_g : 100
+      const ratio = safeGrams / oldGrams
+      updated[index] = {
+        ...item,
+        quantity_g: Math.round(safeGrams),
+        calories: Math.max(0, Math.round((item.calories || 0) * ratio)),
+        protein_g: Math.max(0, Number(((item.protein_g || 0) * ratio).toFixed(1))),
+        carbs_g: Math.max(0, Number(((item.carbs_g || 0) * ratio).toFixed(1))),
+        fat_g: Math.max(0, Number(((item.fat_g || 0) * ratio).toFixed(1))),
+      }
+      return updated
+    })
+  }
+
+  const handleGramsTextChange = (index: number, text: string) => {
+    const cleaned = text.replace(/[^0-9]/g, '')
+    if (!cleaned) {
+      setResults((prev) => {
+        const updated = [...prev]
+        if (updated[index]) {
+          updated[index] = { ...updated[index], quantity_g: 0 }
+        }
+        return updated
+      })
+      return
+    }
+    const val = parseInt(cleaned, 10)
+    updateItemGrams(index, val)
+  }
+
+  const handleAddSingleIngredient = (food: FoodItemParsed) => {
+    const defaultGrams = food.quantity_g || 100
+    const newItem: FoodItemParsed = {
+      name: food.name,
+      brand: food.brand || null,
+      quantity_g: defaultGrams,
+      unit_or_portion: food.unit_or_portion || `${defaultGrams}g`,
+      calories: food.calories || 100,
+      protein_g: food.protein_g || 0,
+      carbs_g: food.carbs_g || 0,
+      fat_g: food.fat_g || 0,
+      confidence: 'high',
+    }
+
+    setResults((prev) => {
+      const existingIdx = prev.findIndex(
+        (p) => p.name.toLowerCase() === food.name.toLowerCase()
+      )
+      if (existingIdx !== -1) {
+        const updated = [...prev]
+        const curr = updated[existingIdx]
+        const nextG = (curr.quantity_g || 100) + defaultGrams
+        const ratio = nextG / Math.max(1, curr.quantity_g || 100)
+        updated[existingIdx] = {
+          ...curr,
+          quantity_g: nextG,
+          calories: Math.round((curr.calories || 0) * ratio),
+          protein_g: Number(((curr.protein_g || 0) * ratio).toFixed(1)),
+          carbs_g: Number(((curr.carbs_g || 0) * ratio).toFixed(1)),
+          fat_g: Number(((curr.fat_g || 0) * ratio).toFixed(1)),
+        }
+        return updated
+      }
+      return [...prev, newItem]
+    })
+    setModalTab('plate')
+  }
+
+  const handleToggleExpandMeal = (mealId: string) => {
+    setExpandedMealIds((prev) => ({
+      ...prev,
+      [mealId]: !prev[mealId],
+    }))
+  }
+
+  const handleRepeatMeal = (log: any) => {
+    setEditingFoodLogId(null)
+    setEditingFoodLogTitle('')
+    const repeatedItems: FoodItemParsed[] =
+      log.foods_parsed && log.foods_parsed.length > 0
+        ? JSON.parse(JSON.stringify(log.foods_parsed))
+        : [
+            {
+              name: log.raw_input || 'Comida repetida',
+              quantity_g: 200,
+              calories: log.calories || 300,
+              protein_g: log.protein_g || 20,
+              carbs_g: log.carbs_g || 30,
+              fat_g: log.fat_g || 10,
+              confidence: 'medium',
+            },
+          ]
+    setResults((prev) => [...prev, ...repeatedItems])
+    setModalMealType(log.meal_type || 'lunch')
+    setModalTab('plate')
+    setModalVisible(true)
+  }
+
+  const handleEditMeal = (log: any) => {
+    setEditingFoodLogId(log.id)
+    setEditingFoodLogTitle(log.raw_input || 'Comida')
+    setModalMealType(log.meal_type || 'lunch')
+    const itemsToEdit: FoodItemParsed[] =
+      log.foods_parsed && log.foods_parsed.length > 0
+        ? JSON.parse(JSON.stringify(log.foods_parsed))
+        : [
+            {
+              name: log.raw_input || 'Comida',
+              quantity_g: 200,
+              calories: log.calories || 300,
+              protein_g: log.protein_g || 20,
+              carbs_g: log.carbs_g || 30,
+              fat_g: log.fat_g || 10,
+              confidence: 'medium',
+            },
+          ]
+    setResults(itemsToEdit)
+    setModalTab('plate')
+    setModalVisible(true)
+  }
+
+  const handleConfirmDiscardDraft = () => {
+    if (results.length === 0 && !foodText.trim()) {
+      setEditingFoodLogId(null)
+      setEditingFoodLogTitle('')
+      setModalVisible(false)
+      return
+    }
+    Alert.alert(
+      '¿Descartar cambios?',
+      editingFoodLogId
+        ? 'Se cancelará la edición de esta comida.'
+        : 'Se borrarán los productos que estabas añadiendo a esta comida.',
+      [
+        { text: 'Continuar', style: 'cancel' },
+        {
+          text: 'Descartar',
+          style: 'destructive',
+          onPress: async () => {
+            setResults([])
+            setFoodText('')
+            setPhotoUri(null)
+            setAnalysisState('idle')
+            setEditingFoodLogId(null)
+            setEditingFoodLogTitle('')
+            setModalVisible(false)
+            try {
+              await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
+            } catch {}
+          },
+        },
+      ]
+    )
+  }
+
+  const handleMinimizeModal = () => {
+    setModalVisible(false)
   }
 
   return (
@@ -410,6 +695,27 @@ export default function NutritionScreen() {
               ? `⚠️ Exceso calórico: +${calorieAnalysis.excess} kcal sobre tu meta`
               : `Te restan ${calorieAnalysis.remaining} kcal para completar el objetivo`}
           </Text>
+
+          {/* Badges de gasto calórico por actividad (Entrenamiento + Pasos) */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {(targets as any).burnedCalories > 0 && (
+              <View style={styles.workoutBurnedBadge}>
+                <Flame size={13} color="#F97316" />
+                <Text style={styles.workoutBurnedBadgeText}>
+                  +{(targets as any).burnedCalories} kcal por entreno
+                </Text>
+              </View>
+            )}
+
+            {stepsCalories > 0 && (
+              <View style={[styles.workoutBurnedBadge, { backgroundColor: 'rgba(251, 191, 36, 0.12)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
+                <Footprints size={13} color="#FBBF24" />
+                <Text style={[styles.workoutBurnedBadgeText, { color: '#FBBF24' }]}>
+                  +{stepsCalories} kcal ({steps.toLocaleString('es-ES')} pasos)
+                </Text>
+              </View>
+            )}
+          </View>
 
           {/* Barra de progreso de calorías */}
           <View style={styles.calProgressBarBg}>
@@ -712,11 +1018,33 @@ export default function NutritionScreen() {
                     </View>
                   )}
 
-                  {/* Macro tag row */}
-                  <View style={styles.logMacrosRow}>
-                    <Text style={styles.logMacroTag}>P: {Math.round(log.protein_g || 0)}g</Text>
-                    <Text style={styles.logMacroTag}>C: {Math.round(log.carbs_g || 0)}g</Text>
-                    <Text style={styles.logMacroTag}>G: {Math.round(log.fat_g || 0)}g</Text>
+                  {/* Footer Row: Macros + Edit / Repeat Actions */}
+                  <View style={styles.logFooterRow}>
+                    <View style={styles.logMacrosRow}>
+                      <Text style={styles.logMacroTag}>P: {Math.round(log.protein_g || 0)}g</Text>
+                      <Text style={styles.logMacroTag}>C: {Math.round(log.carbs_g || 0)}g</Text>
+                      <Text style={styles.logMacroTag}>G: {Math.round(log.fat_g || 0)}g</Text>
+                    </View>
+
+                    <View style={styles.logActionsBtnGroup}>
+                      <TouchableOpacity
+                        style={styles.editMealBtn}
+                        onPress={() => handleEditMeal(log)}
+                        activeOpacity={0.8}
+                      >
+                        <SlidersHorizontal size={12} color="#38BDF8" />
+                        <Text style={styles.editMealBtnText}>Editar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.repeatMealBtn}
+                        onPress={() => handleRepeatMeal(log)}
+                        activeOpacity={0.8}
+                      >
+                        <Copy size={12} color="#A78BFA" />
+                        <Text style={[styles.repeatMealBtnText, { color: '#A78BFA' }]}>Repetir</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               )
@@ -762,12 +1090,12 @@ export default function NutritionScreen() {
         onSaveToMeal={handleSaveFromSmartScanner}
       />
 
-      {/* Unified Text & Quick Entry Modal Sheet */}
+      {/* Unified Multi-Source Food Entry Modal Sheet */}
       <Modal
         visible={modalVisible}
         transparent
         animationType="slide"
-        onRequestClose={handleCloseModal}
+        onRequestClose={handleMinimizeModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
@@ -775,10 +1103,41 @@ export default function NutritionScreen() {
 
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>¿Qué comiste hoy?</Text>
-              <TouchableOpacity onPress={handleCloseModal} style={styles.closeBtn}>
-                <X size={18} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {getMealIcon(modalMealType, 16, '#38BDF8')}
+                  <Text style={styles.modalTitle}>
+                    {editingFoodLogId ? `Editar ${mealLabel[modalMealType]}` : mealLabel[modalMealType]}
+                    {results.length > 0 ? ` (${results.length})` : ''}
+                  </Text>
+                </View>
+                <Text style={styles.modalHeaderSubtitle}>
+                  {editingFoodLogId
+                    ? 'Modifica gramos, quita o añade ingredientes a esta comida'
+                    : results.length > 0
+                    ? `${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal acumuladas en tu plato`
+                    : 'Añade alimentos a tu plato del día'}
+                </Text>
+              </View>
+
+              <View style={styles.modalHeaderActions}>
+                <TouchableOpacity
+                  onPress={handleMinimizeModal}
+                  style={styles.minimizeBtn}
+                  activeOpacity={0.7}
+                >
+                  <ChevronDown size={18} color="#38BDF8" />
+                  <Text style={styles.minimizeBtnText}>Minimizar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleConfirmDiscardDraft}
+                  style={styles.closeBtn}
+                  activeOpacity={0.7}
+                >
+                  <X size={18} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Meal Type Quick Selector */}
@@ -807,7 +1166,247 @@ export default function NutritionScreen() {
               ))}
             </ScrollView>
 
-            {analysisState === 'idle' && (
+            {/* Sub Tabs: Básicos vs Frecuentes vs Escáner vs Mi Plato */}
+            <View style={styles.modalSubTabRow}>
+              <TouchableOpacity
+                style={[styles.modalSubTab, modalTab === 'basic' && styles.modalSubTabActive]}
+                onPress={() => setModalTab('basic')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.modalSubTabTitle,
+                    modalTab === 'basic' && styles.modalSubTabTitleActive,
+                  ]}
+                >
+                  🍎 Básicos
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSubTab, modalTab === 'frequent' && styles.modalSubTabActive]}
+                onPress={() => setModalTab('frequent')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.modalSubTabTitle,
+                    modalTab === 'frequent' && styles.modalSubTabTitleActive,
+                  ]}
+                >
+                  🍱 Tupper ({frequentMeals.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSubTab, modalTab === 'scanner' && styles.modalSubTabActive]}
+                onPress={() => setModalTab('scanner')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.modalSubTabTitle,
+                    modalTab === 'scanner' && styles.modalSubTabTitleActive,
+                  ]}
+                >
+                  📸 Escáner & IA
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalSubTab,
+                  modalTab === 'plate' && styles.modalSubTabActive,
+                  results.length > 0 && styles.modalSubTabHighlight,
+                ]}
+                onPress={() => setModalTab('plate')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.modalSubTabTitle,
+                    modalTab === 'plate' && styles.modalSubTabTitleActive,
+                    results.length > 0 && { color: '#38BDF8', fontWeight: '900' },
+                  ]}
+                >
+                  📋 Plato ({results.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── TAB 1: Alimentos Básicos / Frutas / Proteínas / Carbos ── */}
+            {modalTab === 'basic' && (
+              <View style={{ flex: 1, minHeight: 320 }}>
+                <CommonFoodsSelector
+                  onAddFood={handleAddCommonFood}
+                  addedFoodNames={results.map((r) => r.name)}
+                />
+              </View>
+            )}
+
+            {/* ── TAB 2: Comidas Frecuentes / Tupper & Ingredientes Usados ── */}
+            {modalTab === 'frequent' && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Sub-selector: Comidas Completas vs Ingredientes Usados */}
+                <View style={styles.frequentSubSelectorRow}>
+                  <TouchableOpacity
+                    style={[styles.frequentSubPill, frequentSubTab === 'meals' && styles.frequentSubPillActive]}
+                    onPress={() => setFrequentSubTab('meals')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.frequentSubPillText,
+                        frequentSubTab === 'meals' && styles.frequentSubPillTextActive,
+                      ]}
+                    >
+                      🍱 Comidas ({frequentMeals.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.frequentSubPill, frequentSubTab === 'ingredients' && styles.frequentSubPillActive]}
+                    onPress={() => setFrequentSubTab('ingredients')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.frequentSubPillText,
+                        frequentSubTab === 'ingredients' && styles.frequentSubPillTextActive,
+                      ]}
+                    >
+                      🥗 Ingredientes ({frequentIngredients.length})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Sub-tab 1: Comidas Completas (con opción de desglose en acordeón) */}
+                {frequentSubTab === 'meals' && (
+                  <>
+                    <Text style={styles.frequentSectionTitle}>
+                      Toca para añadir la comida completa o desglosa sus ingredientes:
+                    </Text>
+                    {frequentMeals.length === 0 ? (
+                      <View style={styles.emptyBox}>
+                        <Utensils size={28} color="rgba(255,255,255,0.25)" />
+                        <Text style={styles.emptyText}>Aún no tienes comidas guardadas en tu historial</Text>
+                      </View>
+                    ) : (
+                      frequentMeals.map((fMeal) => {
+                        const isExpanded = !!expandedMealIds[fMeal.id]
+                        const foods = fMeal.foods_parsed || []
+                        const foodNames = foods.map((f) => f.name).join(', ') || fMeal.raw_input
+
+                        return (
+                          <View key={fMeal.id} style={styles.frequentMealWrapper}>
+                            <View style={styles.frequentCard}>
+                              <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text style={styles.frequentCardTitle} numberOfLines={2}>
+                                  {foodNames}
+                                </Text>
+                                <Text style={styles.frequentCardSub}>
+                                  {fMeal.calories} kcal · P: {Math.round(fMeal.protein_g || 0)}g · C: {Math.round(fMeal.carbs_g || 0)}g · G: {Math.round(fMeal.fat_g || 0)}g
+                                </Text>
+                              </View>
+
+                              {/* Primary Action: Load whole meal */}
+                              <TouchableOpacity
+                                style={styles.frequentLoadBadge}
+                                onPress={() => handleRepeatMeal(fMeal)}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.frequentLoadBadgeText}>+ Toda</Text>
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* Accordion Toggle for Individual Ingredients */}
+                            {foods.length > 0 && (
+                              <View style={styles.frequentAccordionContainer}>
+                                <TouchableOpacity
+                                  style={styles.frequentAccordionBtn}
+                                  onPress={() => handleToggleExpandMeal(fMeal.id)}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.frequentAccordionBtnText}>
+                                    {isExpanded
+                                      ? '▲ Ocultar ingredientes'
+                                      : `▼ Desglosar (${foods.length} ingredientes)`}
+                                  </Text>
+                                </TouchableOpacity>
+
+                                {isExpanded && (
+                                  <View style={styles.frequentIngredientsList}>
+                                    {foods.map((foodItem, idx) => (
+                                      <View key={idx} style={styles.frequentIngredientItemRow}>
+                                        <View style={{ flex: 1, marginRight: 8 }}>
+                                          <Text style={styles.frequentIngredientName}>{foodItem.name}</Text>
+                                          <Text style={styles.frequentIngredientMeta}>
+                                            {foodItem.quantity_g}g · {foodItem.calories} kcal (P: {foodItem.protein_g}g C: {foodItem.carbs_g}g G: {foodItem.fat_g}g)
+                                          </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                          style={styles.addSingleIngBtn}
+                                          onPress={() => handleAddSingleIngredient(foodItem)}
+                                          activeOpacity={0.8}
+                                        >
+                                          <Plus size={12} color="#38BDF8" />
+                                          <Text style={styles.addSingleIngBtnText}>Añadir</Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                    ))}
+                                  </View>
+                                )}
+                              </View>
+                            )}
+                          </View>
+                        )
+                      })
+                    )}
+                  </>
+                )}
+
+                {/* Sub-tab 2: Ingredientes Individuales Frecuentes */}
+                {frequentSubTab === 'ingredients' && (
+                  <>
+                    <Text style={styles.frequentSectionTitle}>
+                      Ingredientes que ya has usado en tus comidas anteriores:
+                    </Text>
+                    {frequentIngredients.length === 0 ? (
+                      <View style={styles.emptyBox}>
+                        <Apple size={28} color="rgba(255,255,255,0.25)" />
+                        <Text style={styles.emptyText}>Aún no hay ingredientes registrados en tu historial</Text>
+                      </View>
+                    ) : (
+                      frequentIngredients.map((item, idx) => (
+                        <View key={idx} style={styles.frequentIngredientCard}>
+                          <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text style={styles.frequentIngredientCardTitle}>{item.name}</Text>
+                            <Text style={styles.frequentIngredientCardSub}>
+                              Porción típica: {item.quantity_g || 100}g · {item.calories || 100} kcal
+                            </Text>
+                            <Text style={styles.frequentIngredientCardMacros}>
+                              P: {item.protein_g || 0}g · C: {item.carbs_g || 0}g · G: {item.fat_g || 0}g
+                            </Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.frequentAddIngBadge}
+                            onPress={() => handleAddSingleIngredient(item)}
+                            activeOpacity={0.8}
+                          >
+                            <Plus size={14} color="#38BDF8" />
+                            <Text style={styles.frequentAddIngBadgeText}>+ Al Plato</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+                  </>
+                )}
+              </ScrollView>
+            )}
+
+            {/* ── TAB 3: Escáner y Descripción Libre con IA ── */}
+            {modalTab === 'scanner' && (
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 {/* Primary: Camera Button */}
                 <TouchableOpacity
@@ -846,7 +1445,7 @@ export default function NutritionScreen() {
                 {/* Divider */}
                 <View style={styles.modalDivider}>
                   <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>o describe con texto</Text>
+                  <Text style={styles.dividerText}>o describe con texto libre</Text>
                   <View style={styles.dividerLine} />
                 </View>
 
@@ -861,103 +1460,268 @@ export default function NutritionScreen() {
                   numberOfLines={3}
                 />
 
-                <TouchableOpacity
-                  style={[styles.analyzeBtn, !foodText.trim() && styles.analyzeBtnDisabled]}
-                  onPress={handleAnalyzeText}
-                  disabled={!foodText.trim()}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.analyzeBtnText}>ANALIZAR CON IA</Text>
-                </TouchableOpacity>
+                {analysisState === 'loading' ? (
+                  <View style={styles.loadingStateBox}>
+                    <ActivityIndicator size="large" color="#38BDF8" />
+                    <Text style={styles.loadingText}>Analizando alimentos con IA...</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.analyzeBtn, !foodText.trim() && styles.analyzeBtnDisabled]}
+                    onPress={handleAnalyzeText}
+                    disabled={!foodText.trim()}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.analyzeBtnText}>ANALIZAR Y SUMAR AL PLATO</Text>
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             )}
 
-            {analysisState === 'loading' && (
-              <View style={styles.loadingStateBox}>
-                <ActivityIndicator size="large" color="#38BDF8" />
-                <Text style={styles.loadingText}>Analizando alimentos y nutrientes con IA...</Text>
-              </View>
-            )}
-
-            {analysisState === 'result' && (
+            {/* ── TAB 4: Revisión del Plato Actual (Mi Plato con Edición Libre de Gramos) ── */}
+            {modalTab === 'plate' && (
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                <View style={styles.resultHeader}>
-                  <Text style={styles.resultSub}>RESULTADO DEL ANÁLISIS</Text>
-                  <Text style={styles.resultCalories}>
-                    {results.reduce((s, r) => s + r.calories, 0)} kcal
-                  </Text>
-                </View>
-
-                {/* Result Items */}
-                <View style={styles.resultItemsList}>
-                  {results.map((f, i) => (
-                    <View key={i} style={styles.resultItemRow}>
-                      <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={styles.resultItemName}>{f.name}</Text>
-                        <Text style={styles.resultItemGrams}>
-                          {f.unit_or_portion ? `${f.unit_or_portion} (${f.quantity_g}g)` : `${f.quantity_g}g`}
+                {results.length === 0 ? (
+                  <View style={styles.emptyPlateBox}>
+                    <Utensils size={36} color="rgba(255,255,255,0.2)" />
+                    <Text style={styles.emptyPlateTitle}>Tu plato está vacío</Text>
+                    <Text style={styles.emptyPlateSub}>
+                      Elige frutas, carnes o carbohidratos desde '🍎 Básicos', usa '🍱 Tupper' o el '📸 Escáner'.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyPlateActionBtn}
+                      onPress={() => setModalTab('basic')}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.emptyPlateActionText}>Ver Alimentos Básicos</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.resultHeader}>
+                      <View>
+                        <Text style={styles.resultSub}>
+                          {editingFoodLogId ? 'EDITANDO COMIDA REGISTRADA' : 'ALIMENTOS EN TU PLATO'}
+                        </Text>
+                        <Text style={styles.resultCountSub}>
+                          {results.length} {results.length === 1 ? 'ingrediente' : 'ingredientes'}
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.resultItemCals}>{f.calories} kcal</Text>
-                        <Text style={styles.resultItemMacros}>
-                          P{f.protein_g} · C{f.carbs_g} · G{f.fat_g}
+                      <Text style={styles.resultCalories}>
+                        {results.reduce((s, r) => s + (r.calories || 0), 0)} kcal
+                      </Text>
+                    </View>
+
+                    {/* Result Items with Interactive Portion Controls */}
+                    <View style={styles.resultItemsList}>
+                      {results.map((f, i) => (
+                        <View key={i} style={styles.resultItemCard}>
+                          <View style={styles.resultItemRow}>
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text style={styles.resultItemName}>{f.name}</Text>
+                              <Text style={styles.resultItemMacros}>
+                                P: {f.protein_g || 0}g · C: {f.carbs_g || 0}g · G: {f.fat_g || 0}g
+                              </Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={styles.resultItemCals}>{f.calories || 0} kcal</Text>
+                            </View>
+                          </View>
+
+                          {/* Portion Controls: Direct Editable Grams Input + Quick Buttons */}
+                          <View style={styles.portionControlRow}>
+                            <TouchableOpacity
+                              style={styles.removeItemBtn}
+                              onPress={() => handleRemoveItem(i)}
+                              activeOpacity={0.7}
+                            >
+                              <Trash2 size={13} color="#EF4444" />
+                              <Text style={styles.removeItemText}>Quitar</Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.portionButtonGroup}>
+                              <TouchableOpacity
+                                style={styles.portionBtn}
+                                onPress={() => updateItemGrams(i, (f.quantity_g || 100) - 25)}
+                                activeOpacity={0.7}
+                              >
+                                <Minus size={13} color="#FFFFFF" />
+                              </TouchableOpacity>
+
+                              {/* Direct Editable Grams Input Container */}
+                              <View style={styles.portionGramInputBox}>
+                                <TextInput
+                                  style={styles.portionGramTextInput}
+                                  value={f.quantity_g !== undefined ? String(f.quantity_g) : '100'}
+                                  onChangeText={(txt) => handleGramsTextChange(i, txt)}
+                                  keyboardType="numeric"
+                                  selectTextOnFocus
+                                />
+                                <Text style={styles.portionGramUnitLabel}>g</Text>
+                              </View>
+
+                              <TouchableOpacity
+                                style={styles.portionBtn}
+                                onPress={() => updateItemGrams(i, (f.quantity_g || 100) + 25)}
+                                activeOpacity={0.7}
+                              >
+                                <Plus size={13} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Macro Summary Grid */}
+                    <View style={styles.resultMacroGrid}>
+                      <View style={styles.resultMacroBox}>
+                        <Text style={[styles.resultMacroVal, { color: '#38BDF8' }]}>
+                          {results.reduce((s, r) => s + (r.protein_g || 0), 0).toFixed(1)}g
                         </Text>
+                        <Text style={styles.resultMacroLabel}>Proteína</Text>
+                      </View>
+                      <View style={styles.resultMacroBox}>
+                        <Text style={[styles.resultMacroVal, { color: '#FBBF24' }]}>
+                          {results.reduce((s, r) => s + (r.carbs_g || 0), 0).toFixed(1)}g
+                        </Text>
+                        <Text style={styles.resultMacroLabel}>Carbos</Text>
+                      </View>
+                      <View style={styles.resultMacroBox}>
+                        <Text style={[styles.resultMacroVal, { color: '#F472B6' }]}>
+                          {results.reduce((s, r) => s + (r.fat_g || 0), 0).toFixed(1)}g
+                        </Text>
+                        <Text style={styles.resultMacroLabel}>Grasas</Text>
                       </View>
                     </View>
-                  ))}
-                </View>
 
-                {/* Macro Summary Grid */}
-                <View style={styles.resultMacroGrid}>
-                  <View style={styles.resultMacroBox}>
-                    <Text style={[styles.resultMacroVal, { color: '#38BDF8' }]}>
-                      {results.reduce((s, r) => s + r.protein_g, 0)}g
-                    </Text>
-                    <Text style={styles.resultMacroLabel}>Proteína</Text>
-                  </View>
-                  <View style={styles.resultMacroBox}>
-                    <Text style={[styles.resultMacroVal, { color: '#FBBF24' }]}>
-                      {results.reduce((s, r) => s + r.carbs_g, 0)}g
-                    </Text>
-                    <Text style={styles.resultMacroLabel}>Carbos</Text>
-                  </View>
-                  <View style={styles.resultMacroBox}>
-                    <Text style={[styles.resultMacroVal, { color: '#F472B6' }]}>
-                      {results.reduce((s, r) => s + r.fat_g, 0)}g
-                    </Text>
-                    <Text style={styles.resultMacroLabel}>Grasas</Text>
-                  </View>
-                </View>
+                    {/* Quick Add More Foods Buttons */}
+                    <View style={styles.addMoreOptionsRow}>
+                      <TouchableOpacity
+                        style={styles.addMoreFoodsBtn}
+                        onPress={() => setModalTab('basic')}
+                        activeOpacity={0.8}
+                      >
+                        <Plus size={14} color="#38BDF8" />
+                        <Text style={styles.addMoreFoodsText}>Añadir Básico</Text>
+                      </TouchableOpacity>
 
-                {/* Actions */}
-                <View style={styles.resultActionsRow}>
-                  <TouchableOpacity
-                    style={styles.discardBtn}
-                    onPress={() => {
-                      setAnalysisState('idle')
-                      setPhotoUri(null)
-                    }}
-                  >
-                    <Text style={styles.discardBtnText}>Descartar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.saveMealBtn}
-                    onPress={handleSaveMeal}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.saveMealBtnText}>GUARDAR</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                      <TouchableOpacity
+                        style={[styles.addMoreFoodsBtn, { borderColor: '#A78BFA40', backgroundColor: 'rgba(167, 139, 250, 0.08)' }]}
+                        onPress={() => setModalTab('frequent')}
+                        activeOpacity={0.8}
+                      >
+                        <Utensils size={14} color="#A78BFA" />
+                        <Text style={[styles.addMoreFoodsText, { color: '#A78BFA' }]}>De Tupper / Frecuentes</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Actions */}
+                    <View style={styles.resultActionsRow}>
+                      <TouchableOpacity
+                        style={styles.discardBtn}
+                        onPress={handleConfirmDiscardDraft}
+                      >
+                        <Text style={styles.discardBtnText}>
+                          {editingFoodLogId ? 'Cancelar' : 'Descartar'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.saveMealBtn, editingFoodLogId && { backgroundColor: '#10B981' }]}
+                        onPress={handleSaveMeal}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.saveMealBtnText}>
+                            {editingFoodLogId
+                              ? `💾 GUARDAR CAMBIOS (${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal)`
+                              : `GUARDAR COMIDA (${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal)`}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </ScrollView>
+            )}
+
+            {/* Quick Sticky Banner to Switch to Plate when inside other tabs */}
+            {modalTab !== 'plate' && results.length > 0 && (
+              <TouchableOpacity
+                style={styles.plateQuickStickyBar}
+                onPress={() => setModalTab('plate')}
+                activeOpacity={0.9}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.plateQuickStickyText}>
+                    🍱 {results.length} en plato · {results.reduce((s, r) => s + r.calories, 0)} kcal
+                  </Text>
+                </View>
+                <View style={styles.plateQuickStickyAction}>
+                  <Text style={styles.plateQuickStickyActionText}>Ver Plato y Guardar</Text>
+                  <ChevronRight size={14} color="#0A0C14" />
+                </View>
+              </TouchableOpacity>
             )}
           </View>
         </View>
       </Modal>
+
+      {/* ── Persistent Floating Draft Dock (Minimizable Meal Bar) ── */}
+      {results.length > 0 && !modalVisible && (
+        <View style={styles.floatingDraftDock}>
+          <TouchableOpacity
+            style={styles.floatingDraftTouch}
+            onPress={() => {
+              setModalTab(results.length > 0 ? 'plate' : 'basic')
+              setModalVisible(true)
+            }}
+            activeOpacity={0.9}
+          >
+            <View style={styles.floatingDraftIconBox}>
+              <Utensils size={18} color="#38BDF8" />
+              <View style={styles.floatingDraftBadge}>
+                <Text style={styles.floatingDraftBadgeText}>{results.length}</Text>
+              </View>
+            </View>
+
+            <View style={styles.floatingDraftInfo}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.floatingDraftTitle}>
+                  {mealLabel[modalMealType]} ({results.length} {results.length === 1 ? 'alimento' : 'alimentos'})
+                </Text>
+                <View style={styles.liveDraftIndicator} />
+              </View>
+              <Text style={styles.floatingDraftMacros}>
+                {results.reduce((s, r) => s + r.calories, 0)} kcal · P:{Math.round(results.reduce((s, r) => s + r.protein_g, 0))}g · C:{Math.round(results.reduce((s, r) => s + r.carbs_g, 0))}g · G:{Math.round(results.reduce((s, r) => s + r.fat_g, 0))}g
+              </Text>
+            </View>
+
+            <View style={styles.floatingDraftButtons}>
+              <TouchableOpacity
+                style={styles.floatingDraftOpenBtn}
+                onPress={() => {
+                  setModalTab('plate')
+                  setModalVisible(true)
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.floatingDraftOpenText}>Ver plato ↗</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.floatingDraftDiscardBtn}
+                onPress={handleConfirmDiscardDraft}
+                activeOpacity={0.7}
+              >
+                <Trash2 size={16} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Modal Cierra tus Macros */}
       <Modal
@@ -1601,11 +2365,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+  modalHeaderSubtitle: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  minimizeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  minimizeBtnText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
   },
   modalTitle: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
   },
   closeBtn: {
@@ -1833,6 +2623,342 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  workoutBurnedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  workoutBurnedBadgeText: {
+    color: '#FB923C',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  logFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.04)',
+  },
+  logActionsBtnGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editMealBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  editMealBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  repeatMealBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(167, 139, 250, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+  },
+  repeatMealBtnText: {
+    color: '#A78BFA',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modalSubTabRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 14,
+    gap: 4,
+  },
+  modalSubTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  modalSubTabActive: {
+    backgroundColor: '#0284C7',
+  },
+  modalSubTabTitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalSubTabTitleActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  modalSubTabHighlight: {
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderWidth: 1,
+  },
+  frequentSectionTitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  /* ── Frequent Sub Selector (Comidas vs Ingredientes) ── */
+  frequentSubSelectorRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 12,
+    gap: 4,
+  },
+  frequentSubPill: {
+    flex: 1,
+    paddingVertical: 7,
+    alignItems: 'center',
+    borderRadius: 9,
+  },
+  frequentSubPillActive: {
+    backgroundColor: '#0284C7',
+  },
+  frequentSubPillText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  frequentSubPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  /* ── Frequent Meals & Accordion ── */
+  frequentMealWrapper: {
+    backgroundColor: '#181A20',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  frequentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  frequentCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  frequentCardSub: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+  },
+  frequentLoadBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  frequentLoadBadgeText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  frequentAccordionContainer: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
+  frequentAccordionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  frequentAccordionBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  frequentIngredientsList: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  frequentIngredientItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  frequentIngredientName: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  frequentIngredientMeta: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  addSingleIngBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  addSingleIngBtnText: {
+    color: '#38BDF8',
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  /* ── Frequent Ingredients Sub-Tab ── */
+  frequentIngredientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#181A20',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 8,
+  },
+  frequentIngredientCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  frequentIngredientCardSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 11,
+    marginBottom: 1,
+  },
+  frequentIngredientCardMacros: {
+    color: 'rgba(56, 189, 248, 0.8)',
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  frequentAddIngBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  frequentAddIngBadgeText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  /* ── Result / Plate Styles ── */
+  resultCountSub: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  resultItemCard: {
+    backgroundColor: '#181A20',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    gap: 8,
+  },
+  portionControlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  portionLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  portionButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  portionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#262A36',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  portionGramInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    paddingHorizontal: 6,
+    minWidth: 64,
+    height: 30,
+    justifyContent: 'center',
+  },
+  portionGramTextInput: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingVertical: 0,
+    minWidth: 32,
+  },
+  portionGramUnitLabel: {
+    color: 'rgba(56, 189, 248, 0.7)',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 1,
+  },
+  addMoreOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 10,
+  },
   discardBtn: {
     flex: 1,
     backgroundColor: '#1C1C1C',
@@ -2031,5 +3157,181 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 30,
     lineHeight: 18,
+  },
+  emptyPlateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  emptyPlateTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptyPlateSub: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  emptyPlateActionBtn: {
+    marginTop: 8,
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  emptyPlateActionText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  removeItemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  removeItemText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  addMoreFoodsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  addMoreFoodsText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  plateQuickStickyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#38BDF8',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  plateQuickStickyText: {
+    color: '#080C14',
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  plateQuickStickyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  plateQuickStickyActionText: {
+    color: '#080C14',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  floatingDraftDock: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 84 : 70,
+    left: 14,
+    right: 14,
+    backgroundColor: '#0E131F',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    shadowColor: '#38BDF8',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 99,
+  },
+  floatingDraftTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  floatingDraftIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  floatingDraftBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingDraftBadgeText: {
+    color: '#0A0C14',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  floatingDraftInfo: {
+    flex: 1,
+  },
+  floatingDraftTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  liveDraftIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  floatingDraftMacros: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  floatingDraftButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  floatingDraftOpenBtn: {
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  floatingDraftOpenText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  floatingDraftDiscardBtn: {
+    padding: 7,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
 })
