@@ -321,41 +321,47 @@ export default function ProgressScreen() {
                 >
                   <Text style={[styles.musclePillText, isSelected && styles.musclePillTextActive]}>
                     {m}
-                  </Text>
-                  {setsCount > 0 && (
-                    <View
-                      style={[
-                        styles.musclePillBadge,
-                        isSelected && styles.musclePillBadgeActive,
-                      ]}
-                    >
+                    {setsCount > 0 ? (
                       <Text
                         style={[
-                          styles.musclePillBadgeText,
-                          isSelected && styles.musclePillBadgeTextActive,
+                          styles.musclePillSets,
+                          isSelected && styles.musclePillSetsActive,
                         ]}
                       >
-                        {setsCount}s
+                        {` ${setsCount}s`}
                       </Text>
-                    </View>
-                  )}
+                    ) : null}
+                  </Text>
                 </TouchableOpacity>
               )
             })}
           </ScrollView>
 
-          {/* Volume Status Legend */}
+          {/* Volume Status Legend (Exact 3-column layout) */}
           <View style={styles.volumeLegendRow}>
-            {[
-              { label: 'Óptimo (≥12 series)', color: '#38BDF8' },
-              { label: 'Moderado (6-11)', color: '#F59E0B' },
-              { label: 'Bajo (1-5)', color: '#71717A' },
-            ].map(({ label, color }) => (
-              <View key={label} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: color }]} />
-                <Text style={styles.legendLabel}>{label}</Text>
+            <View style={styles.legendColumn}>
+              <View style={styles.legendDotRow}>
+                <View style={[styles.legendDot, { backgroundColor: '#38BDF8' }]} />
+                <Text style={styles.legendTitle}>Óptimo</Text>
               </View>
-            ))}
+              <Text style={styles.legendSub}>(≥12 series)</Text>
+            </View>
+
+            <View style={styles.legendColumn}>
+              <View style={styles.legendDotRow}>
+                <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
+                <Text style={styles.legendTitle}>Moderado</Text>
+              </View>
+              <Text style={styles.legendSub}>(6-11)</Text>
+            </View>
+
+            <View style={styles.legendColumn}>
+              <View style={styles.legendDotRow}>
+                <View style={[styles.legendDot, { backgroundColor: '#71717A' }]} />
+                <Text style={styles.legendTitle}>Bajo</Text>
+              </View>
+              <Text style={styles.legendSub}>(1-5)</Text>
+            </View>
           </View>
 
           {/* Body Map SVG Dual: Frente y Espalda Side-by-Side */}
@@ -813,55 +819,54 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerSub: {
-    color: '#38BDF8',
-    fontSize: 11,
+    color: '#71717A',
+    fontSize: 11.5,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   headerTitle: {
     color: '#FAFAFA',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '900',
     marginTop: 2,
   },
   bodyMapCard: {
     backgroundColor: '#18181B',
     borderRadius: 24,
-    padding: 18,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#27272A',
-    gap: 14,
+    gap: 16,
   },
   bodyMapCardHeader: {
-    gap: 2,
+    gap: 4,
   },
   bodyMapTitle: {
-    color: '#A1A1AA',
+    color: '#71717A',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   bodyMapSub: {
-    color: '#FAFAFA',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
+    color: '#A1A1AA',
+    fontSize: 13.5,
+    fontWeight: '500',
+    lineHeight: 19,
   },
   musclePillsScroll: {
     gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   musclePill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#27272A',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    gap: 6,
   },
   musclePillActive: {
     backgroundColor: '#FFFFFF',
@@ -869,49 +874,52 @@ const styles = StyleSheet.create({
   },
   musclePillText: {
     color: '#A1A1AA',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '600',
   },
   musclePillTextActive: {
     color: '#000000',
-    fontWeight: '900',
+    fontWeight: '700',
   },
-  musclePillBadge: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  musclePillSets: {
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '400',
   },
-  musclePillBadgeActive: {
-    backgroundColor: '#000000',
-  },
-  musclePillBadgeText: {
-    color: '#FAFAFA',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  musclePillBadgeTextActive: {
-    color: '#FFFFFF',
+  musclePillSetsActive: {
+    color: 'rgba(0,0,0,0.65)',
+    fontWeight: '500',
   },
   volumeLegendRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  legendItem: {
+  legendColumn: {
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+  legendDotRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   legendDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
   },
-  legendLabel: {
+  legendTitle: {
+    color: '#E4E4E7',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  legendSub: {
     color: '#71717A',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
+    paddingLeft: 13,
   },
   bodyMapCenter: {
     alignItems: 'center',

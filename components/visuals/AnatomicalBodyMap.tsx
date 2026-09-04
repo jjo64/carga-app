@@ -347,10 +347,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   figureLabel: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 10,
+    color: '#71717A',
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    marginBottom: 2,
   },
   svgWrapper: {
     alignItems: 'center',
