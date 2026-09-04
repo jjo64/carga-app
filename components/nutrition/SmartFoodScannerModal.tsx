@@ -636,13 +636,13 @@ export default function SmartFoodScannerModal({
         <View style={styles.header}>
           <View>
             <View style={styles.badgeRow}>
-              <Sparkles size={14} color="#38BDF8" />
+              <Sparkles size={13} color="#A1A1AA" />
               <Text style={styles.badgeText}>ESCÁNER DE IA & VISIÓN</Text>
             </View>
             <Text style={styles.headerTitle}>Registrar en {mealName.toUpperCase()}</Text>
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-            <X size={20} color="#94A3B8" />
+          <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
+            <X size={18} color="#FAFAFA" />
           </TouchableOpacity>
         </View>
 
@@ -661,7 +661,7 @@ export default function SmartFoodScannerModal({
             activeOpacity={0.85}
           >
             <View style={styles.trayBannerLeft}>
-              <ShoppingBag size={16} color="#38BDF8" />
+              <ShoppingBag size={16} color="#FAFAFA" />
               <Text style={styles.trayBannerTitle}>
                 {plateItems.length} {plateItems.length === 1 ? 'alimento añadido' : 'alimentos añadidos'}
               </Text>
@@ -669,7 +669,7 @@ export default function SmartFoodScannerModal({
             </View>
             <View style={styles.trayBannerRight}>
               <Text style={styles.trayBannerAction}>Ver Bandeja</Text>
-              <ChevronRight size={14} color="#38BDF8" />
+              <ChevronRight size={14} color="#FAFAFA" />
             </View>
           </TouchableOpacity>
         )}
@@ -679,14 +679,17 @@ export default function SmartFoodScannerModal({
           <TouchableOpacity
             style={[styles.tabBtn, activeMode === 'plate' && styles.tabBtnActive]}
             onPress={() => setActiveMode('plate')}
+            activeOpacity={0.8}
           >
-            <Utensils size={15} color={activeMode === 'plate' ? '#38BDF8' : '#64748B'} />
+            <Utensils size={15} color={activeMode === 'plate' ? '#09090B' : '#A1A1AA'} />
             <Text style={[styles.tabText, activeMode === 'plate' && styles.tabTextActive]}>
               Plato
             </Text>
             {plateItems.length > 0 && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{plateItems.length}</Text>
+              <View style={[styles.tabBadge, activeMode === 'plate' && styles.tabBadgeActive]}>
+                <Text style={[styles.tabBadgeText, activeMode === 'plate' && styles.tabBadgeTextActive]}>
+                  {plateItems.length}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -694,8 +697,9 @@ export default function SmartFoodScannerModal({
           <TouchableOpacity
             style={[styles.tabBtn, activeMode === 'barcode' && styles.tabBtnActive]}
             onPress={() => setActiveMode('barcode')}
+            activeOpacity={0.8}
           >
-            <Barcode size={15} color={activeMode === 'barcode' ? '#38BDF8' : '#64748B'} />
+            <Barcode size={15} color={activeMode === 'barcode' ? '#09090B' : '#A1A1AA'} />
             <Text style={[styles.tabText, activeMode === 'barcode' && styles.tabTextActive]}>
               Código
             </Text>
@@ -704,8 +708,9 @@ export default function SmartFoodScannerModal({
           <TouchableOpacity
             style={[styles.tabBtn, activeMode === 'label' && styles.tabBtnActive]}
             onPress={() => setActiveMode('label')}
+            activeOpacity={0.8}
           >
-            <FileText size={15} color={activeMode === 'label' ? '#38BDF8' : '#64748B'} />
+            <FileText size={15} color={activeMode === 'label' ? '#09090B' : '#A1A1AA'} />
             <Text style={[styles.tabText, activeMode === 'label' && styles.tabTextActive]}>
               Etiqueta
             </Text>
@@ -714,8 +719,9 @@ export default function SmartFoodScannerModal({
           <TouchableOpacity
             style={[styles.tabBtn, activeMode === 'natural' && styles.tabBtnActive]}
             onPress={() => setActiveMode('natural')}
+            activeOpacity={0.8}
           >
-            <Mic size={15} color={activeMode === 'natural' ? '#38BDF8' : '#64748B'} />
+            <Mic size={15} color={activeMode === 'natural' ? '#09090B' : '#A1A1AA'} />
             <Text style={[styles.tabText, activeMode === 'natural' && styles.tabTextActive]}>
               Voz/Texto
             </Text>
@@ -739,46 +745,50 @@ export default function SmartFoodScannerModal({
                 <View>
                   {plateItems.length === 0 ? (
                     <View style={styles.captureCard}>
-                      <Utensils size={40} color="#38BDF8" style={{ marginBottom: 12 }} />
-                      <Text style={styles.captureTitle}>Escanea o Compón tu {mealName}</Text>
+                      <Utensils size={40} color="#FAFAFA" style={{ marginBottom: 12 }} />
+                      <Text style={styles.captureTitle}>Escanear Plato con IA</Text>
                       <Text style={styles.captureSub}>
-                        Toma foto al plato completo, o escanea los códigos de barras de cada ingrediente (pollo, arroz, aceite, etc.) para registrarlos juntos.
+                        Toma una foto o sube una imagen de tu plato. Nuestra IA detectará cada alimento, sus cantidades estimadas y calculará los macros.
                       </Text>
 
                       <View style={styles.actionButtonsRow}>
                         <TouchableOpacity
                           style={styles.primaryActionBtn}
                           onPress={() => pickImage(true)}
+                          activeOpacity={0.88}
                         >
-                          <Camera size={18} color="#0F172A" />
-                          <Text style={styles.primaryActionBtnText}>Foto al Plato</Text>
+                          <Camera size={18} color="#09090B" />
+                          <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           style={styles.secondaryActionBtn}
                           onPress={() => pickImage(false)}
+                          activeOpacity={0.85}
                         >
-                          <GalleryIcon size={18} color="#38BDF8" />
-                          <Text style={styles.secondaryActionBtnText}>Galería</Text>
+                          <GalleryIcon size={18} color="#FAFAFA" />
+                          <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
                         </TouchableOpacity>
                       </View>
 
                       {/* Atajos a Código de Barras o Dictado */}
                       <View style={styles.shortcutsBox}>
-                        <Text style={styles.shortcutsTitle}>O escanea ingredientes uno a uno:</Text>
+                        <Text style={styles.shortcutsTitle}>O añade ingredientes uno a uno:</Text>
                         <View style={styles.shortcutsRow}>
                           <TouchableOpacity
                             style={styles.shortcutBtn}
                             onPress={() => setActiveMode('barcode')}
+                            activeOpacity={0.8}
                           >
-                            <Barcode size={16} color="#38BDF8" />
+                            <Barcode size={15} color="#FAFAFA" />
                             <Text style={styles.shortcutBtnText}>Escanear Código</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.shortcutBtn}
                             onPress={() => setActiveMode('natural')}
+                            activeOpacity={0.8}
                           >
-                            <Mic size={16} color="#38BDF8" />
+                            <Mic size={15} color="#FAFAFA" />
                             <Text style={styles.shortcutBtnText}>Escribir / Dictar</Text>
                           </TouchableOpacity>
                         </View>
@@ -944,40 +954,42 @@ export default function SmartFoodScannerModal({
               {activeMode === 'barcode' && (
                 <View>
                   <View style={styles.barcodeInputCard}>
-                    <Barcode size={36} color="#38BDF8" style={{ marginBottom: 8 }} />
+                    <Barcode size={42} color="#FAFAFA" style={{ marginBottom: 12 }} />
                     <Text style={styles.barcodeInputTitle}>Escanear Código de Barras</Text>
                     <Text style={styles.barcodeInputSub}>
                       Apunta con la cámara, sube una foto o escribe el número para consultar la base de datos oficial.
                     </Text>
 
                     {/* Botones de Cámara y Galería para Código de Barras */}
-                    <View style={[styles.actionButtonsRow, { marginBottom: 16 }]}>
+                    <View style={[styles.actionButtonsRow, { marginBottom: 18 }]}>
                       <TouchableOpacity
                         style={styles.primaryActionBtn}
                         onPress={() => pickImageForBarcode(true)}
+                        activeOpacity={0.88}
                       >
-                        <Camera size={18} color="#0F172A" />
+                        <Camera size={18} color="#09090B" />
                         <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.secondaryActionBtn}
                         onPress={() => pickImageForBarcode(false)}
+                        activeOpacity={0.85}
                       >
-                        <GalleryIcon size={18} color="#38BDF8" />
+                        <GalleryIcon size={18} color="#FAFAFA" />
                         <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
                       </TouchableOpacity>
                     </View>
 
-                    <Text style={[styles.barcodeInputSub, { marginBottom: 8, fontSize: 11 }]}>
+                    <Text style={styles.manualInputPrompt}>
                       O introduce los dígitos manualmente:
                     </Text>
 
                     <View style={styles.barcodeSearchRow}>
                       <TextInput
                         style={styles.barcodeField}
-                        placeholder="Ej. 8410000000000"
-                        placeholderTextColor="#64748B"
+                        placeholder="Ej. 841000000000"
+                        placeholderTextColor="#52525B"
                         keyboardType="numeric"
                         value={barcodeInput}
                         onChangeText={setBarcodeInput}
@@ -986,8 +998,9 @@ export default function SmartFoodScannerModal({
                       <TouchableOpacity
                         style={styles.barcodeSearchBtn}
                         onPress={() => handleBarcodeLookup()}
+                        activeOpacity={0.85}
                       >
-                        <ChevronRight size={20} color="#0F172A" />
+                        <ChevronRight size={22} color="#09090B" strokeWidth={2.8} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1164,28 +1177,29 @@ export default function SmartFoodScannerModal({
                 <View>
                   {!scannedProduct ? (
                     <View style={styles.captureCard}>
-                      <FileText size={40} color="#38BDF8" style={{ marginBottom: 12 }} />
-                      <Text style={styles.captureTitle}>Escanea la Tabla de Información</Text>
+                      <FileText size={40} color="#FAFAFA" style={{ marginBottom: 12 }} />
+                      <Text style={styles.captureTitle}>Escanear Tabla Nutricional</Text>
                       <Text style={styles.captureSub}>
-                        Foto a la tabla trasera o lista de ingredientes para auditar azúcares
-                        añadidos, aceites refinados y extraer macros oficiales.
+                        Enfoca la tabla de información nutricional del envase para auditar ingredientes y extraer los macros exactos.
                       </Text>
 
                       <View style={styles.actionButtonsRow}>
                         <TouchableOpacity
                           style={styles.primaryActionBtn}
                           onPress={() => pickImage(true)}
+                          activeOpacity={0.88}
                         >
-                          <Camera size={18} color="#0F172A" />
-                          <Text style={styles.primaryActionBtnText}>Foto Etiqueta</Text>
+                          <Camera size={18} color="#09090B" />
+                          <Text style={styles.primaryActionBtnText}>Escanear con Cámara</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           style={styles.secondaryActionBtn}
                           onPress={() => pickImage(false)}
+                          activeOpacity={0.85}
                         >
-                          <GalleryIcon size={18} color="#38BDF8" />
-                          <Text style={styles.secondaryActionBtnText}>Galería</Text>
+                          <GalleryIcon size={18} color="#FAFAFA" />
+                          <Text style={styles.secondaryActionBtnText}>Foto Galería</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1207,20 +1221,7 @@ export default function SmartFoodScannerModal({
                                     Verificado {scannedProduct.verifiedCount ? `(${scannedProduct.verifiedCount})` : ''}
                                   </Text>
                                 </View>
-                              ) : (
-                                <TouchableOpacity
-                                  style={styles.verifyFoodActionBtn}
-                                  onPress={() => handleVerifyProduct(scannedProduct, false)}
-                                  activeOpacity={0.7}
-                                >
-                                  <ShieldCheck size={11} color="#94A3B8" />
-                                  <Text style={styles.verifyFoodActionBtnText}>Confirmar precisión</Text>
-                                </TouchableOpacity>
-                              )}
-                              <View style={styles.aiAuditedBadge}>
-                                <Sparkles size={11} color="#A78BFA" />
-                                <Text style={styles.aiAuditedBadgeText}>Auditado por IA</Text>
-                              </View>
+                              ) : null}
                             </View>
                           </View>
 
@@ -1253,106 +1254,79 @@ export default function SmartFoodScannerModal({
                           )}
                         </View>
 
-                        {/* Selector de Porción */}
+                        {/* Selector de Porción en Gramos */}
                         <View style={styles.portionSelectorRow}>
-                          <Text style={styles.portionLabel}>Porción que vas a comer:</Text>
+                          <Text style={styles.portionLabel}>Cantidad que vas a comer:</Text>
                           <View style={styles.portionInputContainer}>
                             <TextInput
                               style={styles.portionInput}
-                              keyboardType="numeric"
                               value={selectedPortionG}
                               onChangeText={setSelectedPortionG}
+                              keyboardType="numeric"
+                              selectTextOnFocus
                             />
-                            <Text style={styles.portionUnit}>gramos</Text>
+                            <Text style={styles.portionUnit}>g</Text>
                           </View>
                         </View>
 
-                        {/* Macros calculados para la porción */}
+                        {/* Resumen de Macros */}
                         {(() => {
-                          const portion = parseFloat(selectedPortionG) || 100
-                          const ratio = portion / 100
+                          const pG = Number(selectedPortionG) || 100
+                          const r = pG / 100
                           return (
-                            <View>
-                              <View style={styles.macrosGrid}>
-                                <View style={styles.macroCell}>
-                                  <Text style={styles.macroCellVal}>
-                                    {Math.round(scannedProduct.calories * ratio)}
-                                  </Text>
-                                  <Text style={styles.macroCellLabel}>kcal</Text>
-                                </View>
-                                <View style={styles.macroCell}>
-                                  <Text style={styles.macroCellVal}>
-                                    {(scannedProduct.protein * ratio).toFixed(1)}g
-                                  </Text>
-                                  <Text style={styles.macroCellLabel}>Proteína</Text>
-                                </View>
-                                <View style={styles.macroCell}>
-                                  <Text style={styles.macroCellVal}>
-                                    {(scannedProduct.carbs * ratio).toFixed(1)}g
-                                  </Text>
-                                  <Text style={styles.macroCellLabel}>Carbos</Text>
-                                </View>
-                                <View style={styles.macroCell}>
-                                  <Text style={styles.macroCellVal}>
-                                    {(scannedProduct.fat * ratio).toFixed(1)}g
-                                  </Text>
-                                  <Text style={styles.macroCellLabel}>Grasas</Text>
-                                </View>
+                            <View style={styles.macrosGrid}>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {Math.round(scannedProduct.calories * r)}
+                                </Text>
+                                <Text style={styles.macroCellLabel}>kcal</Text>
                               </View>
-
-                              {/* Alertas de Ingredientes */}
-                              {labelAudit && labelAudit.warningFlags.length > 0 && (
-                                <View style={styles.warningsCard}>
-                                  <View style={styles.warningTitleRow}>
-                                    <AlertTriangle size={15} color="#EF4444" />
-                                    <Text style={styles.warningTitle}>Alertas de Ingredientes</Text>
-                                  </View>
-                                  {labelAudit.warningFlags.map((w, i) => (
-                                    <Text key={i} style={styles.warningItem}>
-                                      • {w}
-                                    </Text>
-                                  ))}
-                                </View>
-                              )}
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(scannedProduct.protein * r).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Proteína</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(scannedProduct.carbs * r).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Carbos</Text>
+                              </View>
+                              <View style={styles.macroCell}>
+                                <Text style={styles.macroCellVal}>
+                                  {(scannedProduct.fat * r).toFixed(1)}g
+                                </Text>
+                                <Text style={styles.macroCellLabel}>Grasas</Text>
+                              </View>
                             </View>
                           )
                         })()}
 
-                        {/* Botones de Acción Multialimento */}
+                        {/* Botones de Acción */}
                         <View style={styles.compositeActionsContainer}>
-                          {/* 1. Añadir y seguir escaneando */}
                           <TouchableOpacity
                             style={styles.addAndContinueBtn}
                             onPress={() => addLabelProductToPlate(false)}
+                            activeOpacity={0.88}
                           >
-                            <ListPlus size={18} color="#0F172A" />
+                            <ListPlus size={18} color="#09090B" />
                             <Text style={styles.addAndContinueBtnText}>
-                              Añadir a {mealName} (+ Escanear otro)
+                              + Añadir al Plato y Seguir
                             </Text>
                           </TouchableOpacity>
 
-                          {/* 2. Añadir e ir al plato */}
-                          <TouchableOpacity
-                            style={styles.addAndReviewBtn}
-                            onPress={() => addLabelProductToPlate(true)}
-                          >
-                            <Utensils size={16} color="#38BDF8" />
-                            <Text style={styles.addAndReviewBtnText}>
-                              Añadir y ver plato ({plateItems.length + 1} alimentos)
-                            </Text>
-                          </TouchableOpacity>
-
-                          {/* 3. Guardar solo este alimento */}
                           <TouchableOpacity
                             style={styles.saveSingleBtn}
                             onPress={handleConfirmSave}
                             disabled={saving}
+                            activeOpacity={0.85}
                           >
                             {saving ? (
-                              <ActivityIndicator color="#94A3B8" size="small" />
+                              <ActivityIndicator color="#A1A1AA" size="small" />
                             ) : (
                               <>
-                                <Check size={16} color="#94A3B8" />
+                                <Check size={16} color="#A1A1AA" />
                                 <Text style={styles.saveSingleBtnText}>
                                   Guardar solo este alimento directamente
                                 </Text>
@@ -1371,25 +1345,29 @@ export default function SmartFoodScannerModal({
               {/* ================================================= */}
               {activeMode === 'natural' && (
                 <View style={styles.naturalCard}>
-                  <Mic size={32} color="#38BDF8" style={{ marginBottom: 8 }} />
-                  <Text style={styles.naturalTitle}>Dictado o Texto Libre</Text>
+                  <Mic size={36} color="#FAFAFA" style={{ marginBottom: 12 }} />
+                  <Text style={styles.naturalTitle}>Voz o Descripción IA</Text>
                   <Text style={styles.naturalSub}>
-                    Escribe o dicta todo lo que comiste en lenguaje natural. Los alimentos se añadirán a tu {mealName}.
+                    Escribe o dicta en lenguaje natural todo lo que comiste. La IA desglosará automáticamente los ingredientes y macros.
                   </Text>
 
                   <TextInput
                     style={styles.naturalTextArea}
                     placeholder="Ej. 150g de pechuga a la plancha, 200g de arroz basmati y 10g de aceite de oliva"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#52525B"
                     multiline
                     numberOfLines={4}
                     value={naturalText}
                     onChangeText={setNaturalText}
                   />
 
-                  <TouchableOpacity style={styles.primaryActionBtn} onPress={handleNaturalParse}>
-                    <Sparkles size={18} color="#0F172A" />
-                    <Text style={styles.primaryActionBtnText}>Desglosar y Añadir a {mealName}</Text>
+                  <TouchableOpacity
+                    style={styles.primaryActionBtn}
+                    onPress={handleNaturalParse}
+                    activeOpacity={0.88}
+                  >
+                    <Sparkles size={18} color="#09090B" />
+                    <Text style={styles.primaryActionBtnText}>Desglosar y Añadir con IA</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1426,7 +1404,7 @@ export default function SmartFoodScannerModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090D16',
+    backgroundColor: '#09090B',
   },
   header: {
     flexDirection: 'row',
@@ -1435,7 +1413,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#18181B',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -1444,33 +1422,38 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   badgeText: {
-    color: '#38BDF8',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
   },
   headerTitle: {
-    color: '#F8FAFC',
-    fontSize: 18,
-    fontWeight: '700',
+    color: '#FAFAFA',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#1E293B',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   toastContainer: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     paddingVertical: 9,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toastText: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1478,11 +1461,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0B2238',
+    backgroundColor: '#18181B',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0284C740',
+    borderBottomColor: '#27272A',
   },
   trayBannerLeft: {
     flexDirection: 'row',
@@ -1490,12 +1473,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   trayBannerTitle: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '700',
   },
   trayBannerCals: {
-    color: '#FB923C',
+    color: '#38BDF8',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1505,17 +1488,21 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   trayBannerAction: {
-    color: '#38BDF8',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '700',
   },
   modeTabs: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
@@ -1523,78 +1510,81 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#1E293B',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
     position: 'relative',
   },
   tabBtnActive: {
-    backgroundColor: '#0B2238',
-    borderColor: '#0284C7',
+    backgroundColor: '#FAFAFA',
   },
   tabText: {
-    color: '#64748B',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#38BDF8',
-    fontWeight: '700',
+    color: '#09090B',
+    fontWeight: '800',
   },
   tabBadge: {
-    backgroundColor: '#38BDF8',
-    borderRadius: 10,
+    backgroundColor: '#27272A',
+    borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 1,
     marginLeft: -2,
   },
+  tabBadgeActive: {
+    backgroundColor: '#09090B',
+  },
   tabBadgeText: {
-    color: '#0F172A',
+    color: '#FAFAFA',
     fontSize: 10,
     fontWeight: '800',
+  },
+  tabBadgeTextActive: {
+    color: '#FAFAFA',
   },
   scrollContent: {
     flex: 1,
   },
   scrollInner: {
-    padding: 20,
+    padding: 16,
   },
   loadingContainer: {
     paddingVertical: 60,
     alignItems: 'center',
   },
   loadingTitle: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 16,
     fontWeight: '700',
     marginTop: 16,
     textAlign: 'center',
   },
   loadingSub: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 13,
     marginTop: 6,
     textAlign: 'center',
   },
   captureCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
+    backgroundColor: '#18181B',
+    borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   captureTitle: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
   },
   captureSub: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
@@ -1611,14 +1601,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#38BDF8',
+    backgroundColor: '#FAFAFA',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   primaryActionBtnText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#09090B',
+    fontSize: 13.5,
+    fontWeight: '800',
   },
   secondaryActionBtn: {
     flex: 1,
@@ -1626,27 +1621,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#1E1E22',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#2E2E34',
   },
   secondaryActionBtnText: {
-    color: '#38BDF8',
-    fontSize: 14,
+    color: '#FAFAFA',
+    fontSize: 13.5,
     fontWeight: '700',
   },
   shortcutsBox: {
-    marginTop: 24,
+    marginTop: 22,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
+    borderTopColor: '#27272A',
     width: '100%',
     alignItems: 'center',
   },
   shortcutsTitle: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 10,
@@ -1662,21 +1657,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#1E1E22',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#2E2E34',
   },
   shortcutBtnText: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '600',
   },
   previewImage: {
     width: '100%',
     height: 180,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 16,
   },
   resultHeaderRow: {
@@ -1686,12 +1681,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   plateTitle: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 17,
     fontWeight: '700',
   },
   plateSubtitle: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     marginTop: 2,
   },
@@ -1699,27 +1694,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#7F1D1D20',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#EF444430',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
   retakeBtnText: {
-    fontSize: 12,
+    color: '#F87171',
+    fontSize: 11.5,
     fontWeight: '700',
   },
   addMoreRow: {
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
+    backgroundColor: '#18181B',
+    borderRadius: 16,
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   addMorePrompt: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
@@ -1734,24 +1730,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    backgroundColor: '#1E293B',
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: '#1E1E22',
+    paddingVertical: 9,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#2E2E34',
   },
   addMoreBtnText: {
-    color: '#F8FAFC',
-    fontSize: 11,
+    color: '#FAFAFA',
+    fontSize: 11.5,
     fontWeight: '700',
   },
   foodItemCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
+    backgroundColor: '#18181B',
+    borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   foodItemTop: {
     flexDirection: 'row',
@@ -1760,9 +1756,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   foodItemName: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FAFAFA',
+    fontSize: 14.5,
+    fontWeight: '700',
     flex: 1,
   },
   removeBtn: {
@@ -1776,19 +1772,22 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 3,
+    backgroundColor: '#27272A',
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   stepBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
   gramsText: {
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 46,
+    color: '#FAFAFA',
+    fontSize: 12.5,
+    fontWeight: '800',
+    minWidth: 42,
     textAlign: 'center',
   },
   itemMacrosRow: {
@@ -1797,32 +1796,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itemCalText: {
-    color: '#FB923C',
+    color: '#38BDF8',
     fontSize: 13,
     fontWeight: '700',
   },
   itemPText: {
-    color: '#38BDF8',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '600',
   },
   itemCText: {
-    color: '#FBBF24',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '600',
   },
   itemFText: {
-    color: '#EC4899',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '600',
   },
   plateSummaryCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
+    backgroundColor: '#18181B',
+    borderRadius: 18,
     padding: 16,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
   },
   summaryTopRow: {
     flexDirection: 'row',
@@ -1831,15 +1830,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   summaryLabel: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   summaryCalories: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '900',
     marginTop: 2,
   },
   summaryMacrosRow: {
@@ -1848,43 +1847,47 @@ const styles = StyleSheet.create({
   },
   macroPill: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#121214',
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   macroPillLabel: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 10,
     fontWeight: '600',
   },
   macroPillVal: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     marginTop: 2,
   },
   productCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 18,
+    backgroundColor: '#18181B',
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   productBadgeDetected: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 4,
-    backgroundColor: '#064E3B30',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 6,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   productBadgeDetectedText: {
-    color: '#34D399',
+    color: '#10B981',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1895,36 +1898,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   productName: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   productBrand: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     marginTop: 2,
-  },
-  healthScoreBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  healthClean: {
-    backgroundColor: '#064E3B30',
-  },
-  healthModerate: {
-    backgroundColor: '#78350F30',
-  },
-  healthUltra: {
-    backgroundColor: '#7F1D1D30',
-  },
-  healthScoreText: {
-    color: '#F8FAFC',
-    fontSize: 11,
-    fontWeight: '700',
   },
   portionSelectorRow: {
     flexDirection: 'row',
@@ -1933,33 +1914,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
     marginBottom: 16,
   },
   portionLabel: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 13,
     fontWeight: '600',
   },
   portionInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
+    backgroundColor: '#121214',
+    borderRadius: 12,
     paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   portionInput: {
-    color: '#38BDF8',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#FAFAFA',
+    fontSize: 14,
+    fontWeight: '800',
     paddingVertical: 6,
-    minWidth: 44,
+    minWidth: 40,
     textAlign: 'center',
   },
   portionUnit: {
-    color: '#64748B',
+    color: '#71717A',
     fontSize: 12,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   macrosGrid: {
     flexDirection: 'row',
@@ -1967,44 +1950,22 @@ const styles = StyleSheet.create({
   },
   macroCell: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#121214',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   macroCellVal: {
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   macroCellLabel: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 10,
     marginTop: 2,
-  },
-  warningsCard: {
-    backgroundColor: '#7F1D1D20',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 14,
-    borderWidth: 1,
-    borderColor: '#EF444430',
-  },
-  warningTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  warningTitle: {
-    color: '#F87171',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  warningItem: {
-    color: '#FCA5A5',
-    fontSize: 12,
-    lineHeight: 17,
   },
   compositeActionsContainer: {
     marginTop: 16,
@@ -2015,139 +1976,133 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 13,
-    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+    paddingVertical: 14,
+    borderRadius: 26,
   },
   addAndContinueBtnText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  addAndReviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0B2238',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#0284C7',
-  },
-  addAndReviewBtnText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#09090B',
+    fontSize: 13.5,
+    fontWeight: '900',
   },
   saveSingleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1E293B',
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 8,
   },
   saveSingleBtnText: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
   },
   barcodeInputCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 18,
-    padding: 20,
+    backgroundColor: '#18181B',
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   barcodeInputTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '800',
   },
   barcodeInputSub: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: '#A1A1AA',
+    fontSize: 13,
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 18,
     textAlign: 'center',
+    lineHeight: 19,
+  },
+  manualInputPrompt: {
+    color: '#A1A1AA',
+    fontSize: 12.5,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
   barcodeSearchRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     width: '100%',
   },
   barcodeField: {
     flex: 1,
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#F8FAFC',
+    backgroundColor: '#121214',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#FAFAFA',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
   },
   barcodeSearchBtn: {
-    backgroundColor: '#38BDF8',
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    backgroundColor: '#FAFAFA',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   naturalCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 18,
-    padding: 20,
+    backgroundColor: '#18181B',
+    borderRadius: 24,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
   },
   naturalTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   naturalSub: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: '#A1A1AA',
+    fontSize: 13,
     marginTop: 4,
     marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 19,
   },
   naturalTextArea: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
+    backgroundColor: '#121214',
+    borderRadius: 16,
     padding: 14,
-    color: '#F8FAFC',
+    color: '#FAFAFA',
     fontSize: 14,
     minHeight: 100,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
     marginBottom: 16,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    backgroundColor: '#090D16',
+    borderTopColor: '#18181B',
+    backgroundColor: '#09090B',
   },
   saveMainBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 14,
-    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    paddingVertical: 15,
+    borderRadius: 26,
   },
   saveMainBtnText: {
-    color: '#0F172A',
-    fontSize: 15,
-    fontWeight: '800',
+    color: '#09090B',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
   verifiedCommunityBadge: {
     flexDirection: 'row',
@@ -2181,22 +2136,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  aiAuditedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(167, 139, 250, 0.12)',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.25)',
-  },
-  aiAuditedBadgeText: {
-    color: '#A78BFA',
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
   verifyFoodActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2209,8 +2148,46 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   verifyFoodActionBtnText: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '600',
+  },
+  addAndReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1E1E22',
+    paddingVertical: 12,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: '#2E2E34',
+  },
+  addAndReviewBtnText: {
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  healthScoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  healthClean: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  healthModerate: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  healthUltra: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  healthScoreText: {
+    color: '#FAFAFA',
+    fontSize: 11,
+    fontWeight: '700',
   },
 })
