@@ -1,5 +1,5 @@
-import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import React, { useState } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { typography } from '@/constants/typography'
 
@@ -11,6 +11,7 @@ interface MacroItemProps {
 }
 
 function MacroMiniRing({ label, consumed, target, color }: MacroItemProps) {
+  const [showConsumed, setShowConsumed] = useState(false)
   const size = 76
   const strokeWidth = 5
   const radius = (size - strokeWidth) / 2
@@ -21,10 +22,16 @@ function MacroMiniRing({ label, consumed, target, color }: MacroItemProps) {
   const progress = Math.min(1, consumed / safeTarget)
   const strokeDashoffset = circumference - circumference * progress
 
+  const mainValue = showConsumed ? Math.round(consumed) : Math.round(target)
+
   return (
     <View style={styles.macroCol}>
-      {/* Circle Ring */}
-      <View style={styles.macroSvgBox}>
+      {/* Interactive Circle Ring */}
+      <TouchableOpacity
+        style={styles.macroSvgBox}
+        activeOpacity={0.75}
+        onPress={() => setShowConsumed((prev) => !prev)}
+      >
         <Svg width={size} height={size}>
           <Circle
             cx={size / 2}
@@ -48,12 +55,14 @@ function MacroMiniRing({ label, consumed, target, color }: MacroItemProps) {
           />
         </Svg>
         <View style={styles.macroCenterText}>
-          <Text style={styles.macroValueText}>{Math.round(consumed)} g</Text>
+          <Text style={styles.macroValueText}>{mainValue} g</Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       <Text style={styles.macroLabelText}>{label}</Text>
-      <Text style={styles.macroSubText}>{Math.round(remaining)} restante</Text>
+      <Text style={styles.macroSubText}>
+        {showConsumed ? `${Math.round(target)} meta` : `${Math.round(remaining)} restante`}
+      </Text>
     </View>
   )
 }
@@ -79,6 +88,8 @@ export default function NutritionHeroCard({
   fatConsumed,
   fatTarget,
 }: Props) {
+  const [showConsumedCalories, setShowConsumedCalories] = useState(false)
+
   // Calorie Gauge calculations
   const gaugeSize = 160
   const gaugeStrokeWidth = 14
@@ -90,11 +101,30 @@ export default function NutritionHeroCard({
   const calProgress = Math.min(1, caloriesConsumed / safeCalTarget)
   const gaugeDashoffset = gaugeCircumference - gaugeCircumference * calProgress
 
+  const displayedCalories = showConsumedCalories
+    ? Math.round(caloriesConsumed).toLocaleString('es-ES')
+    : Math.round(caloriesTarget).toLocaleString('es-ES')
+
+  const subLabel = showConsumedCalories ? 'kcal consumidas' : 'kcal meta'
+
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={styles.card}
+      onPress={() => {
+        // Al tocar fuera del gauge/anillos, resetea a las calorías totales
+        setShowConsumedCalories(false)
+      }}
+    >
       {/* Top Half: Large Calorie Gauge Ring */}
       <View style={styles.topSection}>
-        <View style={styles.gaugeBox}>
+        <TouchableOpacity
+          style={styles.gaugeBox}
+          activeOpacity={0.8}
+          onPress={(e) => {
+            e.stopPropagation()
+            setShowConsumedCalories((prev) => !prev)
+          }}
+        >
           <Svg width={gaugeSize} height={gaugeSize}>
             {/* Background Track */}
             <Circle
@@ -120,19 +150,17 @@ export default function NutritionHeroCard({
             />
           </Svg>
 
-          {/* Center Text: Consumed / Target & Remaining */}
+          {/* Center Text: Total or Consumed & Remaining */}
           <View style={styles.gaugeCenterContent}>
             <Text style={styles.gaugeCaloriesNum}>
-              {Math.round(caloriesConsumed).toLocaleString('es-ES')}
+              {displayedCalories}
             </Text>
-            <Text style={styles.gaugeCaloriesTarget}>
-              / {Math.round(caloriesTarget).toLocaleString('es-ES')} kcal
-            </Text>
-            <Text style={styles.gaugeCaloriesSub}>
+            <Text style={styles.gaugeCaloriesSub}>{subLabel}</Text>
+            <Text style={styles.gaugeRemainingSub}>
               {Math.round(remainingCalories).toLocaleString('es-ES')} restantes
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Horizontal Divider */}
@@ -159,7 +187,7 @@ export default function NutritionHeroCard({
           color="#FB7185"
         />
       </View>
-    </View>
+    </Pressable>
   )
 }
 
@@ -193,19 +221,20 @@ const styles = StyleSheet.create({
   },
   gaugeCaloriesNum: {
     color: '#FAFAFA',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '900',
     letterSpacing: -0.8,
-    lineHeight: 34,
-    fontVariant: ['tabular-nums'],
-  },
-  gaugeCaloriesTarget: {
-    color: '#A1A1AA',
-    fontSize: 12,
-    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   gaugeCaloriesSub: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  gaugeRemainingSub: {
     color: '#71717A',
     fontSize: 11.5,
     fontWeight: '600',
