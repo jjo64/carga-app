@@ -6,18 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  FlatList,
 } from 'react-native'
 import {
   Search,
   Plus,
+  Minus,
   Check,
-  ChevronRight,
-  Flame,
-  Apple,
   Utensils,
-  Sparkles,
-  ShieldCheck,
+  X,
 } from 'lucide-react-native'
 import {
   COMMON_FOODS_DATABASE,
@@ -25,15 +21,22 @@ import {
   CommonFoodItem,
   CommonFoodCategory,
 } from '@/constants/commonFoodsDatabase'
+import { FoodItemParsed } from '@/types'
 
 interface CommonFoodsSelectorProps {
   onAddFood: (food: CommonFoodItem, customGrams?: number) => void
-  addedFoodNames?: string[]
+  onRemoveFood?: (foodName: string) => void
+  onUpdateQuantity?: (foodName: string, deltaG: number) => void
+  plateItems?: FoodItemParsed[]
+  onConfirmGoToPlate?: () => void
 }
 
 export default function CommonFoodsSelector({
   onAddFood,
-  addedFoodNames = [],
+  onRemoveFood,
+  onUpdateQuantity,
+  plateItems = [],
+  onConfirmGoToPlate,
 }: CommonFoodsSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<CommonFoodCategory>('Todas')
@@ -59,60 +62,69 @@ export default function CommonFoodsSelector({
     setRecentlyAddedId(item.id)
     setTimeout(() => {
       setRecentlyAddedId(null)
-    }, 1200)
+    }, 1000)
+  }
+
+  const getItemQuantityInPlate = (foodName: string): number => {
+    const found = plateItems.find(
+      (p) => p.name.toLowerCase() === foodName.toLowerCase()
+    )
+    return found?.quantity_g || 0
   }
 
   return (
     <View style={styles.container}>
-      {/* Search Input */}
+      {/* Search Input Bar */}
       <View style={styles.searchBarContainer}>
-        <Search size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 8 }} />
+        <Search size={16} color="#71717A" style={{ marginRight: 8 }} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar fruta, pollo, arroz, avena, etc..."
-          placeholderTextColor="rgba(255,255,255,0.3)"
+          placeholderTextColor="#71717A"
           value={searchQuery}
           onChangeText={setSearchQuery}
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-            <Text style={styles.clearBtnText}>✕</Text>
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <X size={14} color="#A1A1AA" />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Category Filter Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryScroll}
-      >
-        {COMMON_FOOD_CATEGORIES.map((cat) => {
-          const isActive = selectedCategory === cat
-          return (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setSelectedCategory(cat)}
-              style={[styles.categoryChip, isActive && styles.categoryChipActive]}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}
+      {/* Category Filter Chips Horizontal Bar */}
+      <View style={styles.categoryScrollWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {COMMON_FOOD_CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+                activeOpacity={0.75}
               >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+                <Text
+                  style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+      </View>
 
       {/* Foods List */}
       <ScrollView
         style={styles.foodList}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={styles.foodListContent}
         keyboardShouldPersistTaps="handled"
       >
         {filteredFoods.length === 0 ? (
@@ -120,76 +132,113 @@ export default function CommonFoodsSelector({
             <Utensils size={32} color="rgba(255,255,255,0.2)" />
             <Text style={styles.emptyTitle}>No encontramos "{searchQuery}"</Text>
             <Text style={styles.emptySubtitle}>
-              Puedes registrarlo con la pestaña de Escáner o escribir la descripción con IA.
+              Puedes registrarlo con la pestaña de IA o buscar con otro nombre.
             </Text>
           </View>
         ) : (
           filteredFoods.map((item) => {
             const isJustAdded = recentlyAddedId === item.id
-            const isAlreadyAdded = addedFoodNames.some(
-              (n) => n.toLowerCase() === item.name.toLowerCase()
-            )
-            const servingCals = Math.round((item.calories * item.defaultServingG) / 100)
-            const servingProt = ((item.protein * item.defaultServingG) / 100).toFixed(1)
-            const servingCarb = ((item.carbs * item.defaultServingG) / 100).toFixed(1)
-            const servingFat = ((item.fat * item.defaultServingG) / 100).toFixed(1)
+            const qtyInPlate = getItemQuantityInPlate(item.name)
+            const servingG = item.defaultServingG || 100
+            const servingCals = Math.round((item.calories * servingG) / 100)
+            const servingProt = ((item.protein * servingG) / 100).toFixed(1)
+            const servingCarb = ((item.carbs * servingG) / 100).toFixed(1)
+            const servingFat = ((item.fat * servingG) / 100).toFixed(1)
 
             return (
               <View key={item.id} style={styles.foodCard}>
+                {/* Left: Thumbnail Icon Container */}
                 <View style={styles.foodCardEmojiBox}>
-                  <Text style={styles.foodCardEmoji}>{item.emoji}</Text>
+                  <Text style={styles.foodCardEmoji}>{item.emoji || '🍽️'}</Text>
                 </View>
 
+                {/* Middle: Food Details */}
                 <View style={styles.foodCardInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.foodCardName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <View style={styles.verifiedMiniBadge}>
-                      <ShieldCheck size={11} color="#10B981" />
-                      <Text style={styles.verifiedMiniBadgeText}>Verificado</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.foodCardServing}>
-                    {item.defaultServingName} · <Text style={{ color: '#38BDF8', fontWeight: '700' }}>{servingCals} kcal</Text>
+                  <Text style={styles.foodCardName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.foodCardServing} numberOfLines={1}>
+                    {item.defaultServingName} · <Text style={styles.foodCardCalsHighlight}>{servingCals} kcal</Text>
                   </Text>
                   <Text style={styles.foodCardMacros}>
                     P: {servingProt}g · C: {servingCarb}g · G: {servingFat}g
                   </Text>
                 </View>
 
-                {/* Quick Add Actions */}
+                {/* Right: Cart Stepper or Add Button */}
                 <View style={styles.foodCardActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.addQuickBtn,
-                      isJustAdded && styles.addQuickBtnSuccess,
-                      isAlreadyAdded && styles.addQuickBtnAdded,
-                    ]}
-                    onPress={() => handleSelectFood(item)}
-                    activeOpacity={0.8}
-                  >
-                    {isJustAdded ? (
-                      <Check size={14} color="#10B981" />
-                    ) : (
-                      <Plus size={14} color={isAlreadyAdded ? '#38BDF8' : '#FFFFFF'} />
-                    )}
-                    <Text
+                  {qtyInPlate > 0 ? (
+                    <View style={styles.cartStepperPill}>
+                      <TouchableOpacity
+                        style={styles.cartStepBtn}
+                        onPress={() => {
+                          if (onUpdateQuantity) {
+                            onUpdateQuantity(item.name, -servingG)
+                          } else if (onRemoveFood) {
+                            onRemoveFood(item.name)
+                          }
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                        activeOpacity={0.7}
+                      >
+                        <Minus size={13} color="#D4D4D8" />
+                      </TouchableOpacity>
+
+                      <View style={styles.cartQtyBox}>
+                        <Text style={styles.cartQtyText}>{qtyInPlate}g</Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.cartStepBtn}
+                        onPress={() => handleSelectFood(item, servingG)}
+                        hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={13} color="#D4D4D8" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
                       style={[
-                        styles.addQuickBtnText,
-                        isJustAdded && { color: '#10B981' },
-                        isAlreadyAdded && { color: '#38BDF8' },
+                        styles.addPillBtn,
+                        isJustAdded && styles.addPillBtnSuccess,
                       ]}
+                      onPress={() => handleSelectFood(item, servingG)}
+                      activeOpacity={0.8}
                     >
-                      {isJustAdded ? '¡Listo!' : isAlreadyAdded ? '+ Otra' : 'Añadir'}
-                    </Text>
-                  </TouchableOpacity>
+                      <Plus size={13} color={isJustAdded ? '#10B981' : '#09090B'} strokeWidth={2.5} />
+                      <Text
+                        style={[
+                          styles.addPillBtnText,
+                          isJustAdded && { color: '#10B981' },
+                        ]}
+                      >
+                        {isJustAdded ? 'Añadido' : 'Añadir'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             )
           })
         )}
       </ScrollView>
+
+      {/* Sticky Bottom Confirmation Button */}
+      <View style={styles.stickyFooter}>
+        <TouchableOpacity
+          style={styles.confirmBtn}
+          onPress={onConfirmGoToPlate}
+          activeOpacity={0.88}
+        >
+          <Check size={18} color="#09090B" strokeWidth={2.8} />
+          <Text style={styles.confirmBtnText}>
+            {plateItems.length > 0
+              ? `CONFIRMAR CAMBIOS (${plateItems.length})`
+              : 'CONFIRMAR CAMBIOS'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }
@@ -201,142 +250,154 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12141A',
-    borderRadius: 14,
+    backgroundColor: '#18181B',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderColor: '#27272A',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     marginBottom: 10,
   },
   searchInput: {
     flex: 1,
-    color: '#FFFFFF',
-    fontSize: 13.5,
+    color: '#FAFAFA',
+    fontSize: 14,
     padding: 0,
   },
   clearBtn: {
     padding: 4,
   },
-  clearBtnText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
-    fontWeight: 'bold',
+  categoryScrollWrapper: {
+    marginBottom: 10,
   },
   categoryScroll: {
     flexDirection: 'row',
-    gap: 6,
-    paddingBottom: 10,
+    gap: 8,
+    paddingVertical: 2,
   },
   categoryChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#1E1E22',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#2E2E34',
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   categoryChipActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
+    backgroundColor: '#FAFAFA',
+    borderColor: '#FAFAFA',
   },
   categoryChipText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11.5,
+    color: '#A1A1AA',
+    fontSize: 12.5,
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#38BDF8',
+    color: '#09090B',
     fontWeight: '800',
   },
   foodList: {
     flex: 1,
-    maxHeight: 380,
+  },
+  foodListContent: {
+    paddingBottom: 16,
   },
   foodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#13161F',
-    borderRadius: 14,
+    backgroundColor: '#18181B',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    padding: 10,
-    marginBottom: 8,
-    gap: 10,
+    borderColor: '#27272A',
+    padding: 13,
+    marginBottom: 10,
   },
   foodCardEmojiBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    backgroundColor: '#242428',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   foodCardEmoji: {
-    fontSize: 20,
+    fontSize: 28,
   },
   foodCardInfo: {
     flex: 1,
+    paddingRight: 8,
   },
   foodCardName: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '800',
-    marginBottom: 2,
-    flexShrink: 1,
-  },
-  verifiedMiniBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
-  },
-  verifiedMiniBadgeText: {
-    color: '#10B981',
-    fontSize: 9.5,
+    color: '#FAFAFA',
+    fontSize: 14.5,
     fontWeight: '700',
+    marginBottom: 2,
   },
   foodCardServing: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11.5,
+    color: '#A1A1AA',
+    fontSize: 12,
     marginBottom: 2,
   },
-  foodCardMacros: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 10.5,
+  foodCardCalsHighlight: {
+    color: '#D4D4D8',
     fontWeight: '600',
   },
-  foodCardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  foodCardMacros: {
+    color: '#71717A',
+    fontSize: 11.5,
+    fontWeight: '500',
   },
-  addQuickBtn: {
+  foodCardActions: {
+    alignItems: 'flex-end',
+  },
+  addPillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 10,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 20,
+    paddingHorizontal: 13,
     paddingVertical: 7,
-    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  addQuickBtnSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+  addPillBtnSuccess: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderWidth: 1,
     borderColor: '#10B981',
   },
-  addQuickBtnAdded: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+  addPillBtnText: {
+    color: '#09090B',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
-  addQuickBtnText: {
-    color: '#FFFFFF',
+  cartStepperPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27272A',
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+  },
+  cartStepBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  cartQtyBox: {
+    paddingHorizontal: 6,
+  },
+  cartQtyText: {
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -348,7 +409,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
@@ -358,5 +419,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  stickyFooter: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#121214',
+  },
+  confirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 26,
+    paddingVertical: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  confirmBtnText: {
+    color: '#09090B',
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 })

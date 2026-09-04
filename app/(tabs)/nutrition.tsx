@@ -368,6 +368,35 @@ export default function NutritionScreen() {
     })
   }
 
+  const handleUpdateCommonFoodQuantity = (foodName: string, deltaG: number) => {
+    setResults((prev) => {
+      const existingIndex = prev.findIndex(
+        (p) => p.name.toLowerCase() === foodName.toLowerCase()
+      )
+      if (existingIndex === -1) return prev
+      const updated = [...prev]
+      const curr = updated[existingIndex]
+      const nextG = (curr.quantity_g || 100) + deltaG
+      if (nextG <= 0) {
+        return prev.filter((_, idx) => idx !== existingIndex)
+      }
+      const ratio = nextG / (curr.quantity_g || 100)
+      updated[existingIndex] = {
+        ...curr,
+        quantity_g: nextG,
+        calories: Math.round(curr.calories * ratio),
+        protein_g: Number((curr.protein_g * ratio).toFixed(1)),
+        carbs_g: Number((curr.carbs_g * ratio).toFixed(1)),
+        fat_g: Number((curr.fat_g * ratio).toFixed(1)),
+      }
+      return updated
+    })
+  }
+
+  const handleRemoveCommonFoodByName = (foodName: string) => {
+    setResults((prev) => prev.filter((p) => p.name.toLowerCase() !== foodName.toLowerCase()))
+  }
+
   const handleRemoveItem = (index: number) => {
     setResults((prev) => {
       const next = prev.filter((_, idx) => idx !== index)
@@ -1341,10 +1370,13 @@ export default function NutritionScreen() {
 
             {/* ── TAB 1: Alimentos Básicos / Frutas / Proteínas / Carbos ── */}
             {modalTab === 'basic' && (
-              <View style={{ flex: 1, minHeight: 360 }}>
+              <View style={{ flex: 1 }}>
                 <CommonFoodsSelector
                   onAddFood={handleAddCommonFood}
-                  addedFoodNames={results.map((r) => r.name)}
+                  onRemoveFood={handleRemoveCommonFoodByName}
+                  onUpdateQuantity={handleUpdateCommonFoodQuantity}
+                  plateItems={results}
+                  onConfirmGoToPlate={() => setModalTab('plate')}
                 />
               </View>
             )}
