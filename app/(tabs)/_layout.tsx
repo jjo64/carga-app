@@ -1,33 +1,29 @@
 import { Tabs } from 'expo-router'
 import { Platform } from 'react-native'
-import { theme } from '@/constants/theme'
-import { useLanguage } from '@/lib/i18n'
-import { Zap, Dumbbell, Apple, TrendingUp, User } from 'lucide-react-native'
+import { Home, Dumbbell, Apple, TrendingUp, User } from 'lucide-react-native'
+import { typography } from '@/constants/typography'
 
 export default function TabsLayout() {
-  const { t } = useLanguage()
-
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#07080D',
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          backgroundColor: '#09090B', // Zinc 950
+          borderTopColor: '#27272A', // Zinc 800
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#38BDF8',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
+        tabBarActiveTintColor: '#FAFAFA', // Blanco puro
+        tabBarInactiveTintColor: '#71717A', // Zinc 500
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          ...typography.navLabel,
         },
         headerStyle: {
-          backgroundColor: '#000000',
+          backgroundColor: '#09090B',
         },
-        headerTintColor: '#FFFFFF',
+        headerTintColor: '#FAFAFA',
         headerTitleStyle: {
           fontWeight: '700',
           fontSize: 18,
@@ -38,18 +34,18 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tab_dashboard'),
-          headerTitle: '⚡ CARGA',
+          title: 'Inicio',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Zap color={color} size={size - 2} strokeWidth={2} />
+            <Home color={color} size={size - 2} strokeWidth={2} />
           ),
         }}
       />
       <Tabs.Screen
         name="workout"
         options={{
-          title: t('tab_workout'),
-          headerTitle: '⚡ Carga',
+          title: 'Entrenar',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Dumbbell color={color} size={size - 2} strokeWidth={2} />
           ),
@@ -58,8 +54,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="nutrition"
         options={{
-          title: t('tab_nutrition'),
-          headerTitle: t('tab_nutrition'),
+          title: 'Nutrición',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Apple color={color} size={size - 2} strokeWidth={2} />
           ),
@@ -68,8 +64,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="progress"
         options={{
-          title: t('tab_progress'),
-          headerTitle: t('tab_progress'),
+          title: 'Progreso',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <TrendingUp color={color} size={size - 2} strokeWidth={2} />
           ),
@@ -78,8 +74,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t('tab_profile'),
-          headerTitle: t('tab_profile'),
+          title: 'Perfil',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <User color={color} size={size - 2} strokeWidth={2} />
           ),

@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User } from '@supabase/supabase-js'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../supabase'
 import { Profile } from '@/types'
+
+const STORAGE_PROFILE_PREFIX = '@user_profile_'
+const STORAGE_LAST_ACTIVE_PROFILE = '@user_profile_last_active'
 
 interface AuthContextType {
   session: Session | null
@@ -39,6 +43,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchProfile(userId: string) {
     try {
+      // 1. Cargar inmediatamente de caché local para evitar pantalla vacía o pérdida de datos
+      let cachedProfile: Profile | null = null
+      const cached = await AsyncStorage.getItem(`${STORAGE_PROFILE_PREFIX}${userId}`)
+      if (cached) {
+        try {
+          cachedProfile = JSON.parse(cached)
+          if (cachedProfile) setProfile(cachedProfile)
+        } catch {}
+      }
+
+      // 2. Consultar Supabase en segundo plano
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -46,7 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (!error && data) {
-        setProfile(data as Profile)
+        const merged: Profile = {
+          ...(cachedProfile || {}),
+          ...(data as Profile),
+          // Preservar avatar local si Supabase no lo tiene
+          avatar_url: (data as Profile).avatar_url || cachedProfile?.avatar_url || null,
+        }
+        setProfile(merged)
+        await AsyncStorage.setItem(`${STORAGE_PROFILE_PREFIX}${userId}`, JSON.stringify(merged))
+        await AsyncStorage.setItem(STORAGE_LAST_ACTIVE_PROFILE, JSON.stringify(merged))
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err)
@@ -55,6 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
+
+    // Cargar perfil activo previo inmediatamente al arrancar
+    AsyncStorage.getItem(STORAGE_LAST_ACTIVE_PROFILE)
+      .then((cached) => {
+        if (cached && isMounted) {
+          try {
+            const parsed = JSON.parse(cached)
+            if (parsed) setProfile((prev) => prev || parsed)
+          } catch {}
+        }
+      })
+      .catch(() => {})
 
     // Safety timeout: Never stay stuck on loading screen for more than 1.2 seconds
     const safetyTimer = setTimeout(() => {
@@ -88,8 +123,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession?.user ?? null)
         if (newSession?.user) {
           await fetchProfile(newSession.user.id)
-        } else {
-          setProfile(null)
         }
         setLoading(false)
       }
@@ -123,27 +156,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null)
     setSession(null)
     setUser(null)
+    try {
+      await AsyncStorage.removeItem(STORAGE_LAST_ACTIVE_PROFILE)
+    } catch {}
   }
 
   async function updateProfile(data: Partial<Profile>) {
-    if (!user) return { error: new Error('No hay usuario autenticado') }
+    const userId = user?.id || profile?.id || 'local_user'
 
-    const profileData = {
-      id: user.id,
+    const updatedProfile: Profile = {
+      ...(profile || ({} as Profile)),
       ...data,
+      id: userId,
       updated_at: new Date().toISOString(),
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert(profileData, { onConflict: 'id' })
+    // 1. Actualizar estado reactivo en memoria
+    setProfile(updatedProfile)
 
-    if (!error) {
-      setProfile((prev) => (prev ? { ...prev, ...data } : (profileData as Profile)))
-    } else {
-      // Fallback local update for offline/development mode
-      setProfile((prev) => (prev ? { ...prev, ...data } : (profileData as Profile)))
+    // 2. Persistir localmente en AsyncStorage para garantizar que no se pierda al reiniciar
+    try {
+      await AsyncStorage.setItem(`${STORAGE_PROFILE_PREFIX}${userId}`, JSON.stringify(updatedProfile))
+      await AsyncStorage.setItem(STORAGE_LAST_ACTIVE_PROFILE, JSON.stringify(updatedProfile))
+    } catch (storageErr) {
+      console.warn('Error guardando perfil en AsyncStorage:', storageErr)
     }
+
+    // 3. Sincronizar con Supabase si hay usuario conectado
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert(updatedProfile, { onConflict: 'id' })
+
+        if (error) {
+          console.warn('Supabase upsert warning:', error.message)
+        }
+      } catch (err) {
+        console.warn('Error sincronizando perfil con Supabase:', err)
+      }
+    }
+
     return { error: null }
   }
 
