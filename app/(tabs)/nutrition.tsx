@@ -326,7 +326,13 @@ export default function NutritionScreen() {
   }
 
   const handleRemoveItem = (index: number) => {
-    setResults((prev) => prev.filter((_, idx) => idx !== index))
+    setResults((prev) => {
+      const next = prev.filter((_, idx) => idx !== index)
+      if (next.length === 0 && !editingFoodLogId) {
+        AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY).catch(() => {})
+      }
+      return next
+    })
   }
 
   const handleOpenMacroCloser = async () => {
@@ -582,6 +588,12 @@ export default function NutritionScreen() {
         return
       }
 
+      if (Platform.OS === 'web') {
+        const ok = typeof window !== 'undefined' ? window.confirm('¿Descartar cambios?\nSe cancelará la edición de esta comida.') : true
+        if (ok) resetMealModalState()
+        return
+      }
+
       Alert.alert(
         '¿Descartar cambios?',
         'Se cancelará la edición de esta comida.',
@@ -590,7 +602,9 @@ export default function NutritionScreen() {
           {
             text: 'Descartar',
             style: 'destructive',
-            onPress: resetMealModalState,
+            onPress: () => {
+              resetMealModalState()
+            },
           },
         ]
       )
@@ -602,15 +616,23 @@ export default function NutritionScreen() {
       return
     }
 
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' ? window.confirm('¿Descartar borrador?\nSe borrarán los productos que estabas añadiendo a esta comida.') : true
+      if (ok) resetMealModalState()
+      return
+    }
+
     Alert.alert(
-      '¿Descartar cambios?',
+      '¿Descartar borrador?',
       'Se borrarán los productos que estabas añadiendo a esta comida.',
       [
         { text: 'Continuar', style: 'cancel' },
         {
           text: 'Descartar',
           style: 'destructive',
-          onPress: resetMealModalState,
+          onPress: () => {
+            resetMealModalState()
+          },
         },
       ]
     )
@@ -1606,32 +1628,34 @@ export default function NutritionScreen() {
       {/* ── Persistent Floating Draft Dock (Minimizable Meal Bar) ── */}
       {results.length > 0 && !modalVisible && !editingFoodLogId && (
         <View style={styles.floatingDraftDock}>
-          <TouchableOpacity
-            style={styles.floatingDraftTouch}
-            onPress={() => {
-              setModalTab(results.length > 0 ? 'plate' : 'basic')
-              setModalVisible(true)
-            }}
-            activeOpacity={0.9}
-          >
-            <View style={styles.floatingDraftIconBox}>
-              <Utensils size={18} color="#38BDF8" />
-              <View style={styles.floatingDraftBadge}>
-                <Text style={styles.floatingDraftBadgeText}>{results.length}</Text>
+          <View style={styles.floatingDraftTouch}>
+            <TouchableOpacity
+              style={styles.floatingDraftInfoArea}
+              onPress={() => {
+                setModalTab(results.length > 0 ? 'plate' : 'basic')
+                setModalVisible(true)
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.floatingDraftIconBox}>
+                <Utensils size={18} color="#38BDF8" />
+                <View style={styles.floatingDraftBadge}>
+                  <Text style={styles.floatingDraftBadgeText}>{results.length}</Text>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.floatingDraftInfo}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.floatingDraftTitle}>
-                  {mealLabel[modalMealType]} ({results.length} {results.length === 1 ? 'alimento' : 'alimentos'})
+              <View style={styles.floatingDraftInfo}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.floatingDraftTitle}>
+                    {mealLabel[modalMealType]} ({results.length} {results.length === 1 ? 'alimento' : 'alimentos'})
+                  </Text>
+                  <View style={styles.liveDraftIndicator} />
+                </View>
+                <Text style={styles.floatingDraftMacros}>
+                  {results.reduce((s, r) => s + r.calories, 0)} kcal · P:{Math.round(results.reduce((s, r) => s + r.protein_g, 0))}g · C:{Math.round(results.reduce((s, r) => s + r.carbs_g, 0))}g · G:{Math.round(results.reduce((s, r) => s + r.fat_g, 0))}g
                 </Text>
-                <View style={styles.liveDraftIndicator} />
               </View>
-              <Text style={styles.floatingDraftMacros}>
-                {results.reduce((s, r) => s + r.calories, 0)} kcal · P:{Math.round(results.reduce((s, r) => s + r.protein_g, 0))}g · C:{Math.round(results.reduce((s, r) => s + r.carbs_g, 0))}g · G:{Math.round(results.reduce((s, r) => s + r.fat_g, 0))}g
-              </Text>
-            </View>
+            </TouchableOpacity>
 
             <View style={styles.floatingDraftButtons}>
               <TouchableOpacity
@@ -1641,6 +1665,7 @@ export default function NutritionScreen() {
                   setModalVisible(true)
                 }}
                 activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
                 <Text style={styles.floatingDraftOpenText}>Ver plato ↗</Text>
               </TouchableOpacity>
@@ -1648,12 +1673,13 @@ export default function NutritionScreen() {
               <TouchableOpacity
                 style={styles.floatingDraftDiscardBtn}
                 onPress={handleConfirmDiscardDraft}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
+                hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
               >
                 <Trash2 size={16} color="#EF4444" />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -3228,6 +3254,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
+    gap: 10,
+  },
+  floatingDraftInfoArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   floatingDraftIconBox: {

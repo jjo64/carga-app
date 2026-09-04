@@ -957,9 +957,9 @@ export default function LiveWorkoutSessionScreen() {
       <Stack.Screen
         options={{
           title: routineTitle || 'Entrenamiento',
-          headerStyle: { backgroundColor: '#07090E' },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: { fontWeight: '800', fontSize: 17 },
+          headerStyle: { backgroundColor: '#09090B' },
+          headerTintColor: '#FAFAFA',
+          headerTitleStyle: { fontWeight: '800', fontSize: 18 },
           headerShadowVisible: false,
         }}
       />
@@ -971,11 +971,10 @@ export default function LiveWorkoutSessionScreen() {
           style={styles.discardTopBtn}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={16} color="#EF4444" />
           <Text style={styles.discardTopText}>Descartar</Text>
         </TouchableOpacity>
 
-        {/* Live Running Stopwatch Chronometer Pill (Tap to Edit Duration) */}
+        {/* Live Running Stopwatch Chronometer & Rest Pill */}
         <TouchableOpacity
           onPress={() => {
             setManualDurationInput(String(Math.max(1, Math.round(elapsedSeconds / 60))))
@@ -984,38 +983,35 @@ export default function LiveWorkoutSessionScreen() {
           style={styles.liveTimerPill}
           activeOpacity={0.8}
         >
-          <View style={styles.timerLiveDot} />
-          <Ionicons name="timer-outline" size={14} color="#38BDF8" />
+          <Ionicons name="time-outline" size={13} color="#A1A1AA" />
           <Text style={styles.liveTimerText}>{formatChronometer(elapsedSeconds)}</Text>
-          <Ionicons name="pencil-outline" size={11} color="rgba(56, 189, 248, 0.7)" style={{ marginLeft: 2 }} />
-        </TouchableOpacity>
-
-        {/* Rest Timer Toggle Button */}
-        <TouchableOpacity
-          onPress={() => {
-            setRestTimerEnabled((prev) => !prev)
-            if (isResting) {
-              restEndTimeRef.current = null
-              setIsResting(false)
-              setRestSeconds(0)
-            }
-          }}
-          style={[styles.restTogglePill, !restTimerEnabled && { opacity: 0.45 }]}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={restTimerEnabled ? 'hourglass-outline' : 'hourglass'}
-            size={13}
-            color={restTimerEnabled ? '#38BDF8' : 'rgba(255,255,255,0.4)'}
-          />
-          <Text style={[styles.restToggleText, !restTimerEnabled && { color: 'rgba(255,255,255,0.4)' }]}>
-            {restTimerEnabled ? `${defaultRestSeconds}s` : 'Off'}
-          </Text>
+          <Text style={styles.timerDivider}>·</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setRestTimerEnabled((prev) => !prev)
+              if (isResting) {
+                restEndTimeRef.current = null
+                setIsResting(false)
+                setRestSeconds(0)
+              }
+            }}
+            style={styles.innerRestToggle}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="hourglass-outline"
+              size={12}
+              color={restTimerEnabled ? '#38BDF8' : '#71717A'}
+            />
+            <Text style={[styles.restToggleText, !restTimerEnabled && { color: '#71717A' }]}>
+              {restTimerEnabled ? `${defaultRestSeconds}s` : 'Off'}
+            </Text>
+          </TouchableOpacity>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleInitiateFinish}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
           style={styles.finishTopBtn}
         >
           <Text style={styles.finishBtnText}>Terminar</Text>
@@ -1026,7 +1022,7 @@ export default function LiveWorkoutSessionScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Main Exercise High Definition Illustration ── */}
+        {/* ── Main Exercise High Definition Illustration Banner ── */}
         <View style={styles.illustrationSection}>
           <ExerciseIllustration
             exerciseId={currentExercise.id}
@@ -1034,17 +1030,17 @@ export default function LiveWorkoutSessionScreen() {
             imageUrl={currentExercise.imageUrl}
             size={220}
             variant="large-banner"
-            highlightColor="#38BDF8"
+            highlightColor="#FAFAFA"
           />
 
-          {/* Floating Pill: "Ver técnica" */}
+          {/* Floating Pill: "Técnica" */}
           <TouchableOpacity
             style={styles.techniqueBtn}
             onPress={() => setDetailModalExercise(currentExercise)}
             activeOpacity={0.85}
           >
-            <Ionicons name="play" size={12} color="#FFFFFF" />
-            <Text style={styles.techniqueBtnText}>Ver técnica</Text>
+            <Ionicons name="play-circle-outline" size={14} color="#FAFAFA" />
+            <Text style={styles.techniqueBtnText}>Técnica</Text>
           </TouchableOpacity>
         </View>
 
@@ -1057,14 +1053,14 @@ export default function LiveWorkoutSessionScreen() {
         >
           {exercises.map((item, idx) => {
             const isActive = idx === activeExerciseIndex
-            const isCompleted = item.sets.every((s) => s.completed)
+            const isCompleted = item.sets.length > 0 && item.sets.every((s) => s.completed)
 
             return (
               <TouchableOpacity
                 key={item.id}
                 onPress={() => {
                   setActiveExerciseIndex(idx)
-                  carouselScrollRef.current?.scrollTo({ x: idx * 66, animated: true })
+                  carouselScrollRef.current?.scrollTo({ x: idx * 64, animated: true })
                 }}
                 style={[
                   styles.thumbWrapper,
@@ -1082,13 +1078,13 @@ export default function LiveWorkoutSessionScreen() {
 
                 {isActive && (
                   <View style={styles.activeRingOverlay}>
-                    <Svg width="56" height="56" viewBox="0 0 56 56">
+                    <Svg width="54" height="54" viewBox="0 0 54 54">
                       <Circle
-                        cx="28"
-                        cy="28"
-                        r="26"
-                        stroke="#38BDF8"
-                        strokeWidth="2.5"
+                        cx="27"
+                        cy="27"
+                        r="25"
+                        stroke="#FAFAFA"
+                        strokeWidth="2"
                         fill="none"
                       />
                     </Svg>
@@ -1097,7 +1093,7 @@ export default function LiveWorkoutSessionScreen() {
 
                 {isCompleted && (
                   <View style={styles.completedCheckBadge}>
-                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={11} color="#09090B" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -1109,7 +1105,7 @@ export default function LiveWorkoutSessionScreen() {
             onPress={() => setShowAddModal(true)}
             activeOpacity={0.8}
           >
-            <Ionicons name="add" size={22} color="rgba(255,255,255,0.4)" />
+            <Ionicons name="add" size={20} color="#71717A" />
           </TouchableOpacity>
         </ScrollView>
 
@@ -1140,7 +1136,7 @@ export default function LiveWorkoutSessionScreen() {
               onPress={() => setShowVoiceModal(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="mic" size={13} color="#38BDF8" />
+              <Ionicons name="mic-outline" size={13} color="#38BDF8" />
               <Text style={styles.voiceLoggerBtnText}>Voz</Text>
             </TouchableOpacity>
 
@@ -1149,7 +1145,7 @@ export default function LiveWorkoutSessionScreen() {
               onPress={() => setShowPainModal(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="medkit" size={13} color="#F59E0B" />
+              <Ionicons name="medkit-outline" size={13} color="#F59E0B" />
               <Text style={styles.painAdaptorBtnText}>Molestia</Text>
             </TouchableOpacity>
 
@@ -1158,30 +1154,21 @@ export default function LiveWorkoutSessionScreen() {
               onPress={() => setDetailModalExercise(currentExercise)}
               activeOpacity={0.8}
             >
-              <Ionicons name="information-circle-outline" size={13} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="information-circle-outline" size={13} color="#A1A1AA" />
               <Text style={styles.infoPillBtnText}>Detalles</Text>
             </TouchableOpacity>
           </View>
 
-          {/* ── AI Cognitive Progressive Overload Recommendation Chip ── */}
+          {/* ── AI Cognitive Progressive Overload Recommendation Card ── */}
           {overloadAdvice && (
             <View style={styles.aiSuggestionCard}>
               <View style={styles.aiSuggestionHeader}>
-                <View
-                  style={[
-                    styles.aiSuggestionBadge,
-                    {
-                      backgroundColor: `${overloadAdvice.badgeColor}20`,
-                      borderColor: `${overloadAdvice.badgeColor}55`,
-                    },
-                  ]}
-                >
-                  <Text style={{ fontSize: 11 }}>✨</Text>
-                  <Text style={[styles.aiSuggestionBadgeText, { color: overloadAdvice.badgeColor }]}>
-                    {overloadAdvice.badgeText}
+                <View style={styles.aiSuggestionBadge}>
+                  <Text style={styles.aiSparkleIcon}>✨</Text>
+                  <Text style={styles.aiSuggestionBadgeText}>
+                    {overloadAdvice.badgeText} · SOBRECARGA IA
                   </Text>
                 </View>
-                <Text style={styles.aiSuggestionSubTitle}>SOBRECARGA IA</Text>
               </View>
 
               <Text style={styles.aiSuggestionMessage}>{overloadAdvice.message}</Text>
@@ -1196,9 +1183,9 @@ export default function LiveWorkoutSessionScreen() {
                       overloadAdvice.suggestedReps
                     )
                   }
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                 >
-                  <Ionicons name="flash" size={12} color="#0F172A" />
+                  <Ionicons name="flash" size={12} color="#09090B" />
                   <Text style={styles.aiApplyBtnText}>{overloadAdvice.actionLabel}</Text>
                 </TouchableOpacity>
               )}
@@ -1206,128 +1193,128 @@ export default function LiveWorkoutSessionScreen() {
           )}
         </View>
 
-        {/* ── Table Header: SET | ANTERIOR | KG | REPES | ✓ ── */}
-        <View style={styles.tableHeaderRow}>
-          <Text style={[styles.tableHeadCol, { width: 38, textAlign: 'center' }]}>SET</Text>
-          <Text style={[styles.tableHeadCol, { flex: 1, paddingLeft: 4 }]}>ANTERIOR</Text>
-          <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>KG</Text>
-          <Text style={[styles.tableHeadCol, { width: 68, textAlign: 'center' }]}>REPES</Text>
-          <View style={{ width: 44, alignItems: 'center' }}>
-            <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.3)" />
+        {/* ── Sets Table (Calculated fixed-width columns to strictly avoid overlaps) ── */}
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeaderRow}>
+            <Text style={styles.thSet}>SET</Text>
+            <Text style={styles.thAnterior}>ANTERIOR</Text>
+            <Text style={styles.thKg}>KG</Text>
+            <Text style={styles.thReps}>REPES</Text>
+            <Text style={styles.thCheck}>✓</Text>
+            {activeSessionExercise?.sets.length > 1 && <View style={styles.thDelete} />}
           </View>
-        </View>
 
-        {/* ── Hevy Style Table Rows ── */}
-        <View style={styles.tableBody}>
-          {(activeSessionExercise?.sets || []).map((row) => {
-            const setTypeLabel =
-              row.setType === 'warmup'
-                ? 'W'
-                : row.setType === 'dropset'
-                ? 'D'
-                : row.setType === 'failure'
-                ? 'F'
-                : String(row.setNum)
+          <View style={styles.tableBody}>
+            {(activeSessionExercise?.sets || []).map((row) => {
+              const setTypeLabel =
+                row.setType === 'warmup'
+                  ? 'W'
+                  : row.setType === 'dropset'
+                  ? 'D'
+                  : row.setType === 'failure'
+                  ? 'F'
+                  : String(row.setNum)
 
-            const setTypeBadgeStyle =
-              row.setType === 'warmup'
-                ? styles.badgeWarmup
-                : row.setType === 'dropset'
-                ? styles.badgeDropset
-                : row.setType === 'failure'
-                ? styles.badgeFailure
-                : styles.badgeNormal
+              const setTypeBadgeStyle =
+                row.setType === 'warmup'
+                  ? styles.badgeWarmup
+                  : row.setType === 'dropset'
+                  ? styles.badgeDropset
+                  : row.setType === 'failure'
+                  ? styles.badgeFailure
+                  : styles.badgeNormal
 
-            const setTypeTextStyle =
-              row.setType === 'warmup'
-                ? styles.badgeTextWarmup
-                : row.setType === 'dropset'
-                ? styles.badgeTextDropset
-                : row.setType === 'failure'
-                ? styles.badgeTextFailure
-                : styles.badgeTextNormal
+              const setTypeTextStyle =
+                row.setType === 'warmup'
+                  ? styles.badgeTextWarmup
+                  : row.setType === 'dropset'
+                  ? styles.badgeTextDropset
+                  : row.setType === 'failure'
+                  ? styles.badgeTextFailure
+                  : styles.badgeTextNormal
 
-            const displayPrevia = row.previous && row.previous !== 'Primer registro' && !row.previous.includes('PR: 0')
-              ? row.previous
-              : '—'
+              const displayPrevia = row.previous && row.previous !== 'Primer registro' && !row.previous.includes('PR: 0')
+                ? row.previous
+                : '—'
 
-            return (
-              <View
-                key={row.id}
-                style={[
-                  styles.tableRow,
-                  row.completed && styles.tableRowCompleted,
-                ]}
-              >
-                {/* Serie Number / Type Selector Button */}
-                <TouchableOpacity
-                  style={[styles.serieNumBox, setTypeBadgeStyle]}
-                  onPress={() => cycleSetType(row.id)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.serieNumText, setTypeTextStyle]}>{setTypeLabel}</Text>
-                </TouchableOpacity>
-
-                {/* Previa */}
-                <Text style={styles.previaText} numberOfLines={1}>
-                  {displayPrevia}
-                </Text>
-
-                {/* KG Input Box */}
-                <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
-                  <TextInput
-                    style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
-                    value={row.weightKg}
-                    placeholder={row.placeholderWeight || '—'}
-                    placeholderTextColor="rgba(255,255,255,0.28)"
-                    onChangeText={(val) => updateSetField(row.id, 'weightKg', val)}
-                    keyboardType="decimal-pad"
-                    selectTextOnFocus
-                  />
-                </View>
-
-                {/* Reps Input Box */}
-                <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
-                  <TextInput
-                    style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
-                    value={row.reps}
-                    placeholder={row.placeholderReps || '10'}
-                    placeholderTextColor="rgba(255,255,255,0.28)"
-                    onChangeText={(val) => updateSetField(row.id, 'reps', val)}
-                    keyboardType="number-pad"
-                    selectTextOnFocus
-                  />
-                </View>
-
-                {/* Check Button */}
-                <TouchableOpacity
+              return (
+                <View
+                  key={row.id}
                   style={[
-                    styles.checkCircleBtn,
-                    row.completed && styles.checkCircleBtnCompleted,
+                    styles.tableRow,
+                    row.completed && styles.tableRowCompleted,
                   ]}
-                  onPress={() => toggleSetComplete(row.id)}
-                  activeOpacity={0.8}
                 >
-                  <Ionicons
-                    name="checkmark"
-                    size={18}
-                    color={row.completed ? '#FFFFFF' : 'rgba(255,255,255,0.35)'}
-                  />
-                </TouchableOpacity>
-
-                {/* Delete Set Icon if > 1 set */}
-                {activeSessionExercise?.sets.length > 1 && (
+                  {/* Serie Number / Type Selector Button */}
                   <TouchableOpacity
-                    style={styles.deleteSetMiniBtn}
-                    onPress={() => deleteSet(row.id)}
+                    style={[styles.serieNumBox, setTypeBadgeStyle]}
+                    onPress={() => cycleSetType(row.id)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="trash-outline" size={13} color="rgba(255,255,255,0.25)" />
+                    <Text style={[styles.serieNumText, setTypeTextStyle]}>{setTypeLabel}</Text>
                   </TouchableOpacity>
-                )}
-              </View>
-            )
-          })}
+
+                  {/* Previa */}
+                  <Text style={styles.previaText} numberOfLines={1}>
+                    {displayPrevia}
+                  </Text>
+
+                  {/* KG Input Box */}
+                  <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
+                    <TextInput
+                      style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
+                      value={row.weightKg}
+                      placeholder={row.placeholderWeight || '—'}
+                      placeholderTextColor="#52525B"
+                      onChangeText={(val) => updateSetField(row.id, 'weightKg', val)}
+                      keyboardType="decimal-pad"
+                      selectTextOnFocus
+                    />
+                  </View>
+
+                  {/* Reps Input Box */}
+                  <View style={[styles.inputContainer, row.completed && styles.inputContainerCompleted]}>
+                    <TextInput
+                      style={[styles.tableInput, row.completed && styles.tableInputCompleted]}
+                      value={row.reps}
+                      placeholder={row.placeholderReps || '10'}
+                      placeholderTextColor="#52525B"
+                      onChangeText={(val) => updateSetField(row.id, 'reps', val)}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                    />
+                  </View>
+
+                  {/* Check Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.checkCircleBtn,
+                      row.completed && styles.checkCircleBtnCompleted,
+                    ]}
+                    onPress={() => toggleSetComplete(row.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={row.completed ? '#09090B' : '#71717A'}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Delete Set Icon if > 1 set */}
+                  {activeSessionExercise?.sets.length > 1 && (
+                    <TouchableOpacity
+                      style={styles.deleteSetMiniBtn}
+                      onPress={() => deleteSet(row.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={14} color="#52525B" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )
+            })}
+          </View>
         </View>
 
         {/* Bottom Button: "+ Añadir serie" */}
@@ -1344,7 +1331,7 @@ export default function LiveWorkoutSessionScreen() {
       {isResting && (
         <View style={styles.restFloatingBar}>
           <View style={styles.restBarLeft}>
-            <Ionicons name="timer" size={20} color="#38BDF8" />
+            <Ionicons name="timer-outline" size={20} color="#38BDF8" />
             <Text style={styles.restTimeText}>{formatChronometer(restSeconds)}</Text>
             <Text style={styles.restLabelText}>Descanso</Text>
           </View>
@@ -1403,7 +1390,7 @@ export default function LiveWorkoutSessionScreen() {
         onClose={() => setDetailModalExercise(null)}
       />
 
-      {/* Pain Adaptor Live Modal (Modulo 3) */}
+      {/* Pain Adaptor Live Modal */}
       <PainAdaptorModal
         visible={showPainModal}
         onClose={() => setShowPainModal(false)}
@@ -1411,7 +1398,7 @@ export default function LiveWorkoutSessionScreen() {
         onApplyReplacement={handleApplyPainReplacement}
       />
 
-      {/* Hands-Free Voice Logger Modal (Modulo 4) */}
+      {/* Hands-Free Voice Logger Modal */}
       <VoiceSetLoggerModal
         visible={showVoiceModal}
         onClose={() => setShowVoiceModal(false)}
@@ -1530,7 +1517,7 @@ export default function LiveWorkoutSessionScreen() {
         </View>
       </Modal>
 
-      {/* Finish Session Modal with Editable Duration and Detailed Sharing */}
+      {/* Finish Session Modal */}
       <Modal
         visible={showFinishModal}
         transparent
@@ -1649,7 +1636,7 @@ export default function LiveWorkoutSessionScreen() {
               activeOpacity={0.9}
             >
               {saving ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#09090B" />
               ) : (
                 <Text style={styles.finishSaveBtnText}>VER EN MI PERFIL</Text>
               )}
@@ -1664,31 +1651,29 @@ export default function LiveWorkoutSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#09090B',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: '#09090B',
   },
   discardTopBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    borderColor: '#27272A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9999,
   },
   discardTopText: {
-    color: '#EF4444',
+    color: '#A1A1AA',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   discardIconCircle: {
     width: 64,
@@ -1713,14 +1698,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   discardCancelBtn: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#27272A',
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   discardCancelBtnText: {
-    color: 'rgba(255,255,255,0.8)',
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1730,80 +1715,94 @@ const styles = StyleSheet.create({
   liveTimerPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    gap: 6,
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    borderRadius: 14,
-    paddingHorizontal: 11,
+    borderColor: '#27272A',
+    borderRadius: 9999,
+    paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  timerLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#38BDF8',
-  },
   liveTimerText: {
-    color: '#38BDF8',
+    color: '#FAFAFA',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  timerDivider: {
+    color: '#52525B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  innerRestToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  restToggleText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   finishTopBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#FAFAFA',
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 14,
+    borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   finishBtnText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   illustrationSection: {
     position: 'relative',
-    backgroundColor: '#050505',
+    backgroundColor: '#09090B',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 6,
   },
   techniqueBtn: {
     position: 'absolute',
-    top: 14,
+    top: 12,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
+    backgroundColor: 'rgba(24, 24, 27, 0.85)',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 5,
   },
   techniqueBtnText: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '700',
   },
   carouselContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   thumbWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    backgroundColor: '#18181B',
   },
   thumbWrapperActive: {},
   activeRingOverlay: {
@@ -1815,66 +1814,229 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 18,
-    height: 18,
+    width: 17,
+    height: 17,
     borderRadius: 9,
-    backgroundColor: '#10B981',
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#000000',
+    borderColor: '#09090B',
   },
   addExerciseDashedBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#27272A',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#18181B',
+  },
+  exerciseHeaderCard: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  exerciseTitleTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  exerciseHeaderTitle: {
+    color: '#FAFAFA',
+    fontSize: 20,
+    fontWeight: '800',
+    flex: 1,
+    lineHeight: 25,
+    letterSpacing: -0.3,
+  },
+  exerciseActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voiceLoggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#18181B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  voiceLoggerBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  painAdaptorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#18181B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  painAdaptorBtnText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  infoPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#18181B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  infoPillBtnText: {
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  /* ── AI Suggestion Chip / Card ── */
+  aiSuggestionCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.35)',
+    gap: 8,
+    marginTop: 4,
+  },
+  aiSuggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aiSuggestionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+  },
+  aiSparkleIcon: {
+    fontSize: 11,
+  },
+  aiSuggestionBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#DDD6FE',
+    letterSpacing: 0.4,
+  },
+  aiSuggestionMessage: {
+    color: '#E4E4E7',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  aiApplyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FAFAFA',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  aiApplyBtnText: {
+    color: '#09090B',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  /* ── Sets Table Styles (Clean layout with zero overlap) ── */
+  tableContainer: {
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
     paddingVertical: 6,
     gap: 6,
   },
-  tableHeadCol: {
-    color: 'rgba(255,255,255,0.4)',
+  thSet: {
+    width: 32,
+    color: '#71717A',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  thAnterior: {
+    flex: 1,
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  thKg: {
+    width: 62,
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  thReps: {
+    width: 62,
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  thCheck: {
+    width: 36,
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  thDelete: {
+    width: 20,
   },
   tableBody: {
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: 6,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#101218',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 4,
     gap: 6,
   },
   tableRowCompleted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    opacity: 0.9,
   },
   serieNumBox: {
     width: 32,
-    height: 32,
+    height: 36,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeNormal: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#27272A',
   },
   badgeWarmup: {
     backgroundColor: 'rgba(245, 158, 11, 0.18)',
@@ -1892,11 +2054,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   serieNumText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   badgeTextNormal: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
   },
   badgeTextWarmup: {
     color: '#F59E0B',
@@ -1909,67 +2071,69 @@ const styles = StyleSheet.create({
   },
   previaText: {
     flex: 1,
-    color: 'rgba(255,255,255,0.45)',
+    color: '#71717A',
     fontSize: 12,
     fontWeight: '600',
-    paddingLeft: 2,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   inputContainer: {
-    width: 68,
-    backgroundColor: '#161922',
-    borderRadius: 10,
+    width: 62,
+    height: 36,
+    backgroundColor: '#18181B',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 2,
+    borderColor: '#27272A',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   inputContainerCompleted: {
     backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   tableInput: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: '#FAFAFA',
+    fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 2,
     width: '100%',
+    fontVariant: ['tabular-nums'],
   },
   tableInputCompleted: {
     color: '#10B981',
   },
   checkCircleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#181C26',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkCircleBtnCompleted: {
     backgroundColor: '#10B981',
-    borderColor: '#10B981',
   },
   deleteSetMiniBtn: {
-    padding: 4,
-    marginLeft: 2,
+    width: 20,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addSerieBtn: {
-    backgroundColor: '#101218',
-    borderRadius: 14,
+    backgroundColor: '#18181B',
+    borderRadius: 12,
     marginHorizontal: 16,
-    marginTop: 12,
-    paddingVertical: 14,
+    marginTop: 14,
+    paddingVertical: 13,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
   },
   addSerieBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: '#FAFAFA',
+    fontSize: 13,
     fontWeight: '800',
   },
   restFloatingBar: {
@@ -1977,15 +2141,15 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 16,
     right: 16,
-    backgroundColor: '#121622',
-    borderRadius: 18,
-    paddingHorizontal: 18,
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.3)',
+    borderColor: '#27272A',
     shadowColor: '#000',
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -1998,12 +2162,14 @@ const styles = StyleSheet.create({
   },
   restTimeText: {
     color: '#38BDF8',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   restLabelText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 12,
+    fontWeight: '600',
   },
   restBarActions: {
     flexDirection: 'row',
@@ -2011,13 +2177,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   restAdjustBtn: {
-    backgroundColor: '#1C2234',
+    backgroundColor: '#27272A',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   restAdjustText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2028,29 +2194,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   restSkipText: {
-    color: '#080A10',
+    color: '#09090B',
     fontSize: 12,
     fontWeight: '900',
   },
   finishOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.88)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   finishCard: {
     width: '100%',
-    backgroundColor: '#12141E',
+    backgroundColor: '#18181B',
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#27272A',
     gap: 10,
   },
   finishTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
@@ -2061,18 +2227,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   finishSubtitle: {
-    color: 'rgba(255,255,255,0.5)',
+    color: '#A1A1AA',
     fontSize: 13,
     textAlign: 'center',
   },
   finishStatsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginVertical: 10,
   },
   finishStatBox: {
     flex: 1,
-    backgroundColor: '#1A1E2C',
+    backgroundColor: '#27272A',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2081,41 +2247,27 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 18,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   finishStatLabel: {
-    color: 'rgba(255,255,255,0.35)',
+    color: '#A1A1AA',
     fontSize: 11,
     marginTop: 2,
+    fontWeight: '600',
   },
   finishSaveBtn: {
     width: '100%',
-    backgroundColor: '#2563EB',
-    borderRadius: 16,
-    paddingVertical: 15,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
   },
   finishSaveBtnText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 1.5,
-  },
-  restTogglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#181C28',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  restToggleText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
+    letterSpacing: 1,
   },
   editDurationInputRow: {
     flexDirection: 'row',
@@ -2124,7 +2276,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   durationStepBtn: {
-    backgroundColor: '#1E2332',
+    backgroundColor: '#27272A',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 10,
@@ -2136,11 +2288,11 @@ const styles = StyleSheet.create({
   },
   editDurationTextInput: {
     flex: 1,
-    backgroundColor: '#0D0E16',
+    backgroundColor: '#09090B',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    color: '#FFFFFF',
+    borderColor: '#27272A',
+    color: '#FAFAFA',
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
@@ -2150,11 +2302,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#27272A',
     alignItems: 'center',
   },
   modalCancelText: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#A1A1AA',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -2162,11 +2314,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
   },
   modalConfirmText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -2175,14 +2327,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    backgroundColor: '#161924',
+    backgroundColor: '#27272A',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
     marginTop: 4,
   },
   finishDurationLabel: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#A1A1AA',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -2192,7 +2344,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   finishMiniStepBtn: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#18181B',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2203,7 +2355,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   finishDurationValText: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -2226,147 +2378,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  voiceLoggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#0B2238',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#0284C740',
-    marginRight: 4,
-  },
-  voiceLoggerBtnText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  painAdaptorBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#78350F25',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F59E0B40',
-    marginRight: 4,
-  },
-  painAdaptorBtnText: {
-    color: '#F59E0B',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  exerciseHeaderCard: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  exerciseTitleTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  exerciseHeaderTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
-    flex: 1,
-    lineHeight: 25,
-  },
-  exerciseActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  infoPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  infoPillBtnText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  /* ── AI Suggestion Chip / Card ── */
-  aiSuggestionCard: {
-    backgroundColor: '#0F1E2E',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#38BDF835',
-    gap: 6,
-    marginTop: 4,
-  },
-  aiSuggestionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  aiSuggestionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  aiSuggestionBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  aiSuggestionSubTitle: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  aiSuggestionMessage: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  aiApplyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  aiApplyBtnText: {
-    color: '#0F172A',
-    fontSize: 11,
-    fontWeight: '800',
-  },
   /* ── Finish Modal AI Performance Card ── */
   finishAiPerformanceCard: {
     width: '100%',
-    backgroundColor: '#091A2B',
+    backgroundColor: '#27272A',
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#38BDF840',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
     gap: 8,
     marginTop: 6,
   },
@@ -2379,13 +2398,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   finishAiBadgeText: {
-    color: '#38BDF8',
+    color: '#DDD6FE',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -2399,12 +2418,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   finishOverloadTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '800',
   },
   finishOverloadSub: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: '#A1A1AA',
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '500',
@@ -2415,7 +2434,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   finishAiMetaText: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: '#71717A',
     fontSize: 10,
     fontWeight: '500',
   },
