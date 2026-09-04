@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   Platform,
   Alert,
   KeyboardAvoidingView,
+  PanResponder,
+  Animated,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -210,6 +212,44 @@ export default function NutritionScreen() {
   const [macroCloserVisible, setMacroCloserVisible] = useState(false)
   const [macroCloserLoading, setMacroCloserLoading] = useState(false)
   const [macroCloserData, setMacroCloserData] = useState<any>(null)
+
+  // PanResponder for drag-down gesture to minimize food modal
+  const modalPanY = useRef(new Animated.Value(0)).current
+  const modalPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 8,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          modalPanY.setValue(gestureState.dy)
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 0.5) {
+          Animated.timing(modalPanY, {
+            toValue: 700,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            handleMinimizeModal()
+            modalPanY.setValue(0)
+          })
+        } else {
+          Animated.spring(modalPanY, {
+            toValue: 0,
+            bounciness: 4,
+            useNativeDriver: true,
+          }).start()
+        }
+      },
+    })
+  ).current
+
+  useEffect(() => {
+    if (modalVisible) {
+      modalPanY.setValue(0)
+    }
+  }, [modalVisible])
 
   // 1. Cargar borrador persistente de AsyncStorage al iniciar
   useEffect(() => {
@@ -1019,20 +1059,24 @@ export default function NutritionScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View
+          <Animated.View
             style={[
               styles.modalSheet,
-              modalTab === 'basic' && { height: '88%' },
-              { paddingBottom: Math.max(insets.bottom, 16) },
+              {
+                paddingBottom: Math.max(insets.bottom, 16),
+                transform: [{ translateY: modalPanY }],
+              },
             ]}
           >
-            <View style={styles.modalHandle} />
+            {/* Gesture Handle Touch Zone (Drag down to minimize) */}
+            <View {...modalPanResponder.panHandlers} style={styles.modalHandleTouchZone}>
+              <View style={styles.modalHandle} />
+            </View>
 
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {getMealIcon(modalMealType, 16, '#38BDF8')}
                   <Text style={styles.modalTitle}>
                     {editingFoodLogId
                       ? `Editar ${mealLabel[modalMealType]}`
@@ -1045,15 +1089,21 @@ export default function NutritionScreen() {
                       : mealLabel[modalMealType]}
                   </Text>
                 </View>
-                {modalTab !== 'ai' && (
-                  <TouchableOpacity
-                    onPress={() => setModalTab('ai')}
-                    style={styles.backToAiHeaderBtn}
-                    activeOpacity={0.7}
-                  >
-                    <ChevronLeft size={14} color="#A1A1AA" />
-                    <Text style={styles.backToAiHeaderText}>Volver a Entrada IA</Text>
-                  </TouchableOpacity>
+                {modalTab === 'plate' ? (
+                  <Text style={styles.modalHeaderSubtitle}>
+                    {results.length} {results.length === 1 ? 'ingrediente' : 'ingredientes'} · {results.reduce((s, r) => s + (r.calories || 0), 0)} kcal
+                  </Text>
+                ) : (
+                  modalTab !== 'ai' && (
+                    <TouchableOpacity
+                      onPress={() => setModalTab('ai')}
+                      style={styles.backToAiHeaderBtn}
+                      activeOpacity={0.7}
+                    >
+                      <ChevronLeft size={14} color="#A1A1AA" />
+                      <Text style={styles.backToAiHeaderText}>Volver a Entrada IA</Text>
+                    </TouchableOpacity>
+                  )
                 )}
               </View>
 
@@ -1074,7 +1124,7 @@ export default function NutritionScreen() {
                   style={styles.closeBtn}
                   activeOpacity={0.7}
                 >
-                  <X size={18} color="rgba(255,255,255,0.6)" />
+                  <X size={18} color="rgba(255,255,255,0.7)" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1133,7 +1183,7 @@ export default function NutritionScreen() {
                 style={[
                   styles.modalSubTab,
                   modalTab === 'plate' && styles.modalSubTabActive,
-                  results.length > 0 && styles.modalSubTabHighlight,
+                  results.length > 0 && modalTab !== 'plate' && styles.modalSubTabHighlight,
                 ]}
                 onPress={() => setModalTab('plate')}
                 activeOpacity={0.8}
@@ -1142,10 +1192,10 @@ export default function NutritionScreen() {
                   style={[
                     styles.modalSubTabTitle,
                     modalTab === 'plate' && styles.modalSubTabTitleActive,
-                    results.length > 0 && { color: '#38BDF8', fontWeight: '900' },
+                    modalTab !== 'plate' && results.length > 0 && { color: '#38BDF8', fontWeight: '900' },
                   ]}
                 >
-                  📋 Plato ({results.length})
+                  Plato ({results.length})
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1465,12 +1515,12 @@ export default function NutritionScreen() {
               </ScrollView>
             )}
 
-            {/* ── TAB 3: Revisión del Plato Actual (Mi Plato con Edición Libre de Gramos) ── */}
+            {/* ── TAB 3: Revisión del Plato Actual (Mi Plato Rediseñado) ── */}
             {modalTab === 'plate' && (
               <ScrollView
                 style={styles.modalBody}
                 contentContainerStyle={styles.modalBodyContent}
-                showsVerticalScrollIndicator={true}
+                showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
                 {results.length === 0 ? (
@@ -1478,7 +1528,7 @@ export default function NutritionScreen() {
                     <Utensils size={36} color="rgba(255,255,255,0.2)" />
                     <Text style={styles.emptyPlateTitle}>Tu plato está vacío</Text>
                     <Text style={styles.emptyPlateSub}>
-                      Elige frutas, carnes o carbohidratos desde '🍎 Básicos', usa '🍱 Tupper' o el '📸 Escáner'.
+                      Elige alimentos desde '🍎 Básicos', usa '🍱 Tupper' o el '📸 Escáner'.
                     </Text>
                     <TouchableOpacity
                       style={styles.emptyPlateActionBtn}
@@ -1490,101 +1540,73 @@ export default function NutritionScreen() {
                   </View>
                 ) : (
                   <>
-                    <View style={styles.resultHeader}>
-                      <View>
-                        <Text style={styles.resultSub}>
-                          {editingFoodLogId ? 'EDITANDO COMIDA REGISTRADA' : 'ALIMENTOS EN TU PLATO'}
-                        </Text>
-                        <Text style={styles.resultCountSub}>
-                          {results.length} {results.length === 1 ? 'ingrediente' : 'ingredientes'}
-                        </Text>
-                      </View>
-                      <Text style={styles.resultCalories}>
-                        {results.reduce((s, r) => s + (r.calories || 0), 0)} kcal
+                    <View style={styles.resultSectionTitleRow}>
+                      <Text style={styles.resultSectionTitle}>
+                        {editingFoodLogId ? 'EDITANDO COMIDA REGISTRADA' : 'ALIMENTOS EN TU PLATO'}
                       </Text>
                     </View>
 
-                    {/* Result Items with Interactive Portion Controls */}
+                    {/* Result Items List with Card design based on Image 2 reference */}
                     <View style={styles.resultItemsList}>
                       {results.map((f, i) => (
-                        <View key={i} style={styles.resultItemCard}>
-                          <View style={styles.resultItemRow}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
-                              <Text style={styles.resultItemName}>{f.name}</Text>
-                              <Text style={styles.resultItemMacros}>
-                                P: {f.protein_g || 0}g · C: {f.carbs_g || 0}g · G: {f.fat_g || 0}g
-                              </Text>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <Text style={styles.resultItemCals}>{f.calories || 0} kcal</Text>
-                            </View>
+                        <View key={i} style={styles.plateItemCard}>
+                          {/* Left Column: Title, Calories, Macros */}
+                          <View style={styles.plateItemLeftCol}>
+                            <Text style={styles.plateItemName} numberOfLines={2}>
+                              {f.name}
+                            </Text>
+                            <Text style={styles.plateItemCals}>{f.calories || 0} kcal</Text>
+                            <Text style={styles.plateItemMacros}>
+                              P: {(f.protein_g || 0).toFixed(1)}g  C: {(f.carbs_g || 0).toFixed(1)}g  G: {(f.fat_g || 0).toFixed(1)}g
+                            </Text>
                           </View>
 
-                          {/* Portion Controls: Direct Editable Grams Input + Quick Buttons */}
-                          <View style={styles.portionControlRow}>
-                            <TouchableOpacity
-                              style={styles.removeItemBtn}
-                              onPress={() => handleRemoveItem(i)}
-                              activeOpacity={0.7}
-                            >
-                              <Trash2 size={13} color="#EF4444" />
-                              <Text style={styles.removeItemText}>Quitar</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.portionButtonGroup}>
+                          {/* Right Column: Stepper Capsule & Quitar Button */}
+                          <View style={styles.plateItemRightCol}>
+                            {/* Stepper Capsule */}
+                            <View style={styles.plateStepperPill}>
                               <TouchableOpacity
-                                style={styles.portionBtn}
+                                style={styles.plateStepBtn}
                                 onPress={() => updateItemGrams(i, (f.quantity_g || 100) - 25)}
+                                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                                 activeOpacity={0.7}
                               >
-                                <Minus size={13} color="#FFFFFF" />
+                                <Minus size={13} color="#D4D4D8" />
                               </TouchableOpacity>
 
-                              {/* Direct Editable Grams Input Container */}
-                              <View style={styles.portionGramInputBox}>
+                              <View style={styles.plateGramInputBox}>
                                 <TextInput
-                                  style={styles.portionGramTextInput}
+                                  style={styles.plateGramTextInput}
                                   value={f.quantity_g !== undefined ? String(f.quantity_g) : '100'}
                                   onChangeText={(txt) => handleGramsTextChange(i, txt)}
                                   keyboardType="numeric"
                                   selectTextOnFocus
                                 />
-                                <Text style={styles.portionGramUnitLabel}>g</Text>
+                                <Text style={styles.plateGramUnitLabel}>g</Text>
                               </View>
 
                               <TouchableOpacity
-                                style={styles.portionBtn}
+                                style={styles.plateStepBtn}
                                 onPress={() => updateItemGrams(i, (f.quantity_g || 100) + 25)}
+                                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                                 activeOpacity={0.7}
                               >
-                                <Plus size={13} color="#FFFFFF" />
+                                <Plus size={13} color="#D4D4D8" />
                               </TouchableOpacity>
                             </View>
+
+                            {/* Trash / Quitar action */}
+                            <TouchableOpacity
+                              style={styles.plateRemoveBtn}
+                              onPress={() => handleRemoveItem(i)}
+                              activeOpacity={0.7}
+                            >
+                              <Trash2 size={12} color="#F87171" style={{ marginRight: 3 }} />
+                              <Text style={styles.plateRemoveText}>Quitar</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
                       ))}
-                    </View>
-
-                    {/* Macro Summary Grid */}
-                    <View style={styles.resultMacroGrid}>
-                      <View style={styles.resultMacroBox}>
-                        <Text style={[styles.resultMacroVal, { color: '#38BDF8' }]}>
-                          {results.reduce((s, r) => s + (r.protein_g || 0), 0).toFixed(1)}g
-                        </Text>
-                        <Text style={styles.resultMacroLabel}>Proteína</Text>
-                      </View>
-                      <View style={styles.resultMacroBox}>
-                        <Text style={[styles.resultMacroVal, { color: '#FBBF24' }]}>
-                          {results.reduce((s, r) => s + (r.carbs_g || 0), 0).toFixed(1)}g
-                        </Text>
-                        <Text style={styles.resultMacroLabel}>Carbos</Text>
-                      </View>
-                      <View style={styles.resultMacroBox}>
-                        <Text style={[styles.resultMacroVal, { color: '#F472B6' }]}>
-                          {results.reduce((s, r) => s + (r.fat_g || 0), 0).toFixed(1)}g
-                        </Text>
-                        <Text style={styles.resultMacroLabel}>Grasas</Text>
-                      </View>
                     </View>
 
                     {/* Quick Add More Foods Buttons */}
@@ -1594,46 +1616,60 @@ export default function NutritionScreen() {
                         onPress={() => setModalTab('basic')}
                         activeOpacity={0.8}
                       >
-                        <Plus size={14} color="#38BDF8" />
+                        <Plus size={13} color="#38BDF8" />
                         <Text style={styles.addMoreFoodsText}>Añadir Básico</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.addMoreFoodsBtn, { borderColor: '#A78BFA40', backgroundColor: 'rgba(167, 139, 250, 0.08)' }]}
+                        style={[styles.addMoreFoodsBtn, { borderColor: 'rgba(167, 139, 250, 0.3)', backgroundColor: 'rgba(167, 139, 250, 0.08)' }]}
                         onPress={() => setModalTab('frequent')}
                         activeOpacity={0.8}
                       >
-                        <Utensils size={14} color="#A78BFA" />
-                        <Text style={[styles.addMoreFoodsText, { color: '#A78BFA' }]}>De Tupper / Frecuentes</Text>
+                        <Utensils size={13} color="#A78BFA" />
+                        <Text style={[styles.addMoreFoodsText, { color: '#A78BFA' }]}>De Tupper</Text>
                       </TouchableOpacity>
                     </View>
 
-                    {/* Actions */}
-                    <View style={styles.resultActionsRow}>
-                      <TouchableOpacity
-                        style={styles.discardBtn}
-                        onPress={handleConfirmDiscardDraft}
-                      >
-                        <Text style={styles.discardBtnText}>
-                          {editingFoodLogId ? 'Cancelar' : 'Descartar'}
+                    {/* Macro Summary Row (3 Columns) */}
+                    <View style={styles.plateMacroSummaryRow}>
+                      <View style={styles.plateMacroCol}>
+                        <Text style={styles.plateMacroVal}>
+                          {results.reduce((s, r) => s + (r.protein_g || 0), 0).toFixed(0)}g
                         </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.saveMealBtn, editingFoodLogId && { backgroundColor: '#10B981' }]}
-                        onPress={handleSaveMeal}
-                        disabled={saving}
-                      >
-                        {saving ? (
-                          <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                          <Text style={styles.saveMealBtnText}>
-                            {editingFoodLogId
-                              ? `💾 GUARDAR CAMBIOS (${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal)`
-                              : `GUARDAR COMIDA (${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal)`}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
+                        <Text style={styles.plateMacroLabel}>Proteína</Text>
+                      </View>
+                      <View style={styles.plateMacroCol}>
+                        <Text style={styles.plateMacroVal}>
+                          {results.reduce((s, r) => s + (r.carbs_g || 0), 0).toFixed(0)}g
+                        </Text>
+                        <Text style={styles.plateMacroLabel}>Carbos</Text>
+                      </View>
+                      <View style={styles.plateMacroCol}>
+                        <Text style={styles.plateMacroVal}>
+                          {results.reduce((s, r) => s + (r.fat_g || 0), 0).toFixed(0)}g
+                        </Text>
+                        <Text style={styles.plateMacroLabel}>Grasas</Text>
+                      </View>
                     </View>
+
+                    {/* Main Confirm & Save Button (White High-Contrast Pill) */}
+                    <TouchableOpacity
+                      style={[styles.plateConfirmBtn, saving && { opacity: 0.65 }]}
+                      onPress={handleSaveMeal}
+                      disabled={saving}
+                      activeOpacity={0.9}
+                    >
+                      {saving ? (
+                        <ActivityIndicator color="#09090B" />
+                      ) : (
+                        <>
+                          <Check size={18} color="#09090B" strokeWidth={2.8} />
+                          <Text style={styles.plateConfirmBtnText}>
+                            {editingFoodLogId ? 'CONFIRMAR Y GUARDAR CAMBIOS' : 'CONFIRMAR Y REGISTRAR PLATO'}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </>
                 )}
               </ScrollView>
@@ -1657,7 +1693,7 @@ export default function NutritionScreen() {
                 </View>
               </TouchableOpacity>
             )}
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2224,22 +2260,27 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#121212',
+    backgroundColor: '#121214',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 22,
+    paddingHorizontal: 18,
+    paddingTop: 6,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    maxHeight: '92%',
+    borderColor: '#27272A',
+    height: '93%',
+    maxHeight: '94%',
     flex: 1,
   },
+  modalHandleTouchZone: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
   modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+    width: 44,
+    height: 5,
+    backgroundColor: '#3F3F46',
+    borderRadius: 3,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2248,8 +2289,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalHeaderSubtitle: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '600',
     marginTop: 2,
   },
   modalHeaderActions: {
@@ -2274,15 +2316,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
+    color: '#FAFAFA',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#1C1C1C',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3215,6 +3260,163 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
   },
+  resultSectionTitleRow: {
+    marginBottom: 12,
+  },
+  resultSectionTitle: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  plateItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  plateItemLeftCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  plateItemName: {
+    color: '#FAFAFA',
+    fontSize: 14.5,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  plateItemCals: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  plateItemMacros: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  plateItemRightCol: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  plateStepperPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27272A',
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  plateStepBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  plateGramInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  plateGramTextInput: {
+    color: '#FAFAFA',
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    minWidth: 30,
+    padding: 0,
+  },
+  plateGramUnitLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11.5,
+    fontWeight: '600',
+    marginLeft: 1,
+  },
+  plateRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  plateRemoveText: {
+    color: '#F87171',
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  addMoreFoodsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderRadius: 14,
+    paddingVertical: 11,
+  },
+  addMoreFoodsText: {
+    color: '#38BDF8',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  plateMacroSummaryRow: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 14,
+    marginBottom: 18,
+  },
+  plateMacroCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  plateMacroVal: {
+    color: '#FAFAFA',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  plateMacroLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  plateConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 26,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 20,
+  },
+  plateConfirmBtnText: {
+    color: '#09090B',
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
   removeItemBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3228,23 +3430,6 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 11,
     fontWeight: '700',
-  },
-  addMoreFoodsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-    borderRadius: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
-  },
-  addMoreFoodsText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '800',
   },
   plateQuickStickyBar: {
     flexDirection: 'row',
