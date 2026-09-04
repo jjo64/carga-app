@@ -1860,6 +1860,16 @@ export default function ProfileScreen() {
                   Notificaciones
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.settingsSegmentedBtn, activeSettingsSection === 'preferences' && styles.settingsSegmentedBtnActive]}
+                onPress={() => setActiveSettingsSection('preferences')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.settingsSegmentedBtnText, activeSettingsSection === 'preferences' && styles.settingsSegmentedBtnTextActive]}>
+                  Preferencias
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.settingsScrollView} contentContainerStyle={{ paddingBottom: 24 }}>
@@ -2078,24 +2088,25 @@ export default function ProfileScreen() {
 
               {/* SECTION 2: CUENTA & SEGURIDAD */}
               {activeSettingsSection === 'account' && (
-                <View style={[styles.settingsCardSection, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}>
+                <View style={styles.settingsCardSection}>
                   <Text style={styles.settingsSectionTitle}>GESTIÓN DE CUENTA</Text>
 
                   {/* Change Username */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>CAMBIAR NOMBRE DE USUARIO</Text>
+                    <Text style={styles.inputLabel}>NOMBRE DE USUARIO</Text>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TextInput
-                        style={[styles.regularInput, { flex: 1, color: colors.text }]}
+                        style={[styles.regularInput, { flex: 1 }]}
                         value={newUsername}
                         onChangeText={setNewUsername}
                         placeholder="Nuevo nombre"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        placeholderTextColor="#52525B"
                       />
                       <TouchableOpacity
                         style={styles.smallActionBtn}
                         onPress={handleUpdateUsername}
                         disabled={updatingAccount}
+                        activeOpacity={0.8}
                       >
                         <Text style={styles.smallActionBtnText}>Guardar</Text>
                       </TouchableOpacity>
@@ -2104,21 +2115,22 @@ export default function ProfileScreen() {
 
                   {/* Change Email */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>CAMBIAR EMAIL</Text>
+                    <Text style={styles.inputLabel}>CORREO ELECTRÓNICO</Text>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TextInput
-                        style={[styles.regularInput, { flex: 1, color: colors.text }]}
+                        style={[styles.regularInput, { flex: 1 }]}
                         value={newEmail}
                         onChangeText={setNewEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         placeholder="nuevo@email.com"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        placeholderTextColor="#52525B"
                       />
                       <TouchableOpacity
                         style={styles.smallActionBtn}
                         onPress={handleUpdateEmail}
                         disabled={updatingAccount}
+                        activeOpacity={0.8}
                       >
                         <Text style={styles.smallActionBtnText}>Actualizar</Text>
                       </TouchableOpacity>
@@ -2127,27 +2139,28 @@ export default function ProfileScreen() {
 
                   {/* Update Password */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>ACTUALIZAR CONTRASEÑA</Text>
+                    <Text style={styles.inputLabel}>SEGURIDAD & CONTRASEÑA</Text>
                     <TextInput
-                      style={[styles.regularInput, { color: colors.text, marginBottom: 8 }]}
+                      style={[styles.regularInput, { marginBottom: 8 }]}
                       value={newPassword}
                       onChangeText={setNewPassword}
                       secureTextEntry
                       placeholder="Nueva contraseña (mín. 6 caracteres)"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      placeholderTextColor="#52525B"
                     />
                     <TextInput
-                      style={[styles.regularInput, { color: colors.text, marginBottom: 8 }]}
+                      style={[styles.regularInput, { marginBottom: 12 }]}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       secureTextEntry
                       placeholder="Confirmar nueva contraseña"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      placeholderTextColor="#52525B"
                     />
                     <TouchableOpacity
-                      style={[styles.saveProfileBtn, { marginTop: 0 }]}
+                      style={styles.saveProfileBtn}
                       onPress={handleUpdatePassword}
                       disabled={updatingAccount}
+                      activeOpacity={0.85}
                     >
                       <Text style={styles.saveProfileBtnText}>CAMBIAR CONTRASEÑA</Text>
                     </TouchableOpacity>
@@ -2157,58 +2170,58 @@ export default function ProfileScreen() {
 
               {/* SECTION 3: NOTIFICACIONES */}
               {activeSettingsSection === 'notifications' && (
-                <View style={[styles.settingsCardSection, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}>
+                <View style={styles.settingsCardSection}>
                   <Text style={styles.settingsSectionTitle}>RECORDATORIOS Y ALERTAS</Text>
 
                   <View style={styles.notificationToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.notifTitle, { color: colors.text }]}>Recordatorio de Entrenamiento</Text>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={styles.notifTitle}>Recordatorio de Entrenamiento</Text>
                       <Text style={styles.notifDesc}>Notificación diaria para mantener tu racha</Text>
                     </View>
                     <Switch
                       value={workoutReminders}
                       onValueChange={setWorkoutReminders}
-                      trackColor={{ false: '#333333', true: '#0284C7' }}
-                      thumbColor={workoutReminders ? '#38BDF8' : '#888888'}
+                      trackColor={{ false: '#27272A', true: '#FAFAFA' }}
+                      thumbColor={workoutReminders ? '#09090B' : '#71717A'}
                     />
                   </View>
 
                   <View style={styles.notificationToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.notifTitle, { color: colors.text }]}>Recordatorio de Comidas</Text>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={styles.notifTitle}>Recordatorio de Comidas</Text>
                       <Text style={styles.notifDesc}>Alertas para registrar tus comidas diarias</Text>
                     </View>
                     <Switch
                       value={mealReminders}
                       onValueChange={setMealReminders}
-                      trackColor={{ false: '#333333', true: '#0284C7' }}
-                      thumbColor={mealReminders ? '#38BDF8' : '#888888'}
+                      trackColor={{ false: '#27272A', true: '#FAFAFA' }}
+                      thumbColor={mealReminders ? '#09090B' : '#71717A'}
                     />
                   </View>
 
                   <View style={styles.notificationToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.notifTitle, { color: colors.text }]}>Recordatorio de Hidratación</Text>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={styles.notifTitle}>Recordatorio de Hidratación</Text>
                       <Text style={styles.notifDesc}>Recordatorio para beber agua durante el día</Text>
                     </View>
                     <Switch
                       value={waterReminders}
                       onValueChange={setWaterReminders}
-                      trackColor={{ false: '#333333', true: '#0284C7' }}
-                      thumbColor={waterReminders ? '#38BDF8' : '#888888'}
+                      trackColor={{ false: '#27272A', true: '#FAFAFA' }}
+                      thumbColor={waterReminders ? '#09090B' : '#71717A'}
                     />
                   </View>
 
-                  <View style={styles.notificationToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.notifTitle, { color: colors.text }]}>Resumen Semanal de Progreso</Text>
+                  <View style={[styles.notificationToggleRow, { borderBottomWidth: 0 }]}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={styles.notifTitle}>Resumen Semanal de Progreso</Text>
                       <Text style={styles.notifDesc}>Informe de volumen y récords cada domingo</Text>
                     </View>
                     <Switch
                       value={weeklySummary}
                       onValueChange={setWeeklySummary}
-                      trackColor={{ false: '#333333', true: '#0284C7' }}
-                      thumbColor={weeklySummary ? '#38BDF8' : '#888888'}
+                      trackColor={{ false: '#27272A', true: '#FAFAFA' }}
+                      thumbColor={weeklySummary ? '#09090B' : '#71717A'}
                     />
                   </View>
                 </View>
@@ -2216,26 +2229,28 @@ export default function ProfileScreen() {
 
               {/* SECTION 4: PREFERENCIAS (Idioma, Tema, Exportar/Importar) */}
               {activeSettingsSection === 'preferences' && (
-                <View style={[styles.settingsCardSection, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}>
-                  <Text style={styles.settingsSectionTitle}>APARIENCIA & DATOS</Text>
+                <View style={styles.settingsCardSection}>
+                  <Text style={styles.settingsSectionTitle}>APARIENCIA & SISTEMA</Text>
 
                   {/* Theme Selector */}
                   <View style={styles.preferenceRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      {isDark ? <Moon size={20} color="#38BDF8" /> : <Sun size={20} color="#F59E0B" />}
-                      <Text style={[styles.preferenceLabel, { color: colors.text }]}>Tema de la Aplicación</Text>
+                      {isDark ? <Moon size={18} color="#FAFAFA" /> : <Sun size={18} color="#FAFAFA" />}
+                      <Text style={styles.preferenceLabel}>Tema de la Aplicación</Text>
                     </View>
 
                     <View style={styles.themeToggleRow}>
                       <TouchableOpacity
                         style={[styles.themePillBtn, isDark && styles.themePillBtnActive]}
                         onPress={() => setMode('dark')}
+                        activeOpacity={0.8}
                       >
                         <Text style={[styles.themePillText, isDark && styles.themePillTextActive]}>Oscuro</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.themePillBtn, !isDark && styles.themePillBtnActive]}
                         onPress={() => setMode('light')}
+                        activeOpacity={0.8}
                       >
                         <Text style={[styles.themePillText, !isDark && styles.themePillTextActive]}>Claro</Text>
                       </TouchableOpacity>
@@ -2249,16 +2264,19 @@ export default function ProfileScreen() {
                       setShowSettingsModal(false)
                       setShowLanguageModal(true)
                     }}
+                    activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Globe size={20} color="#38BDF8" strokeWidth={2} />
-                      <Text style={[styles.settingsItemText, { color: colors.text }]}>{t('change_language')}</Text>
+                      <View style={styles.settingsItemIconBox}>
+                        <Globe size={18} color="#FAFAFA" strokeWidth={2} />
+                      </View>
+                      <Text style={styles.settingsItemText}>{t('change_language') || 'Idioma de la App'}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text style={{ fontSize: 16 }}>
                         {SUPPORTED_LANGUAGES.find((l) => l.code === language)?.flag || '🇪🇸'}
                       </Text>
-                      <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
+                      <ChevronRight size={16} color="#71717A" />
                     </View>
                   </TouchableOpacity>
 
@@ -2266,12 +2284,15 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     style={styles.settingsItemBtn}
                     onPress={handleExportData}
+                    activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Download size={20} color="#10B981" strokeWidth={2} />
-                      <Text style={[styles.settingsItemText, { color: colors.text }]}>Exportar datos (JSON)</Text>
+                      <View style={styles.settingsItemIconBox}>
+                        <Download size={18} color="#FAFAFA" strokeWidth={2} />
+                      </View>
+                      <Text style={styles.settingsItemText}>Exportar datos de entrenamiento</Text>
                     </View>
-                    <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
+                    <ChevronRight size={16} color="#71717A" />
                   </TouchableOpacity>
 
                   {/* Import App Data */}
@@ -2281,25 +2302,31 @@ export default function ProfileScreen() {
                       setShowSettingsModal(false)
                       setShowImportModal(true)
                     }}
+                    activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Upload size={20} color="#F59E0B" strokeWidth={2} />
-                      <Text style={[styles.settingsItemText, { color: colors.text }]}>Importar datos (JSON)</Text>
+                      <View style={styles.settingsItemIconBox}>
+                        <Upload size={18} color="#FAFAFA" strokeWidth={2} />
+                      </View>
+                      <Text style={styles.settingsItemText}>Importar datos (JSON)</Text>
                     </View>
-                    <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
+                    <ChevronRight size={16} color="#71717A" />
                   </TouchableOpacity>
 
                   {/* Sign Out */}
                   <TouchableOpacity
-                    style={[styles.settingsItemBtn, { borderBottomWidth: 0, marginTop: 10 }]}
+                    style={[styles.settingsItemBtn, { borderBottomWidth: 0, marginTop: 8, paddingVertical: 10 }]}
                     onPress={() => {
                       setShowSettingsModal(false)
                       signOut()
                     }}
+                    activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <LogOut size={20} color="#EF4444" strokeWidth={2} />
-                      <Text style={styles.signOutText}>{t('sign_out')}</Text>
+                      <View style={[styles.settingsItemIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                        <LogOut size={18} color="#EF4444" strokeWidth={2} />
+                      </View>
+                      <Text style={styles.signOutText}>{t('sign_out') || 'Cerrar Sesión'}</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -2317,12 +2344,12 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowImportModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.modalSheet, { backgroundColor: '#09090B', borderColor: '#27272A' }]}>
             <View style={styles.modalHandle} />
             <View style={styles.settingsHeaderRow}>
-              <Text style={[styles.settingsTitle, { color: colors.text }]}>Importar Datos (JSON)</Text>
-              <TouchableOpacity onPress={() => setShowImportModal(false)}>
-                <X size={20} color="rgba(255,255,255,0.5)" />
+              <Text style={styles.settingsTitle}>Importar Datos (JSON)</Text>
+              <TouchableOpacity onPress={() => setShowImportModal(false)} style={styles.modalCloseIconBtn}>
+                <X size={20} color="#FAFAFA" />
               </TouchableOpacity>
             </View>
 
@@ -2331,12 +2358,12 @@ export default function ProfileScreen() {
             </Text>
 
             <TextInput
-              style={[styles.regularInput, { backgroundColor: colors.cardSubtle, color: colors.text, height: 160, textAlignVertical: 'top' }]}
+              style={[styles.regularInput, { height: 160, textAlignVertical: 'top', marginBottom: 16 }]}
               value={importJsonText}
               onChangeText={setImportJsonText}
               multiline
               placeholder='{"version": "1.0.0", "bodyMeasurements": [...]}'
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor="#52525B"
             />
 
             <TouchableOpacity
@@ -2358,9 +2385,14 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowLanguageModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { maxHeight: '80%', backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.modalSheet, { maxHeight: '80%', backgroundColor: '#09090B', borderColor: '#27272A' }]}>
             <View style={styles.modalHandle} />
-            <Text style={[styles.settingsTitle, { color: colors.text }]}>{t('change_language')}</Text>
+            <View style={styles.settingsHeaderRow}>
+              <Text style={styles.settingsTitle}>{t('change_language') || 'Seleccionar Idioma'}</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)} style={styles.modalCloseIconBtn}>
+                <X size={20} color="#FAFAFA" />
+              </TouchableOpacity>
+            </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 10 }}>
               {SUPPORTED_LANGUAGES.map((langItem) => {
@@ -2381,14 +2413,14 @@ export default function ProfileScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       <Text style={{ fontSize: 24 }}>{langItem.flag}</Text>
                       <View>
-                        <Text style={[styles.langLabelText, isSelected && { color: '#38BDF8', fontWeight: '700' }]}>
+                        <Text style={[styles.langLabelText, isSelected && { color: '#FAFAFA', fontWeight: '800' }]}>
                           {langItem.nameNative}
                         </Text>
                         <Text style={styles.langSubText}>{langItem.label}</Text>
                       </View>
                     </View>
 
-                    {isSelected && <Check size={18} color="#38BDF8" strokeWidth={2.5} />}
+                    {isSelected && <Check size={18} color="#FAFAFA" strokeWidth={2.5} />}
                   </TouchableOpacity>
                 )
               })}
@@ -2397,8 +2429,9 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.closeSettingsBtn}
               onPress={() => setShowLanguageModal(false)}
+              activeOpacity={0.85}
             >
-              <Text style={styles.closeSettingsBtnText}>{t('ready')}</Text>
+              <Text style={styles.closeSettingsBtnText}>{t('ready') || 'LISTO'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -3552,57 +3585,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272A',
   },
   preferenceLabel: {
+    color: '#FAFAFA',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   themeToggleRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 10,
+    backgroundColor: '#18181B',
+    borderRadius: 9999,
     padding: 3,
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   themePillBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 9999,
   },
   themePillBtnActive: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#FAFAFA',
   },
   themePillText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 12,
     fontWeight: '700',
   },
   themePillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '800',
+    color: '#09090B',
+    fontWeight: '900',
   },
   settingsItemBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: '#27272A',
+  },
+  settingsItemIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   settingsItemText: {
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#FAFAFA',
+    fontSize: 14,
+    fontWeight: '700',
   },
   signOutText: {
     color: '#EF4444',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   modalSubInstruction: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
+    color: '#71717A',
+    fontSize: 12.5,
     lineHeight: 18,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   languageOptionRow: {
     flexDirection: 'row',
@@ -3610,35 +3659,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: 'transparent',
-    marginBottom: 6,
+    borderRadius: 12,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 8,
   },
   languageOptionRowActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    backgroundColor: '#18181B',
+    borderWidth: 1.5,
+    borderColor: '#FAFAFA',
   },
   langLabelText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  langSubText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  closeSettingsBtn: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  closeSettingsBtnText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: '#FAFAFA',
     fontSize: 14,
     fontWeight: '700',
+  },
+  langSubText: {
+    color: '#71717A',
+    fontSize: 11.5,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  closeSettingsBtn: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  closeSettingsBtnText: {
+    color: '#09090B',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   // Calendar Modal Styles (matching reference screenshot)
   calendarModalContainer: {
