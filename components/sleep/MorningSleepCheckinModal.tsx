@@ -8,7 +8,17 @@ import {
   ScrollView,
   Platform,
 } from 'react-native'
-import { Moon, Sparkles, Sun, Check, X, Clock, Zap, Brain, ShieldAlert } from 'lucide-react-native'
+import {
+  Moon,
+  Sun,
+  Check,
+  X,
+  Frown,
+  Meh,
+  MinusCircle,
+  Smile,
+  Star,
+} from 'lucide-react-native'
 import { calculateSleepPhases, EstimatedNightSleep } from '@/lib/services/sleepService'
 
 interface Props {
@@ -26,13 +36,29 @@ interface Props {
   }) => void
 }
 
-const QUALITY_EMOJIS = [
-  { score: 1, label: 'Muy mal', emoji: '😫', color: '#EF4444' },
-  { score: 2, label: 'Cansado', emoji: '🥱', color: '#F59E0B' },
-  { score: 3, label: 'Normal', emoji: '😐', color: '#38BDF8' },
-  { score: 4, label: 'Bien', emoji: '😊', color: '#10B981' },
-  { score: 5, label: 'Excelente', emoji: '⚡', color: '#A855F7' },
+const QUALITY_OPTIONS = [
+  { score: 1, label: 'Muy mal', icon: Frown },
+  { score: 2, label: 'Cansado', icon: Meh },
+  { score: 3, label: 'Normal', icon: MinusCircle },
+  { score: 4, label: 'Bien', icon: Smile },
+  { score: 5, label: 'Excelente', icon: Star },
 ]
+
+const AWAKENINGS_OPTIONS = [
+  { val: 0, label: 'Ninguno (0)' },
+  { val: 1, label: '1 vez' },
+  { val: 2, label: '2 veces' },
+  { val: 3, label: '3 o más' },
+]
+
+const computeWakeTime = (bedtimeStr: string, totalMinutes: number) => {
+  const [bH, bM] = (bedtimeStr || '23:30').split(':').map((n) => parseInt(n, 10) || 0)
+  const totalM = bH * 60 + bM + totalMinutes
+  const normalizedM = ((totalM % 1440) + 1440) % 1440
+  const wH = Math.floor(normalizedM / 60)
+  const wM = normalizedM % 60
+  return `${String(wH).padStart(2, '0')}:${String(wM).padStart(2, '0')}`
+}
 
 export default function MorningSleepCheckinModal({
   visible,
@@ -41,7 +67,6 @@ export default function MorningSleepCheckinModal({
   onSave,
 }: Props) {
   const [bedtime, setBedtime] = useState(estimated?.bedtime || '23:30')
-  const [wakeTime, setWakeTime] = useState(estimated?.wakeTime || '07:30')
   const [durationMinutes, setDurationMinutes] = useState(estimated?.durationMinutes || 480)
   const [qualityScore, setQualityScore] = useState(4)
   const [awakeningsCount, setAwakeningsCount] = useState(0)
@@ -49,15 +74,16 @@ export default function MorningSleepCheckinModal({
   useEffect(() => {
     if (estimated) {
       setBedtime(estimated.bedtime)
-      setWakeTime(estimated.wakeTime)
       setDurationMinutes(estimated.durationMinutes)
     }
   }, [estimated])
 
+  const currentWakeTime = computeWakeTime(bedtime, durationMinutes)
   const phases = calculateSleepPhases(durationMinutes, qualityScore, awakeningsCount)
 
   const hours = Math.floor(durationMinutes / 60)
   const mins = durationMinutes % 60
+  const durationBigFormatted = mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
 
   const handleAdjustDuration = (deltaMins: number) => {
     setDurationMinutes((prev) => Math.max(180, Math.min(720, prev + deltaMins)))
@@ -66,7 +92,7 @@ export default function MorningSleepCheckinModal({
   const handleConfirm = () => {
     onSave({
       bedtime,
-      wakeTime,
+      wakeTime: currentWakeTime,
       durationMinutes,
       qualityScore,
       awakeningsCount,
@@ -81,46 +107,35 @@ export default function MorningSleepCheckinModal({
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <View style={styles.moonIconBox}>
-                <Moon size={18} color="#38BDF8" />
-              </View>
-              <View>
-                <Text style={styles.headerTitle}>Check-in de Sueño Matutino</Text>
-                <Text style={styles.headerSub}>
-                  {estimated ? 'Detectamos tu descanso aproximado' : 'Registra tu descanso de anoche'}
-                </Text>
-              </View>
+          {/* Top Crescent Icon & Close button */}
+          <View style={styles.topHeader}>
+            <View style={styles.topIconBox}>
+              <Moon size={20} color="#71717A" strokeWidth={2} />
             </View>
-
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color="rgba(255,255,255,0.6)" />
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <X size={18} color="#A1A1AA" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.body}>
+          {/* Title & Subtitle */}
+          <Text style={styles.headerTitle}>Check-in de Sueño Matutino</Text>
+          <Text style={styles.headerSub}>Registra tu descanso de anoche</Text>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Total Duration Card */}
             <View style={styles.durationCard}>
               <View style={styles.timeBadgeRow}>
-                <View style={styles.timeBadge}>
-                  <Moon size={13} color="#94A3B8" />
-                  <Text style={styles.timeBadgeText}>{bedtime}</Text>
-                </View>
-                <Text style={styles.arrowBetween}>➔</Text>
-                <View style={styles.timeBadge}>
-                  <Sun size={13} color="#FBBF24" />
-                  <Text style={styles.timeBadgeText}>{wakeTime}</Text>
-                </View>
+                <Moon size={15} color="#71717A" />
+                <Text style={styles.timeBadgeText}>
+                  {bedtime} → {currentWakeTime}
+                </Text>
+                <Sun size={15} color="#71717A" />
               </View>
 
-              <Text style={styles.bigHoursText}>
-                {hours}h {mins > 0 ? `${mins}m` : ''}
-              </Text>
+              <Text style={styles.bigHoursText}>{durationBigFormatted}</Text>
               <Text style={styles.totalSleepLabel}>TIEMPO TOTAL DE SUEÑO</Text>
 
-              {/* Adjust duration stepper buttons */}
+              {/* Adjust duration stepper pills */}
               <View style={styles.stepperRow}>
                 <TouchableOpacity
                   style={styles.stepBtn}
@@ -156,8 +171,9 @@ export default function MorningSleepCheckinModal({
             {/* Quality Score Selector */}
             <Text style={styles.sectionLabel}>¿CÓMO TE SIENTES AL DESPERTAR?</Text>
             <View style={styles.qualityRow}>
-              {QUALITY_EMOJIS.map((q) => {
+              {QUALITY_OPTIONS.map((q) => {
                 const isSelected = qualityScore === q.score
+                const IconComp = q.icon
                 return (
                   <TouchableOpacity
                     key={q.score}
@@ -165,8 +181,12 @@ export default function MorningSleepCheckinModal({
                     onPress={() => setQualityScore(q.score)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.qualityEmoji}>{q.emoji}</Text>
-                    <Text style={[styles.qualityText, isSelected && { color: '#FFFFFF', fontWeight: '800' }]}>
+                    <IconComp
+                      size={24}
+                      color={isSelected ? '#FAFAFA' : '#71717A'}
+                      strokeWidth={1.8}
+                    />
+                    <Text style={[styles.qualityText, isSelected && styles.qualityTextSelected]}>
                       {q.label}
                     </Text>
                   </TouchableOpacity>
@@ -177,12 +197,7 @@ export default function MorningSleepCheckinModal({
             {/* Awakenings Selector */}
             <Text style={styles.sectionLabel}>DESPERTARES NOCTURNOS</Text>
             <View style={styles.awakeningsRow}>
-              {[
-                { val: 0, label: 'Ninguno (0)' },
-                { val: 1, label: '1 vez' },
-                { val: 2, label: '2 veces' },
-                { val: 3, label: '3 o más' },
-              ].map((a) => {
+              {AWAKENINGS_OPTIONS.map((a) => {
                 const isSelected = awakeningsCount === a.val
                 return (
                   <TouchableOpacity
@@ -206,53 +221,43 @@ export default function MorningSleepCheckinModal({
 
             {/* Estimated Sleep Phases Breakdown Card */}
             <View style={styles.phasesCard}>
-              <View style={styles.phasesHeader}>
-                <Sparkles size={14} color="#38BDF8" />
-                <Text style={styles.phasesTitle}>ESTIMACIÓN DE FASES DE RECUPERACIÓN</Text>
-              </View>
+              <Text style={styles.phasesTitle}>ESTIMACIÓN DE FASES DE RECUPERACIÓN</Text>
 
               <View style={styles.phasesGrid}>
                 {/* Deep Sleep */}
-                <View style={styles.phaseItem}>
-                  <View style={styles.phaseIconRow}>
-                    <Zap size={14} color="#38BDF8" />
-                    <Text style={styles.phaseItemName}>Profundo</Text>
-                  </View>
-                  <Text style={[styles.phaseMinutes, { color: '#38BDF8' }]}>
-                    {Math.floor(phases.deep / 60)}h {phases.deep % 60}m
+                <View style={[styles.phaseCol, styles.phaseColBorder]}>
+                  <Text style={styles.phaseName}>Profundo</Text>
+                  <Text style={styles.phaseTime}>
+                    ({Math.floor(phases.deep / 60)}h {phases.deep % 60}m)
                   </Text>
-                  <Text style={styles.phaseDetail}>Reparación muscular (GH)</Text>
+                  <Text style={styles.phaseSub}>Reparación muscular (GH)</Text>
                 </View>
 
                 {/* REM Sleep */}
-                <View style={styles.phaseItem}>
-                  <View style={styles.phaseIconRow}>
-                    <Brain size={14} color="#A855F7" />
-                    <Text style={styles.phaseItemName}>REM</Text>
-                  </View>
-                  <Text style={[styles.phaseMinutes, { color: '#A855F7' }]}>
-                    {Math.floor(phases.rem / 60)}h {phases.rem % 60}m
+                <View style={[styles.phaseCol, styles.phaseColBorder]}>
+                  <Text style={styles.phaseName}>REM</Text>
+                  <Text style={styles.phaseTime}>
+                    ({Math.floor(phases.rem / 60)}h {phases.rem % 60}m)
                   </Text>
-                  <Text style={styles.phaseDetail}>Recuperación del SNC</Text>
+                  <Text style={styles.phaseSub}>Recuperación del SNC</Text>
                 </View>
 
                 {/* Light Sleep */}
-                <View style={styles.phaseItem}>
-                  <View style={styles.phaseIconRow}>
-                    <Clock size={14} color="#94A3B8" />
-                    <Text style={styles.phaseItemName}>Ligero</Text>
-                  </View>
-                  <Text style={[styles.phaseMinutes, { color: '#94A3B8' }]}>
-                    {Math.floor(phases.light / 60)}h {phases.light % 60}m
+                <View style={styles.phaseCol}>
+                  <Text style={styles.phaseName}>Ligero</Text>
+                  <Text style={styles.phaseTime}>
+                    ({Math.floor(phases.light / 60)}h {phases.light % 60}m)
                   </Text>
-                  <Text style={styles.phaseDetail}>Descanso basal</Text>
+                  <Text style={styles.phaseSub}>Descanso basal</Text>
                 </View>
               </View>
             </View>
 
-            {/* Save Button */}
-            <TouchableOpacity style={styles.saveBtn} onPress={handleConfirm} activeOpacity={0.85}>
-              <Check size={18} color="#0F172A" strokeWidth={3} />
+            {/* Save Confirmation Button */}
+            <TouchableOpacity style={styles.saveBtn} onPress={handleConfirm} activeOpacity={0.88}>
+              <Text style={styles.saveBtnPoints}>15/15</Text>
+              <View style={styles.saveBtnDivider} />
+              <Check size={17} color="#09090B" strokeWidth={2.5} />
               <Text style={styles.saveBtnText}>CONFIRMAR CHECK-IN DE SUEÑO</Text>
             </TouchableOpacity>
 
@@ -269,266 +274,272 @@ export default function MorningSleepCheckinModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#0F131D',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 22,
-    maxHeight: '90%',
+    backgroundColor: '#09090B',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    maxHeight: '92%',
     borderTopWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: '#27272A',
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#27272A',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  topHeader: {
     alignItems: 'center',
-    marginBottom: 18,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  moonIconBox: {
-    width: 36,
+    justifyContent: 'center',
+    position: 'relative',
     height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  topIconBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '900',
+    color: '#FAFAFA',
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 6,
+    letterSpacing: -0.3,
   },
   headerSub: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
-    marginTop: 2,
+    color: '#71717A',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 18,
+    fontWeight: '500',
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    flexGrow: 0,
+  scrollContent: {
+    paddingBottom: 20,
   },
   durationCard: {
-    backgroundColor: '#161B28',
+    backgroundColor: '#14151B',
     borderRadius: 20,
-    padding: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
   },
   timeBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    gap: 10,
+    marginBottom: 8,
   },
   timeBadgeText: {
-    color: '#E2E8F0',
-    fontSize: 12,
+    color: '#FAFAFA',
+    fontSize: 14,
     fontWeight: '700',
-  },
-  arrowBetween: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 12,
+    letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'],
   },
   bigHoursText: {
-    color: '#38BDF8',
-    fontSize: 34,
+    color: '#FAFAFA',
+    fontSize: 42,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   totalSleepLabel: {
-    color: 'rgba(255,255,255,0.35)',
+    color: '#71717A',
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1.5,
-    marginTop: 4,
-    marginBottom: 14,
+    marginTop: 2,
+    marginBottom: 16,
   },
   stepperRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
+    justifyContent: 'center',
+    width: '100%',
   },
   stepBtn: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: '#27272A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9999,
   },
   stepBtnText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
+    color: '#FAFAFA',
+    fontSize: 12,
     fontWeight: '700',
   },
   sectionLabel: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   qualityRow: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 18,
+    marginBottom: 22,
   },
   qualityBtn: {
     flex: 1,
-    backgroundColor: '#161B28',
     borderRadius: 14,
     paddingVertical: 10,
+    paddingHorizontal: 2,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    gap: 6,
   },
   qualityBtnSelected: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
-  },
-  qualityEmoji: {
-    fontSize: 22,
-    marginBottom: 4,
+    borderColor: '#FAFAFA',
+    backgroundColor: '#18181B',
   },
   qualityText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 10.5,
+    color: '#71717A',
+    fontSize: 11,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  qualityTextSelected: {
+    color: '#FAFAFA',
+    fontWeight: '800',
   },
   awakeningsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 18,
+    backgroundColor: '#18181B',
+    borderRadius: 9999,
+    padding: 3,
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   awakeningPill: {
     flex: 1,
-    backgroundColor: '#161B28',
-    borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    borderRadius: 9999,
   },
   awakeningPillSelected: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#FAFAFA',
   },
   awakeningPillText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11.5,
+    color: '#71717A',
+    fontSize: 12,
     fontWeight: '700',
   },
   awakeningPillTextSelected: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontWeight: '800',
   },
   phasesCard: {
-    backgroundColor: '#161B28',
+    backgroundColor: '#14151B',
     borderRadius: 18,
-    padding: 14,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  phasesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+    borderColor: '#27272A',
   },
   phasesTitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: '#71717A',
+    fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1.2,
+    marginBottom: 14,
+    textAlign: 'center',
   },
   phasesGrid: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'flex-start',
   },
-  phaseItem: {
+  phaseCol: {
     flex: 1,
-    backgroundColor: '#0F131D',
-    borderRadius: 12,
-    padding: 10,
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
-  phaseIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+  phaseColBorder: {
+    borderRightWidth: 1,
+    borderRightColor: '#27272A',
   },
-  phaseItemName: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
+  phaseName: {
+    color: '#A1A1AA',
+    fontSize: 12,
     fontWeight: '700',
-  },
-  phaseMinutes: {
-    fontSize: 14,
-    fontWeight: '900',
     marginBottom: 2,
   },
-  phaseDetail: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 9,
+  phaseTime: {
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  phaseSub: {
+    color: '#71717A',
+    fontSize: 9.5,
     textAlign: 'center',
+    lineHeight: 13,
+    fontWeight: '500',
   },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#38BDF8',
-    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
     paddingVertical: 14,
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  saveBtnText: {
-    color: '#0F172A',
+  saveBtnPoints: {
+    color: '#09090B',
     fontSize: 13.5,
     fontWeight: '900',
-    letterSpacing: 1,
+    fontVariant: ['tabular-nums'],
+  },
+  saveBtnDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    marginHorizontal: 2,
+  },
+  saveBtnText: {
+    color: '#09090B',
+    fontSize: 12.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   skipBtn: {
     alignItems: 'center',
     paddingVertical: 8,
-    marginBottom: Platform.OS === 'ios' ? 24 : 10,
+    marginBottom: 8,
   },
   skipBtnText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
+    color: '#71717A',
+    fontSize: 13,
     fontWeight: '600',
   },
 })
