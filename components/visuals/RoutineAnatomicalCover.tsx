@@ -280,12 +280,12 @@ export default function RoutineAnatomicalCover({
 
   const isActive = (muscle: string) => activeMuscles.has(muscle)
 
-  // Color functions: Vivid Red (#EF4444) if active in routine, dark steel (#27272A) if inactive
-  const getFill = (muscle: string) => (isActive(muscle) ? 'url(#activeMuscleRed)' : '#27272A')
-  const getStroke = (muscle: string) => (isActive(muscle) ? '#F87171' : 'rgba(255,255,255,0.06)')
-  const getStrokeWidth = (muscle: string) => (isActive(muscle) ? 1.2 : 0.4)
+  // Color functions: Soft lavender (#C4B5FD) if active in routine, dark steel (#27272A) if inactive
+  const getFill = (muscle: string) => (isActive(muscle) ? 'url(#activeMuscleHeat)' : '#27272A')
+  const getStroke = (muscle: string) => (isActive(muscle) ? '#DDD6FE' : 'rgba(255,255,255,0.06)')
+  const getStrokeWidth = (muscle: string) => (isActive(muscle) ? 0.9 : 0.4)
 
-  const svgHeight = showBadge ? height - 20 : height
+  const svgHeight = showBadge ? height - 24 : height
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -295,10 +295,10 @@ export default function RoutineAnatomicalCover({
         viewBox={primaryView === 'front' ? '0 95 727 1280' : '718 95 727 1280'}
       >
         <Defs>
-          {/* Active Red Intensity Gradient */}
-          <LinearGradient id="activeMuscleRed" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#EF4444" />
-            <Stop offset="100%" stopColor="#B91C1C" />
+          {/* Active Subtle Lavender Heat Gradient */}
+          <LinearGradient id="activeMuscleHeat" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#DDD6FE" />
+            <Stop offset="100%" stopColor="#A78BFA" />
           </LinearGradient>
         </Defs>
 
@@ -549,22 +549,22 @@ const styles = StyleSheet.create({
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   musclePill: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#18181B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderColor: '#27272A',
   },
   musclePillText: {
-    color: '#EF4444',
-    fontSize: 9,
-    fontWeight: '800',
+    color: '#A1A1AA',
+    fontSize: 10,
+    fontWeight: '600',
   },
 })

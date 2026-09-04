@@ -14,9 +14,7 @@ import {
   Plus,
   Search,
   Sparkles,
-  Play,
-  Clock,
-  MoreVertical,
+  MoreHorizontal,
   Edit3,
   Trash2,
   Calendar,
@@ -103,50 +101,48 @@ export default function WorkoutScreen() {
       {/* ── Top Header Section ── */}
       <View style={styles.topSection}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.screenTitle}>{t('routines_title')}</Text>
-          </View>
+          <Text style={styles.screenTitle}>Rutinas</Text>
 
           <View style={styles.topActionsRow}>
             {/* Reorder Button */}
             {routines.length > 1 && (
               <TouchableOpacity
-                style={[styles.reorderToggleBtn, isReordering && styles.reorderToggleBtnActive]}
+                style={styles.headerIconBtn}
                 onPress={() => setIsReordering((prev) => !prev)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
                 {isReordering ? (
-                  <Check color="#38BDF8" size={18} strokeWidth={2.5} />
+                  <Check color="#38BDF8" size={22} strokeWidth={2.5} />
                 ) : (
-                  <ArrowUpDown color="rgba(255,255,255,0.7)" size={18} strokeWidth={2} />
+                  <ArrowUpDown color="#FAFAFA" size={22} strokeWidth={1.75} />
                 )}
               </TouchableOpacity>
             )}
 
             {/* Search across exercises */}
             <TouchableOpacity
-              style={styles.searchIconBtn}
+              style={styles.headerIconBtn}
               onPress={() => setShowSearchModal(true)}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
-              <Search color="rgba(255,255,255,0.7)" size={20} strokeWidth={2} />
+              <Search color="#FAFAFA" size={22} strokeWidth={1.75} />
             </TouchableOpacity>
 
             {/* "+" Button to open Create Routine Modal */}
             <TouchableOpacity
-              style={styles.addRoutineBtn}
+              style={styles.headerIconBtn}
               onPress={() => {
                 setEditingRoutine(null)
                 setShowCreateRoutineModal(true)
               }}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
-              <Plus color="#FFFFFF" size={20} strokeWidth={2.5} />
+              <Plus color="#FAFAFA" size={26} strokeWidth={1.75} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Custom AI Routine Banner -> Opens Create Routine Modal */}
+        {/* Custom AI Routine Pill Button */}
         <TouchableOpacity
           style={styles.aiBanner}
           onPress={() => {
@@ -155,8 +151,8 @@ export default function WorkoutScreen() {
           }}
           activeOpacity={0.85}
         >
-          <Sparkles color="#38BDF8" size={18} strokeWidth={2} />
-          <Text style={styles.aiBannerText}>{t('custom_ai_routine')}</Text>
+          <Sparkles color="#C4B5FD" size={17} strokeWidth={1.75} />
+          <Text style={styles.aiBannerText}>Rutina personalizada con IA</Text>
         </TouchableOpacity>
       </View>
 
@@ -167,12 +163,12 @@ export default function WorkoutScreen() {
       >
         {routinesLoading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color="#38BDF8" size="large" />
+            <ActivityIndicator color="#FAFAFA" size="large" />
           </View>
         ) : displayRoutines.length === 0 ? (
           <View style={styles.emptyStateBox}>
             <View style={styles.emptyIconCircle}>
-              <Plus color="#38BDF8" size={32} strokeWidth={2} />
+              <Plus color="#FAFAFA" size={32} strokeWidth={1.75} />
             </View>
             <Text style={styles.emptyStateTitle}>No tienes rutinas creadas</Text>
             <Text style={styles.emptyStateSubtitle}>
@@ -186,14 +182,14 @@ export default function WorkoutScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Plus color="#FFFFFF" size={16} strokeWidth={2.5} />
+              <Plus color="#000000" size={16} strokeWidth={2.5} />
               <Text style={styles.emptyCreateBtnText}>CREAR PRIMERA RUTINA</Text>
             </TouchableOpacity>
           </View>
         ) : (
           displayRoutines.map((routine, idx) => (
             <View key={routine.id} style={[styles.routineCard, isReordering && styles.routineCardReordering]}>
-              {/* Reordering Up/Down Quick Controls on Mobile */}
+              {/* Reordering Controls if active */}
               {isReordering && (
                 <View style={styles.reorderPillCol}>
                   <TouchableOpacity
@@ -201,7 +197,7 @@ export default function WorkoutScreen() {
                     disabled={idx === 0}
                     style={[styles.reorderPillBtn, idx === 0 && { opacity: 0.25 }]}
                   >
-                    <ChevronUp color="#38BDF8" size={20} strokeWidth={2.5} />
+                    <ChevronUp color="#FAFAFA" size={18} strokeWidth={2.5} />
                   </TouchableOpacity>
                   <Text style={styles.reorderIdxBadge}>{idx + 1}</Text>
                   <TouchableOpacity
@@ -209,76 +205,77 @@ export default function WorkoutScreen() {
                     disabled={idx === displayRoutines.length - 1}
                     style={[styles.reorderPillBtn, idx === displayRoutines.length - 1 && { opacity: 0.25 }]}
                   >
-                    <ChevronDown color="#38BDF8" size={20} strokeWidth={2.5} />
+                    <ChevronDown color="#FAFAFA" size={18} strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               )}
 
-              {/* Left Content Column */}
-              <View style={styles.routineLeftCol}>
-                {/* Top Meta Row with Options 3-Dots */}
+              {/* Card Body */}
+              <View style={styles.routineBodyWrapper}>
+                {/* Top Meta Row */}
                 <View style={styles.routineMetaHeaderRow}>
                   <Text style={styles.routineMetaText}>
-                    {routine.exerciseCount} {t('exercises_count')} | {routine.setCount} {t('sets_count')}
+                    {routine.exerciseCount} EJERCICIOS · {routine.setCount} SERIES
                   </Text>
-
                   <TouchableOpacity
                     onPress={() => setActiveMenuRoutine(routine)}
                     style={styles.menuOptionsBtn}
                     activeOpacity={0.7}
                   >
-                    <MoreVertical color="rgba(255,255,255,0.5)" size={18} />
+                    <MoreHorizontal color="#71717A" size={20} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Routine Title */}
-                <Text style={styles.routineCardTitle}>{routine.title}</Text>
-
-                {/* Assigned Days Badge */}
-                {routine.assignedDays && routine.assignedDays.length > 0 && (
-                  <View style={styles.assignedDaysBadge}>
-                    <Calendar color="#38BDF8" size={12} strokeWidth={2} />
-                    <Text style={styles.assignedDaysText} numberOfLines={1}>
-                      {routine.assignedDays.join(', ')}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Bullet List of Exercises */}
-                <View style={styles.exerciseBulletsList}>
-                  {routine.exercises.slice(0, 4).map((ex, exIdx) => (
-                    <Text key={exIdx} style={styles.exerciseBulletItem} numberOfLines={1}>
-                      - {ex}
-                    </Text>
-                  ))}
+                {/* Routine Title & Day Badge */}
+                <View style={styles.titleAndDayRow}>
+                  <Text style={styles.routineCardTitle} numberOfLines={1}>
+                    {routine.title}
+                  </Text>
+                  {routine.assignedDays && routine.assignedDays.length > 0 && (
+                    <View style={styles.assignedDaysBadge}>
+                      <Text style={styles.assignedDaysText} numberOfLines={1}>
+                        {routine.assignedDays[0]}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
-                {/* Bottom Action Row: Start Button + Duration */}
-                <View style={styles.routineBottomActionRow}>
-                  <TouchableOpacity
-                    style={styles.startBtnPill}
-                    onPress={() => handleStartSession(routine.id)}
-                    activeOpacity={0.85}
-                  >
-                    <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
-                    <Text style={styles.startBtnPillText}>{t('start_routine')}</Text>
-                  </TouchableOpacity>
+                {/* Split Row: Exercise List (Left) + Anatomical Model (Right) */}
+                <View style={styles.splitContentRow}>
+                  {/* Left Column: Clean bullet list */}
+                  <View style={styles.exerciseBulletsList}>
+                    {routine.exercises.slice(0, 3).map((ex, exIdx) => (
+                      <View key={exIdx} style={styles.exerciseBulletRow}>
+                        <Text style={styles.bulletDot}>•</Text>
+                        <Text style={styles.exerciseBulletText} numberOfLines={2}>
+                          {ex}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
 
-                  <View style={styles.durationBox}>
-                    <Clock color="rgba(255,255,255,0.4)" size={14} strokeWidth={2} />
-                    <Text style={styles.durationText}>{routine.duration}</Text>
+                  {/* Right Column: Anatomical Cover */}
+                  <View style={styles.anatomicalCoverWrapper}>
+                    <RoutineAnatomicalCover
+                      exercises={routine.exercises}
+                      width={110}
+                      height={150}
+                      showBadge
+                    />
                   </View>
                 </View>
-              </View>
 
-              {/* Right Content: Dynamic Anatomical Model with Glow on Active Muscles */}
-              <View style={styles.anatomicalCoverWrapper}>
-                <RoutineAnatomicalCover
-                  exercises={routine.exercises}
-                  width={115}
-                  height={155}
-                  showBadge
-                />
+                {/* Bottom Full CTA Bar: INICIAR + Duration */}
+                <TouchableOpacity
+                  style={styles.startCtaBar}
+                  onPress={() => handleStartSession(routine.id)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.startCtaTextContainer}>
+                    <Text style={styles.startCtaText}>INICIAR</Text>
+                  </View>
+                  <Text style={styles.durationText}>{routine.duration}</Text>
+                </TouchableOpacity>
               </View>
             </View>
           ))
@@ -318,8 +315,8 @@ export default function WorkoutScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.actionOptionIcon, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                    <ChevronUp color="#38BDF8" size={18} />
+                  <View style={[styles.actionOptionIcon, { backgroundColor: '#27272A' }]}>
+                    <ChevronUp color="#FAFAFA" size={18} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.actionOptionTitle}>Mover hacia arriba</Text>
@@ -338,8 +335,8 @@ export default function WorkoutScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.actionOptionIcon, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                    <ChevronDown color="#38BDF8" size={18} />
+                  <View style={[styles.actionOptionIcon, { backgroundColor: '#27272A' }]}>
+                    <ChevronDown color="#FAFAFA" size={18} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.actionOptionTitle}>Mover hacia abajo</Text>
@@ -353,8 +350,8 @@ export default function WorkoutScreen() {
                 onPress={() => handleOpenEdit(activeMenuRoutine)}
                 activeOpacity={0.75}
               >
-                <View style={[styles.actionOptionIcon, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                  <Edit3 color="#38BDF8" size={18} />
+                <View style={[styles.actionOptionIcon, { backgroundColor: '#27272A' }]}>
+                  <Edit3 color="#FAFAFA" size={18} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionOptionTitle}>Editar rutina</Text>
@@ -380,7 +377,7 @@ export default function WorkoutScreen() {
         </Modal>
       )}
 
-      {/* ── Delete Routine Confirmation Dialog (Universal on Web & Native) ── */}
+      {/* ── Delete Routine Confirmation Dialog ── */}
       {routineToDelete && (
         <Modal
           visible={!!routineToDelete}
@@ -430,7 +427,7 @@ export default function WorkoutScreen() {
         }}
       />
 
-      {/* ── Search Exercise Database Modal (Direct from Top Search icon) ── */}
+      {/* ── Search Exercise Database Modal ── */}
       <AddExerciseModal
         visible={showSearchModal}
         onClose={() => setShowSearchModal(false)}
@@ -458,75 +455,51 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#09090B',
   },
   topSection: {
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 56 : 40,
     paddingBottom: 16,
-    backgroundColor: '#0E1017',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-    gap: 14,
+    gap: 16,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  brandName: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
   screenTitle: {
-    color: '#FFFFFF',
-    fontSize: 26,
+    color: '#FAFAFA',
+    fontSize: 32,
     fontWeight: '900',
     letterSpacing: -0.5,
-    marginTop: 2,
   },
   topActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 16,
   },
-  searchIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#181C26',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  addRoutineBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2563EB',
+  headerIconBtn: {
+    padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   aiBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    justifyContent: 'center',
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: 'rgba(124, 58, 237, 0.45)',
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     gap: 10,
   },
   aiBannerText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
+    color: '#D4D4D8',
+    fontSize: 14,
+    fontWeight: '600',
   },
   scrollContent: {
     padding: 16,
@@ -534,19 +507,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   routineCard: {
-    flexDirection: 'row',
-    backgroundColor: '#12141C',
-    borderRadius: 20,
+    backgroundColor: '#18181B',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    padding: 18,
-    position: 'relative',
+    borderColor: '#27272A',
+    padding: 20,
     overflow: 'hidden',
   },
-  routineLeftCol: {
-    flex: 1,
-    gap: 8,
-    zIndex: 2,
+  routineBodyWrapper: {
+    gap: 14,
   },
   routineMetaHeaderRow: {
     flexDirection: 'row',
@@ -554,84 +523,101 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   routineMetaText: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
+    color: '#71717A',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   menuOptionsBtn: {
     padding: 4,
     marginRight: -4,
   },
+  titleAndDayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   routineCardTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: '#FAFAFA',
+    fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.3,
+    flex: 1,
   },
   assignedDaysBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: '#27272A',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   assignedDaysText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  exerciseBulletsList: {
-    gap: 3,
-    marginVertical: 4,
-  },
-  exerciseBulletItem: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  routineBottomActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 6,
-  },
-  startBtnPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    gap: 6,
-  },
-  startBtnPillText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  durationBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  durationText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
   },
+  splitContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  exerciseBulletsList: {
+    flex: 1,
+    gap: 10,
+    justifyContent: 'center',
+  },
+  exerciseBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingRight: 8,
+  },
+  bulletDot: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginRight: 6,
+    lineHeight: 18,
+  },
+  exerciseBulletText: {
+    color: '#D4D4D8',
+    fontSize: 13.5,
+    fontWeight: '500',
+    lineHeight: 18,
+    flex: 1,
+  },
   anatomicalCoverWrapper: {
-    position: 'absolute',
-    right: 4,
-    bottom: -6,
-    opacity: 0.9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startCtaBar: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  startCtaTextContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingLeft: 40,
+  },
+  startCtaText: {
+    color: '#09090B',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  durationText: {
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -646,14 +632,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   actionSheetBox: {
-    backgroundColor: '#181C26',
+    backgroundColor: '#18181B',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     gap: 12,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#27272A',
   },
   actionSheetHeader: {
     flexDirection: 'row',
@@ -664,7 +650,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   actionSheetTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 16,
     fontWeight: '800',
     flex: 1,
@@ -686,24 +672,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionOptionTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 15,
     fontWeight: '700',
   },
   actionOptionSub: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 12,
     marginTop: 2,
   },
   confirmDialogBox: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#181C26',
+    backgroundColor: '#18181B',
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#27272A',
     gap: 14,
   },
   confirmIconCircle: {
@@ -715,13 +701,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 19,
     fontWeight: '900',
     textAlign: 'center',
   },
   confirmMessage: {
-    color: 'rgba(255,255,255,0.6)',
+    color: '#A1A1AA',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -736,12 +722,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmCancelText: {
-    color: 'rgba(255,255,255,0.8)',
+    color: '#FAFAFA',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -765,10 +751,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 48,
     paddingHorizontal: 24,
-    backgroundColor: '#12141C',
+    backgroundColor: '#18181B',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 12,
     marginTop: 20,
   },
@@ -776,21 +762,21 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    backgroundColor: '#27272A',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   emptyStateTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
   },
   emptyStateSubtitle: {
-    color: 'rgba(255,255,255,0.45)',
+    color: '#71717A',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
@@ -800,52 +786,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 14,
     marginTop: 8,
   },
   emptyCreateBtnText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.6,
   },
-  reorderToggleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#161922',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  reorderToggleBtnActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
-  },
   routineCardReordering: {
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    paddingLeft: 8,
+    borderColor: '#38BDF8',
+    paddingLeft: 12,
   },
   reorderPillCol: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingRight: 8,
+    paddingRight: 10,
     gap: 4,
   },
   reorderPillBtn: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#1E2330',
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   reorderIdxBadge: {
-    color: '#38BDF8',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '900',
   },
