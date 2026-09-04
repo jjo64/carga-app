@@ -120,12 +120,17 @@ export default function NutritionHeroCard({
             />
           </Svg>
 
-          {/* Center Text: Remaining kcal */}
+          {/* Center Text: Consumed / Target & Remaining */}
           <View style={styles.gaugeCenterContent}>
             <Text style={styles.gaugeCaloriesNum}>
-              {remainingCalories.toLocaleString('es-ES')}
+              {Math.round(caloriesConsumed).toLocaleString('es-ES')}
             </Text>
-            <Text style={styles.gaugeCaloriesSub}>kcal restantes</Text>
+            <Text style={styles.gaugeCaloriesTarget}>
+              / {Math.round(caloriesTarget).toLocaleString('es-ES')} kcal
+            </Text>
+            <Text style={styles.gaugeCaloriesSub}>
+              {Math.round(remainingCalories).toLocaleString('es-ES')} restantes
+            </Text>
           </View>
         </View>
       </View>
@@ -184,19 +189,28 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 1,
   },
   gaugeCaloriesNum: {
     color: '#FAFAFA',
-    fontSize: 34,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '900',
     letterSpacing: -0.8,
+    lineHeight: 34,
+    fontVariant: ['tabular-nums'],
+  },
+  gaugeCaloriesTarget: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   gaugeCaloriesSub: {
-    color: '#A1A1AA',
-    fontSize: 13,
-    fontWeight: '500',
+    color: '#71717A',
+    fontSize: 11.5,
+    fontWeight: '600',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   divider: {
     height: 1,
