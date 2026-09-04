@@ -31,6 +31,7 @@ import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
 import CreateRoutineModal from '@/components/workout/CreateRoutineModal'
 import { ExerciseDefinition } from '@/constants/exerciseDatabase'
 import { useLanguage } from '@/lib/i18n'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   useRoutines,
   parseRoutineDays,
@@ -40,6 +41,7 @@ import { Routine } from '@/types'
 
 export default function WorkoutScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { t } = useLanguage()
   const { routines, loading: routinesLoading, deleteRoutine, reorderRoutines } = useRoutines()
 
@@ -99,7 +101,7 @@ export default function WorkoutScreen() {
   return (
     <View style={styles.container}>
       {/* ── Top Header Section ── */}
-      <View style={styles.topSection}>
+      <View style={[styles.topSection, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerRow}>
           <Text style={styles.screenTitle}>Rutinas</Text>
 
@@ -158,7 +160,7 @@ export default function WorkoutScreen() {
 
       {/* ── Routine Cards List ── */}
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
         showsVerticalScrollIndicator={false}
       >
         {routinesLoading ? (
@@ -271,9 +273,7 @@ export default function WorkoutScreen() {
                   onPress={() => handleStartSession(routine.id)}
                   activeOpacity={0.85}
                 >
-                  <View style={styles.startCtaTextContainer}>
-                    <Text style={styles.startCtaText}>INICIAR</Text>
-                  </View>
+                  <Text style={styles.startCtaText}>INICIAR</Text>
                   <Text style={styles.durationText}>{routine.duration}</Text>
                 </TouchableOpacity>
               </View>
@@ -459,7 +459,6 @@ const styles = StyleSheet.create({
   },
   topSection: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 40,
     paddingBottom: 16,
     gap: 16,
   },
@@ -597,16 +596,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
-  },
-  startCtaTextContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingLeft: 40,
   },
   startCtaText: {
     color: '#09090B',

@@ -21,6 +21,7 @@ import { useNutrition } from '@/lib/hooks/useNutrition'
 import { calculateDailyNutritionTargets } from '@/lib/utils/calories'
 import { useSleep } from '@/lib/hooks/useSleep'
 import { useSteps } from '@/lib/hooks/useSteps'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { calculateReadinessScore } from '@/lib/services/readinessService'
 import ReadinessScoreCard from '@/components/recovery/ReadinessScoreCard'
 import MorningSleepCheckinModal from '@/components/sleep/MorningSleepCheckinModal'
@@ -70,6 +71,7 @@ function calculateStreak(history: { date?: string; finishedAt?: string | null }[
 
 export default function DashboardScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { profile } = useAuth()
   const { metrics, loading, refetch } = useDashboard()
   const { routines } = useRoutines()
@@ -165,7 +167,13 @@ export default function DashboardScreen() {
     <View style={styles.screen}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: insets.bottom + 48,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -394,8 +402,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 16 : 20,
-    paddingBottom: 48,
     gap: 16,
   },
   header: {

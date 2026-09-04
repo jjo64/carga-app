@@ -14,6 +14,7 @@ Notifications.setNotificationHandler({
 
 export const NOTIFICATION_CATEGORIES = {
   WORKOUT_ACTIVE: 'workout_active_category',
+  WORKOUT_RESTING: 'workout_resting_category',
 }
 
 export const NOTIFICATION_ACTIONS = {
@@ -23,7 +24,6 @@ export const NOTIFICATION_ACTIONS = {
 }
 
 let activeWorkoutNotificationId: string | null = null
-let restFinishedNotificationId: string | null = null
 
 export async function setupWorkoutNotifications(): Promise<boolean> {
   if (Platform.OS === 'web') return false
@@ -39,18 +39,8 @@ export async function setupWorkoutNotifications(): Promise<boolean> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('workout_channel', {
         name: 'Entrenamiento en Vivo',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#38BDF8',
-        sound: 'default',
-        enableLights: true,
-        enableVibrate: true,
-      })
-
-      await Notifications.setNotificationChannelAsync('rest_channel', {
-        name: 'Alertas de Descanso',
         importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 400, 200, 400],
+        vibrationPattern: [0, 300, 150, 300],
         lightColor: '#38BDF8',
         sound: 'default',
         enableLights: true,
@@ -58,12 +48,17 @@ export async function setupWorkoutNotifications(): Promise<boolean> {
       })
     }
 
+    // Category when doing a set: Action to complete set
     await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE, [
       {
         identifier: NOTIFICATION_ACTIONS.COMPLETE_SET,
-        buttonTitle: 'Completar Serie',
+        buttonTitle: '✓ Completar Serie',
         options: { opensAppToForeground: false },
       },
+    ])
+
+    // Category when resting: Actions to add +30s or skip rest
+    await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORIES.WORKOUT_RESTING, [
       {
         identifier: NOTIFICATION_ACTIONS.REST_PLUS_30,
         buttonTitle: '+30s Descanso',
@@ -93,6 +88,7 @@ export async function updateWorkoutActiveNotification({
   durationFormatted,
   isResting,
   restSecondsLeft,
+  isRestFinished,
 }: {
   routineName: string
   exerciseName: string
@@ -103,27 +99,43 @@ export async function updateWorkoutActiveNotification({
   durationFormatted: string
   isResting?: boolean
   restSecondsLeft?: number
+  isRestFinished?: boolean
 }) {
   if (Platform.OS === 'web') return
   try {
-    const title = isResting
-      ? `Descanso: ${restSecondsLeft || 0}s restantes`
-      : `${exerciseName} · Serie ${currentSet}/${totalSets}`
+    let title = ''
+    let body = ''
+    let category = NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE
+    let playSound = false
 
-    const body = isResting
-      ? `Próximo: Serie ${currentSet} de ${exerciseName} | Tiempo: ${durationFormatted}`
-      : `Objetivo: ${targetWeight ? `${targetWeight} kg` : '—'} x ${targetReps || '10'} reps | ${durationFormatted}`
+    if (isRestFinished) {
+      title = '⏰ ¡Descanso Terminado!'
+      body = `Es hora de la Serie ${currentSet}/${totalSets} de ${exerciseName}. ¡A por todas!`
+      category = NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE
+      playSound = true
+    } else if (isResting) {
+      const mins = Math.floor((restSecondsLeft || 0) / 60)
+      const secs = (restSecondsLeft || 0) % 60
+      const formattedTime = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+      title = `⏳ Descanso: ${formattedTime} restantes`
+      body = `Próximo: Serie ${currentSet}/${totalSets} de ${exerciseName} | Tiempo: ${durationFormatted}`
+      category = NOTIFICATION_CATEGORIES.WORKOUT_RESTING
+    } else {
+      title = `🏋️ ${exerciseName} · Serie ${currentSet}/${totalSets}`
+      body = `Objetivo: ${targetWeight ? `${targetWeight} kg` : '—'} x ${targetReps || '10'} reps | Tiempo: ${durationFormatted}`
+      category = NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE
+    }
 
     activeWorkoutNotificationId = await Notifications.scheduleNotificationAsync({
       identifier: 'carga_active_workout',
       content: {
         title,
         body,
-        data: { type: 'workout_ongoing', exerciseName, currentSet },
-        categoryIdentifier: NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE,
+        data: { type: 'workout_ongoing', exerciseName, currentSet, isResting },
+        categoryIdentifier: category,
         sticky: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        sound: false,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        sound: playSound ? 'default' : undefined,
       },
       trigger: null,
     })
@@ -132,54 +144,12 @@ export async function updateWorkoutActiveNotification({
   }
 }
 
-export async function scheduleRestFinishedNotification(
-  nextExerciseName: string,
-  nextSetNum: number,
-  restSeconds: number
-) {
-  if (Platform.OS === 'web' || restSeconds <= 0) return
-  try {
-    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
-
-    restFinishedNotificationId = await Notifications.scheduleNotificationAsync({
-      identifier: 'carga_rest_finished',
-      content: {
-        title: 'Descanso Terminado',
-        body: `Es hora de la Serie ${nextSetNum} de ${nextExerciseName}. ¡A por todas!`,
-        data: { type: 'rest_finished' },
-        sound: 'default',
-        vibrate: [0, 500, 200, 500],
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: Math.max(1, Math.round(restSeconds)),
-      },
-    })
-  } catch (err) {
-    console.log('Error scheduling rest finished notification:', err)
-  }
-}
-
-export async function cancelRestFinishedNotification() {
-  if (Platform.OS === 'web') return
-  try {
-    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
-    await Notifications.dismissNotificationAsync('carga_rest_finished').catch(() => {})
-    restFinishedNotificationId = null
-  } catch (err) {
-    console.log('Error canceling rest notification:', err)
-  }
-}
-
 export async function clearAllWorkoutNotifications() {
   if (Platform.OS === 'web') return
   try {
     await Notifications.dismissNotificationAsync('carga_active_workout').catch(() => {})
     await Notifications.cancelScheduledNotificationAsync('carga_active_workout').catch(() => {})
-    await Notifications.dismissNotificationAsync('carga_rest_finished').catch(() => {})
-    await Notifications.cancelScheduledNotificationAsync('carga_rest_finished').catch(() => {})
     activeWorkoutNotificationId = null
-    restFinishedNotificationId = null
   } catch (err) {
     console.log('Error clearing workout notifications:', err)
   }

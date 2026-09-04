@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Search, X, ChevronDown, Info, Dumbbell, Check, Plus, Layers } from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import {
@@ -34,6 +35,7 @@ export default function AddExerciseModal({
   onAddExercises,
   onOpenInfo,
 }: Props) {
+  const insets = useSafeAreaInsets()
   const { t } = useLanguage()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('Todos los Músculos')
@@ -90,7 +92,7 @@ export default function AddExerciseModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Top Header */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.topBarActionBtn}>
             <Text style={styles.topBarBtnText}>{t('cancel')}</Text>
           </TouchableOpacity>
@@ -266,7 +268,7 @@ export default function AddExerciseModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContainer,
-              selectedExercises.length > 0 && { paddingBottom: 110 },
+              { paddingBottom: selectedExercises.length > 0 ? insets.bottom + 110 : insets.bottom + 40 },
             ]}
             onScroll={({ nativeEvent }) => {
               const { layoutMeasurement, contentOffset, contentSize } = nativeEvent
@@ -288,7 +290,6 @@ export default function AddExerciseModal({
                   onPress={() => toggleExerciseSelection(ex)}
                   activeOpacity={0.7}
                 >
-                  {/* Thumbnail */}
                   <ExerciseIllustration
                     exerciseId={ex.id}
                     exerciseName={ex.name}
@@ -298,7 +299,6 @@ export default function AddExerciseModal({
                     variant="circle-thumb"
                   />
 
-                  {/* Exercise Info */}
                   <View style={styles.exerciseInfo}>
                     <Text
                       style={[
@@ -314,7 +314,7 @@ export default function AddExerciseModal({
                     </Text>
                   </View>
 
-                  {/* Selection Checkmark Button */}
+                  {/* Multi-select check pill */}
                   <View
                     style={[
                       styles.checkCircle,
@@ -354,7 +354,7 @@ export default function AddExerciseModal({
 
         {/* Floating Bottom Cart Bar */}
         {selectedExercises.length > 0 && (
-          <View style={styles.floatingCartBar}>
+          <View style={[styles.floatingCartBar, { bottom: Math.max(insets.bottom + 12, 16) }]}>
             <View style={styles.cartInfoBox}>
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>{selectedExercises.length}</Text>

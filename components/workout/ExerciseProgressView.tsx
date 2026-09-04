@@ -9,6 +9,7 @@ import {
   Platform,
   Share,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   Award,
   Flame,
@@ -40,6 +41,7 @@ const metricLabels: Record<MetricType, string> = {
 }
 
 export default function ExerciseProgressView({ exercise, visible, onClose }: Props) {
+  const insets = useSafeAreaInsets()
   const { history: userWorkouts } = useWorkoutHistory()
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('max_weight')
   const [showMetricDropdown, setShowMetricDropdown] = useState(false)
@@ -137,7 +139,7 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
     >
       <View style={styles.container}>
         {/* Top Header */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
             <ArrowLeft size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -153,7 +155,7 @@ export default function ExerciseProgressView({ exercise, visible, onClose }: Pro
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]} showsVerticalScrollIndicator={false}>
           {/* Main Exercise Illustration Render */}
           <View style={styles.illustrationWrapper}>
             <ExerciseIllustration

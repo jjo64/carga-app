@@ -1,5 +1,4 @@
 import { formatAthleteProfileContext } from './athleteContext'
-import { parseVoiceLog, voiceService } from './services/voice.service'
 import {
   scanNutritionLabel,
   scanLabel,
@@ -26,7 +25,7 @@ import {
 import { getLifetimeStats, clearAiCache } from './cache'
 
 export { formatAthleteProfileContext }
-export { voiceService, nutritionAiService, trainingAiService, coachAiService }
+export { nutritionAiService, trainingAiService, coachAiService }
 
 /**
  * Servicio Central de Inteligencia Artificial para Carga App.
@@ -34,9 +33,6 @@ export { voiceService, nutritionAiService, trainingAiService, coachAiService }
  * validación runtime mediante Zod, y hash determinista.
  */
 export const aiService = {
-  // Voice
-  parseVoiceLog,
-
   // Coach & Biomechanics
   adaptExerciseForPain,
   chatWithCoach,

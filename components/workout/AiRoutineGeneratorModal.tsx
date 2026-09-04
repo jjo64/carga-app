@@ -26,6 +26,7 @@ import {
 } from 'lucide-react-native'
 import { callAnthropicApi, extractAndParseJson } from '@/lib/services/ai/client'
 import { AnthropicSystemBlock } from '@/lib/services/ai/types'
+import { checkWeeklyRoutineQuota, recordWeeklyRoutineUsage } from '@/lib/services/ai/rateLimiter'
 import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
 import { useRoutines } from '@/lib/hooks/useWorkout'
 
@@ -99,6 +100,17 @@ export default function AiRoutineGeneratorModal({ visible, onClose, onRoutineCre
   const [saving, setSaving] = useState(false)
 
   const handleGenerate = async () => {
+    // 1. Comprobar cuota semanal de rutinas con IA (1 vez/semana)
+    const quota = await checkWeeklyRoutineQuota()
+    if (!quota.allowed) {
+      Alert.alert(
+        'Límite semanal alcanzado',
+        `Para maximizar la adherencia y evitar sobreentrenamiento, los usuarios pueden generar 1 rutina con IA cada 7 días. Podrás generar una nueva dentro de ${quota.daysRemaining} día(s).\n\nPuedes seguir creando y editando tus rutinas manualmente de forma ilimitada.`,
+        [{ text: 'Entendido' }]
+      )
+      return
+    }
+
     setLoading(true)
     try {
       const prompt = `
@@ -122,6 +134,7 @@ Parámetros del usuario:
 
       const parsed = extractAndParseJson<GeneratedAiRoutine>(text)
       setGeneratedRoutine(parsed)
+      await recordWeeklyRoutineUsage()
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo generar la rutina con IA.')
     } finally {

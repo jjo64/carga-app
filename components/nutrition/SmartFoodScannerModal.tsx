@@ -12,6 +12,7 @@ import {
   Alert,
   Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import {
   Camera,
@@ -38,6 +39,7 @@ import {
 import { foodScannerService, FoodProduct } from '@/lib/services/foodScannerService'
 import { aiService } from '@/lib/services/ai'
 import { FoodPlateItem, NutritionalLabelResult } from '@/lib/services/ai/types'
+import { checkPhotoScanQuota, recordPhotoScanUsage } from '@/lib/services/ai/rateLimiter'
 import { MealType, FoodItemParsed } from '@/types'
 
 export type ScannerMode = 'plate' | 'label' | 'barcode' | 'natural'
@@ -64,6 +66,7 @@ export default function SmartFoodScannerModal({
   onSaveToMeal,
   initialMode = 'plate',
 }: SmartFoodScannerModalProps) {
+  const insets = useSafeAreaInsets()
   const [activeMode, setActiveMode] = useState<ScannerMode>(initialMode)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -131,8 +134,25 @@ export default function SmartFoodScannerModal({
 
   // =========================================================================
   // 1. Selector de Cámara o Galería (Plato o Etiqueta)
+  // Con comprobación previa de cuota diaria y anti-spam
   // =========================================================================
   const pickImage = async (useCamera: boolean) => {
+    if (loading) return
+
+    // 1. Verificar cuota diaria de fotos IA
+    const quota = await checkPhotoScanQuota()
+    if (!quota.allowed) {
+      Alert.alert(
+        'Límite diario alcanzado (5/5)',
+        `Has alcanzado el límite de 5 escaneos por foto de hoy (se reinicia en ${quota.resetHours}h).\n\nPuedes seguir escaneando productos de forma ILIMITADA y gratuita con el lector de código de barras o buscándolos por nombre.`,
+        [
+          { text: 'Entendido' },
+          { text: 'Escanear Código', onPress: () => setActiveMode('barcode') },
+        ]
+      )
+      return
+    }
+
     try {
       let result: ImagePicker.ImagePickerResult
       if (useCamera) {
@@ -187,8 +207,11 @@ export default function SmartFoodScannerModal({
         setImageMetrics({
           costUsd: res.costUsd,
           latencyMs: res.latencyMs,
-          source: 'Claude 3.5 Sonnet Vision (Compresión 92%)',
+          source: res.costUsd === 0 ? 'Caché Perceptual Instantáneo ($0.00)' : 'Claude Haiku 4.5 Vision',
         })
+        if (res.costUsd > 0) {
+          await recordPhotoScanUsage()
+        }
         setToastMessage(`✓ Se añadieron ${res.items.length} alimentos al ${mealName}`)
       } else if (activeMode === 'label') {
         setStatusMessage('🔍 Leyendo tabla nutricional y auditando ingredientes...')
@@ -199,8 +222,11 @@ export default function SmartFoodScannerModal({
         setImageMetrics({
           costUsd: res.costUsd,
           latencyMs: res.latencyMs,
-          source: 'Auditoría IA Claude Haiku 4.5',
+          source: res.costUsd === 0 ? 'Caché Perceptual / Base de Datos ($0.00)' : 'Claude Haiku 4.5 Vision',
         })
+        if (res.costUsd > 0) {
+          await recordPhotoScanUsage()
+        }
       }
     } catch (err: any) {
       Alert.alert('Error de Escaneo', err.message || 'No se pudo procesar la imagen.')
@@ -579,7 +605,7 @@ export default function SmartFoodScannerModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleClose}>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -1328,7 +1354,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090D16',
-    paddingTop: Platform.OS === 'ios' ? 54 : 24,
   },
   header: {
     flexDirection: 'row',

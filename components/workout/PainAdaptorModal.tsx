@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   ShieldAlert,
   Sparkles,
@@ -61,6 +62,7 @@ export default function PainAdaptorModal({
   currentExerciseName,
   onApplyReplacement,
 }: PainAdaptorModalProps) {
+  const insets = useSafeAreaInsets()
   const [selectedArea, setSelectedArea] = useState('Hombro')
   const [painLevel, setPainLevel] = useState(6)
   const [selectedEquipment, setSelectedEquipment] = useState('Gimnasio Comercial')
@@ -135,7 +137,7 @@ export default function PainAdaptorModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -151,7 +153,7 @@ export default function PainAdaptorModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
             {!result ? (
               <View>
                 {/* 1. Selector de Zona de Molestia */}

@@ -38,7 +38,7 @@ import {
 } from '../schemas'
 
 /**
- * Escáner de Tablas Nutricionales y Calidad (Claude 3.5 Sonnet Vision)
+ * Escáner de Tablas Nutricionales y Calidad (Claude Haiku 4.5 Vision)
  * Con Tool Calling, Validación Zod y Sanitización Programática Post-Parse de kJ/kcal.
  */
 export async function scanNutritionLabel(
@@ -47,7 +47,7 @@ export async function scanNutritionLabel(
   const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
 
   const { text, metrics } = await callAnthropicApi({
-    modelTier: 'sonnet',
+    modelTier: 'haiku',
     system: NUTRITION_LABEL_SYSTEM_PROMPT,
     messages: [
       {
@@ -85,7 +85,7 @@ export async function scanNutritionLabel(
 }
 
 /**
- * Escáner de Plato de Comida (Claude 3.5 Sonnet Vision)
+ * Escáner de Plato de Comida (Claude Haiku 4.5 Vision)
  */
 export async function scanMealPlate(
   imageUriOrBase64: string
@@ -93,7 +93,7 @@ export async function scanMealPlate(
   const optimized = await optimizeImageForVision(imageUriOrBase64, 1024, 1024, 0.7)
 
   const { text, metrics } = await callAnthropicApi({
-    modelTier: 'sonnet',
+    modelTier: 'haiku',
     system: FOOD_VISION_SYSTEM_PROMPT,
     messages: [
       {

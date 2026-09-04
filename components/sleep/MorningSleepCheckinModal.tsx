@@ -10,6 +10,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   Moon,
   Sun,
@@ -351,6 +352,7 @@ export default function MorningSleepCheckinModal({
   onClose,
   onSave,
 }: Props) {
+  const insets = useSafeAreaInsets()
   const [bedtime, setBedtime] = useState(estimated?.bedtime || '23:30')
   const [wakeTime, setWakeTime] = useState(estimated?.wakeTime || '07:30')
   const [qualityScore, setQualityScore] = useState(4)
@@ -410,7 +412,7 @@ export default function MorningSleepCheckinModal({
     <>
       <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
         <View style={styles.overlay}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={styles.handle} />
 
             {/* Top Crescent Icon & Close button */}

@@ -15,12 +15,12 @@ import {
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import AddExerciseModal from '@/components/workout/AddExerciseModal'
 import ExerciseDetailModal from '@/components/workout/ExerciseDetailModal'
 import PainAdaptorModal from '@/components/workout/PainAdaptorModal'
-import VoiceSetLoggerModal from '@/components/workout/VoiceSetLoggerModal'
 import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
 import {
   DEFAULT_STARTER_ROUTINES,
@@ -36,8 +36,6 @@ import * as Notifications from 'expo-notifications'
 import {
   setupWorkoutNotifications,
   updateWorkoutActiveNotification,
-  scheduleRestFinishedNotification,
-  cancelRestFinishedNotification,
   clearAllWorkoutNotifications,
   NOTIFICATION_ACTIONS,
 } from '@/lib/services/notifications'
@@ -63,6 +61,7 @@ export interface SessionExercise {
 }
 
 export default function LiveWorkoutSessionScreen() {
+  const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams<{ id: string }>()
   const { user, profile } = useAuth()
@@ -84,11 +83,21 @@ export default function LiveWorkoutSessionScreen() {
   const [showDiscardModal, setShowDiscardModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPainModal, setShowPainModal] = useState(false)
-  const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [detailModalExercise, setDetailModalExercise] = useState<ExerciseDefinition | null>(null)
   const startTimeRef = useRef<number>(Date.now())
   const restEndTimeRef = useRef<number | null>(null)
   const carouselScrollRef = useRef<ScrollView>(null)
+
+  // Mutable refs to access latest session state inside background interval tick without recreating interval
+  const exercisesRef = useRef<SessionExercise[]>(exercises)
+  exercisesRef.current = exercises
+  const activeExerciseIndexRef = useRef<number>(activeExerciseIndex)
+  activeExerciseIndexRef.current = activeExerciseIndex
+  const routineTitleRef = useRef<string>(routineTitle)
+  routineTitleRef.current = routineTitle
+  const isRestingRef = useRef<boolean>(isResting)
+  isRestingRef.current = isResting
+  const restFinishedNotifiedRef = useRef<boolean>(false)
 
   // Calculated finish stats
   const [finishStats, setFinishStats] = useState({
@@ -259,6 +268,10 @@ export default function LiveWorkoutSessionScreen() {
       const diff = Math.floor((Date.now() - startTimeRef.current) / 1000)
       setElapsedSeconds(diff >= 0 ? diff : 0)
 
+      const activeEx = exercisesRef.current[activeExerciseIndexRef.current] || exercisesRef.current[0]
+      const currentSetData = activeEx?.sets.find((s) => !s.completed) || activeEx?.sets[activeEx.sets.length - 1]
+      const currentSetNum = currentSetData ? currentSetData.setNum : 1
+
       // Live rest countdown tick against exact target timestamp
       if (restEndTimeRef.current) {
         const remaining = Math.round((restEndTimeRef.current - Date.now()) / 1000)
@@ -266,8 +279,58 @@ export default function LiveWorkoutSessionScreen() {
           setRestSeconds(0)
           setIsResting(false)
           restEndTimeRef.current = null
+
+          // Trigger "Descanso Terminado" in the SAME notification if not yet notified
+          if (!restFinishedNotifiedRef.current && activeEx) {
+            restFinishedNotifiedRef.current = true
+            updateWorkoutActiveNotification({
+              routineName: routineTitleRef.current,
+              exerciseName: activeEx.exercise.name,
+              currentSet: currentSetNum,
+              totalSets: activeEx.sets.length,
+              targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
+              targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
+              durationFormatted: formatChronometer(diff),
+              isResting: false,
+              isRestFinished: true,
+            })
+
+            // After 4 seconds, seamlessly transition back to the next set view to complete or log
+            setTimeout(() => {
+              if (!restEndTimeRef.current && activeEx) {
+                updateWorkoutActiveNotification({
+                  routineName: routineTitleRef.current,
+                  exerciseName: activeEx.exercise.name,
+                  currentSet: currentSetNum,
+                  totalSets: activeEx.sets.length,
+                  targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
+                  targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
+                  durationFormatted: formatChronometer(diff + 4),
+                  isResting: false,
+                  isRestFinished: false,
+                })
+              }
+            }, 4000)
+          }
         } else {
           setRestSeconds(remaining)
+          restFinishedNotifiedRef.current = false
+
+          // Update active notification with live rest countdown tick
+          if (activeEx) {
+            updateWorkoutActiveNotification({
+              routineName: routineTitleRef.current,
+              exerciseName: activeEx.exercise.name,
+              currentSet: currentSetNum,
+              totalSets: activeEx.sets.length,
+              targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
+              targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
+              durationFormatted: formatChronometer(diff),
+              isResting: true,
+              restSecondsLeft: remaining,
+              isRestFinished: false,
+            })
+          }
         }
       }
     }, 1000)
@@ -402,7 +465,7 @@ export default function LiveWorkoutSessionScreen() {
     }
   }, [])
 
-  // Interactive Notification Actions Listener (Tick / +30s / Skip)
+  // Interactive Notification Actions Listener (Complete Set / +30s / Skip)
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const actionId = response.actionIdentifier
@@ -422,11 +485,6 @@ export default function LiveWorkoutSessionScreen() {
                   restEndTimeRef.current = Date.now() + defaultRestSeconds * 1000
                   setRestSeconds(defaultRestSeconds)
                   setIsResting(true)
-                  scheduleRestFinishedNotification(
-                    currentExercise.name,
-                    st.setNum + 1,
-                    defaultRestSeconds
-                  )
                 }
                 return { ...st, completed: true }
               }
@@ -458,7 +516,6 @@ export default function LiveWorkoutSessionScreen() {
         restEndTimeRef.current = null
         setIsResting(false)
         setRestSeconds(0)
-        cancelRestFinishedNotification()
       }
     })
 
@@ -466,7 +523,7 @@ export default function LiveWorkoutSessionScreen() {
   }, [activeExerciseIndex, currentExercise, defaultRestSeconds, restTimerEnabled])
 
   // Sync active notification with current exercise, sets progress when state changes or app backgrounds
-  const syncNotification = () => {
+  const syncNotification = (overrideIsRestFinished?: boolean) => {
     const activeEx = exercises[activeExerciseIndex] || exercises[0]
     if (!activeEx) return
 
@@ -483,6 +540,7 @@ export default function LiveWorkoutSessionScreen() {
       durationFormatted: formatChronometer(elapsedSeconds),
       isResting,
       restSecondsLeft: restSeconds,
+      isRestFinished: overrideIsRestFinished,
     })
   }
 
@@ -530,15 +588,10 @@ export default function LiveWorkoutSessionScreen() {
             const effectiveReps = st.reps.trim() || st.placeholderReps || '10'
 
             if (nextState && restTimerEnabled && defaultRestSeconds > 0) {
-              // Trigger rest timer with configured seconds & schedule notification
+              // Trigger rest timer with configured seconds
               restEndTimeRef.current = Date.now() + defaultRestSeconds * 1000
               setRestSeconds(defaultRestSeconds)
               setIsResting(true)
-              scheduleRestFinishedNotification(
-                currentExercise.name,
-                st.setNum + 1,
-                defaultRestSeconds
-              )
             }
             return {
               ...st,
@@ -717,60 +770,6 @@ export default function LiveWorkoutSessionScreen() {
       'Variante Adaptada',
       `Se ha reemplazado por "${newExercise.name}". Las series han sido adaptadas biomecánicamente.`
     )
-  }
-
-  const handleLogVoiceSet = (data: {
-    setNum?: number
-    weightKg: number
-    reps: number
-    rpe?: number
-    notes?: string
-  }) => {
-    let completedSetNumber = 1
-    setExercises((prev) =>
-      prev.map((ex, exIdx) => {
-        if (exIdx !== activeExerciseIndex) return ex
-
-        let targetIndex = ex.sets.findIndex((s) => !s.completed)
-        if (targetIndex === -1) {
-          targetIndex = ex.sets.length
-        }
-
-        const setsCopy = [...ex.sets]
-        const targetSet: SetRowData = setsCopy[targetIndex] || {
-          id: `s-voice-${Date.now()}`,
-          setNum: targetIndex + 1,
-          setType: 'normal',
-          previous: `${data.weightKg} kg x ${data.reps}`,
-          weightKg: String(data.weightKg),
-          reps: String(data.reps),
-          placeholderWeight: String(data.weightKg),
-          placeholderReps: String(data.reps),
-          completed: true,
-        }
-
-        targetSet.weightKg = String(data.weightKg)
-        targetSet.reps = String(data.reps)
-        targetSet.completed = true
-        completedSetNumber = targetSet.setNum
-        setsCopy[targetIndex] = targetSet
-
-        return { ...ex, sets: setsCopy }
-      })
-    )
-
-    // Trigger rest timer & schedule notification
-    if (restTimerEnabled && defaultRestSeconds > 0) {
-      setRestSeconds(defaultRestSeconds)
-      setIsResting(true)
-      scheduleRestFinishedNotification(
-        currentExercise.name,
-        completedSetNumber + 1,
-        defaultRestSeconds
-      )
-    }
-
-    setShowVoiceModal(false)
   }
 
   const handlePromptDiscard = () => {
@@ -1019,7 +1018,7 @@ export default function LiveWorkoutSessionScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Main Exercise High Definition Illustration Banner ── */}
@@ -1122,7 +1121,6 @@ export default function LiveWorkoutSessionScreen() {
                 restEndTimeRef.current = Date.now() + restSec * 1000
                 setRestSeconds(restSec)
                 setIsResting(true)
-                scheduleRestFinishedNotification(currentExercise.name, 1, restSec)
               }}
               activeOpacity={0.7}
             >
@@ -1131,15 +1129,6 @@ export default function LiveWorkoutSessionScreen() {
           </View>
 
           <View style={styles.exerciseActionsRow}>
-            <TouchableOpacity
-              style={styles.voiceLoggerBtn}
-              onPress={() => setShowVoiceModal(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="mic-outline" size={13} color="#38BDF8" />
-              <Text style={styles.voiceLoggerBtnText}>Voz</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.painAdaptorBtn}
               onPress={() => setShowPainModal(true)}
@@ -1329,7 +1318,7 @@ export default function LiveWorkoutSessionScreen() {
 
       {/* Rest Timer Floating Bar */}
       {isResting && (
-        <View style={styles.restFloatingBar}>
+        <View style={[styles.restFloatingBar, { bottom: Math.max(insets.bottom + 12, 24) }]}>
           <View style={styles.restBarLeft}>
             <Ionicons name="timer-outline" size={20} color="#38BDF8" />
             <Text style={styles.restTimeText}>{formatChronometer(restSeconds)}</Text>
@@ -1365,7 +1354,6 @@ export default function LiveWorkoutSessionScreen() {
                 restEndTimeRef.current = null
                 setIsResting(false)
                 setRestSeconds(0)
-                cancelRestFinishedNotification()
               }}
             >
               <Text style={styles.restSkipText}>SALTAR</Text>
@@ -1396,18 +1384,6 @@ export default function LiveWorkoutSessionScreen() {
         onClose={() => setShowPainModal(false)}
         currentExerciseName={currentExercise.name}
         onApplyReplacement={handleApplyPainReplacement}
-      />
-
-      {/* Hands-Free Voice Logger Modal */}
-      <VoiceSetLoggerModal
-        visible={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-        currentExerciseName={currentExercise.name}
-        nextSetNumber={
-          activeSessionExercise?.sets.find((s) => !s.completed)?.setNum ||
-          (activeSessionExercise?.sets.length || 0) + 1
-        }
-        onLogVoiceSet={handleLogVoiceSet}
       />
 
       {/* Live Chronometer Edit Modal */}
@@ -1858,22 +1834,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  voiceLoggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#18181B',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-  },
-  voiceLoggerBtnText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
   },
   painAdaptorBtn: {
     flexDirection: 'row',

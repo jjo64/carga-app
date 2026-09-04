@@ -10,7 +10,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import {
   TrendingUp,
@@ -128,6 +130,7 @@ function WeightLineChart({ data, height = 75 }: { data: number[]; height?: numbe
 }
 
 export default function ProgressScreen() {
+  const insets = useSafeAreaInsets()
   const { profile } = useAuth()
   const { measurements, addMeasurement } = useBodyMeasurements()
   const { history } = useWorkoutHistory()
@@ -287,7 +290,16 @@ export default function ProgressScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: insets.bottom + 48,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerSub}>ANALÍTICA DE RENDIMIENTO</Text>
@@ -697,8 +709,11 @@ export default function ProgressScreen() {
         animationType="slide"
         onRequestClose={() => setShowLogWeightModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHandle} />
 
             <View style={styles.modalHeader}>
@@ -714,7 +729,7 @@ export default function ProgressScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
               {/* Peso (kg) Input */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Peso Corporal (kg) *</Text>
@@ -785,7 +800,7 @@ export default function ProgressScreen() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Exercise Progress View (Matching "Visualiza tu progreso" reference) ── */}
@@ -812,10 +827,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 16,
-    paddingBottom: 60,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 8 : 4,
     marginBottom: 4,
   },
   headerSub: {

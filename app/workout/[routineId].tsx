@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native'
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRoutines, getExerciseRecordData } from '@/lib/hooks/useWorkout'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
@@ -30,6 +31,7 @@ const muscleGroupColor: Record<string, string> = {
 }
 
 export default function RoutineDetailScreen() {
+  const insets = useSafeAreaInsets()
   const { routineId } = useLocalSearchParams<{ routineId: string }>()
   const router = useRouter()
   const { user } = useAuth()
@@ -127,7 +129,7 @@ export default function RoutineDetailScreen() {
       />
 
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}>
           {/* Header Card */}
           <View style={styles.heroCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -272,7 +274,7 @@ export default function RoutineDetailScreen() {
 
         {/* Floating CTA */}
         {routine && (routine.exercises?.length ?? 0) > 0 && (
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity
               style={[
                 styles.startWorkoutButton,

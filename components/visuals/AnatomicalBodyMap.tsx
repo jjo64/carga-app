@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native'
 import Svg, { Path, G } from 'react-native-svg'
 import {
   MALE_FRONT_PATHS,
@@ -33,9 +33,11 @@ export const muscleVolumeSets: Record<string, { sets: number; status: 'optimal' 
 export default function AnatomicalBodyMap({
   selectedMuscle,
   onMuscleSelect,
-  width = 340,
+  width,
   userVolumeSets,
 }: Props) {
+  const { width: screenWidth } = useWindowDimensions()
+  const availableWidth = width || Math.max(screenWidth - 48, 280)
   const activeVolumeMap = userVolumeSets || muscleVolumeSets
   const isSelected = (muscle: string) => selectedMuscle?.toLowerCase() === muscle.toLowerCase()
   const getFill = (muscle: string) => {
@@ -56,7 +58,7 @@ export default function AnatomicalBodyMap({
     return isSelected(muscle) ? 1.5 : 0.6
   }
 
-  const figureWidth = Math.min(width * 0.48, 165)
+  const figureWidth = Math.min(availableWidth * 0.46, 160)
   const figureHeight = figureWidth * (1280 / 727)
 
   return (

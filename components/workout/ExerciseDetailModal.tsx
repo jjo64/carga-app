@@ -9,6 +9,7 @@ import {
   Platform,
   Share,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, Share2, MoreHorizontal, Play, Pause } from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import RoutineAnatomicalCover from '@/components/visuals/RoutineAnatomicalCover'
@@ -24,6 +25,7 @@ interface Props {
 type TabType = 'resumen' | 'historial' | 'indicaciones'
 
 export default function ExerciseDetailModal({ exercise, visible, onClose }: Props) {
+  const insets = useSafeAreaInsets()
   const [activeTab, setActiveTab] = useState<TabType>('resumen')
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -45,7 +47,7 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Top Bar */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
             <ArrowLeft size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -88,7 +90,7 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
           })}
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}>
           {/* Main Visual Render with Pause/Play Indicator */}
           <View style={styles.illustrationWrapper}>
             <ExerciseIllustration

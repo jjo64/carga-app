@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter } from 'expo-router'
 import {
@@ -177,6 +178,7 @@ function WorkoutExerciseRow({
 
 export default function ProfileScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user, profile, updateProfile, updateAccountEmail, updateAccountPassword, signOut } = useAuth()
   const { isDark, setMode, colors } = useTheme()
   const { language, setLanguage, t } = useLanguage()
@@ -770,7 +772,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* ── Top Bar Header with Edit, Share, Settings Icons ── */}
-      <View style={[styles.topBar, { backgroundColor: colors.background }]}>
+      <View style={[styles.topBar, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
         <View style={{ width: 40 }} />
 
         <View style={styles.topBarIconsRow}>
@@ -809,7 +811,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 48 }]} showsVerticalScrollIndicator={false}>
         {/* ── Profile Hero Section (Centered Avatar + Name + Capsule Pill) ── */}
         <View style={styles.profileHeroSectionCentered}>
           {/* Centered Avatar */}
@@ -1124,7 +1126,7 @@ export default function ProfileScreen() {
       >
         <View style={styles.calendarModalContainer}>
           {/* Top Bar Header */}
-          <View style={styles.calendarModalTopBar}>
+          <View style={[styles.calendarModalTopBar, { paddingTop: insets.top + 8 }]}>
             <TouchableOpacity
               onPress={() => setShowCalendarModal(false)}
               style={styles.calendarModalIconBtn}
@@ -1586,7 +1588,7 @@ export default function ProfileScreen() {
       >
         <View style={[styles.measuresModalContainer, { backgroundColor: colors.background }]}>
           {/* Top Bar Header */}
-          <View style={[styles.measuresModalTopBar, { backgroundColor: colors.background, borderBottomColor: isDark ? '#27272A' : colors.border }]}>
+          <View style={[styles.measuresModalTopBar, { backgroundColor: colors.background, borderBottomColor: isDark ? '#27272A' : colors.border, paddingTop: insets.top + 8 }]}>
             <TouchableOpacity
               onPress={() => setShowMeasuresModal(false)}
               style={styles.measuresModalIconBtn}
@@ -2453,7 +2455,7 @@ export default function ProfileScreen() {
         transparent
         onRequestClose={() => setShowBirthDatePickerModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlayCenter}>
           <View style={[styles.datePickerModalContent, { backgroundColor: '#131622', borderColor: 'rgba(255,255,255,0.1)' }]}>
             <View style={styles.datePickerModalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -3180,6 +3182,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
+  },
+  modalOverlayCenter: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalSheet: {
     borderTopLeftRadius: 28,

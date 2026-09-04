@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { Plus, Trash2, Dumbbell, Clock, Layers, Flame, Calendar, Sparkles, ChevronRight } from 'lucide-react-native'
 import { ExerciseDefinition, getExerciseById } from '@/constants/exerciseDatabase'
@@ -58,6 +59,7 @@ export default function CreateRoutineModal({
   onRoutineCreated,
   routineToEdit,
 }: Props) {
+  const insets = useSafeAreaInsets()
   const { t } = useLanguage()
   const { createRoutine, updateRoutine } = useRoutines()
 
@@ -264,7 +266,7 @@ export default function CreateRoutineModal({
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.container}>
         {/* ── Top Bar Header ── */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={handleClose} activeOpacity={0.7} style={styles.topBarBtn}>
             <Text style={styles.topBarCancelText}>{t('cancel')}</Text>
           </TouchableOpacity>
@@ -288,7 +290,7 @@ export default function CreateRoutineModal({
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

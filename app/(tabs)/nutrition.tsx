@@ -11,7 +11,9 @@ import {
   Image,
   Platform,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   Utensils,
@@ -143,6 +145,7 @@ function parseFoodText(text: string): FoodItemParsed[] {
 }
 
 export default function NutritionScreen() {
+  const insets = useSafeAreaInsets()
   const {
     selectedDate,
     setSelectedDate,
@@ -648,7 +651,16 @@ export default function NutritionScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: insets.bottom + 100,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Top Header: "Nutrición" + Date Selector Subtitle (Sin avatar, desplegable de fechas y meses) */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Nutrición</Text>
@@ -1003,8 +1015,17 @@ export default function NutritionScreen() {
         animationType="slide"
         onRequestClose={handleMinimizeModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              modalTab === 'basic' && { height: '88%' },
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             <View style={styles.modalHandle} />
 
             {/* Modal Header */}
@@ -1131,7 +1152,12 @@ export default function NutritionScreen() {
 
             {/* ── TAB 0: Entrada Principal por IA & Visión (Diseño Exacto del Mockup) ── */}
             {modalTab === 'ai' && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+              >
                 {/* 1. Selector de Tipo de Comida (Estilo Cápsula Dark del Mockup) */}
                 <View style={styles.mealCapsuleRow}>
                   {(['breakfast', 'lunch', 'dinner', 'snack'] as MealType[]).map((t) => {
@@ -1265,7 +1291,7 @@ export default function NutritionScreen() {
 
             {/* ── TAB 1: Alimentos Básicos / Frutas / Proteínas / Carbos ── */}
             {modalTab === 'basic' && (
-              <View style={{ flex: 1, minHeight: 320 }}>
+              <View style={{ flex: 1, minHeight: 360 }}>
                 <CommonFoodsSelector
                   onAddFood={handleAddCommonFood}
                   addedFoodNames={results.map((r) => r.name)}
@@ -1275,7 +1301,12 @@ export default function NutritionScreen() {
 
             {/* ── TAB 2: Comidas Frecuentes / Tupper & Ingredientes Usados ── */}
             {modalTab === 'frequent' && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+              >
                 {/* Sub-selector: Comidas Completas vs Ingredientes Usados */}
                 <View style={styles.frequentSubSelectorRow}>
                   <TouchableOpacity
@@ -1436,7 +1467,12 @@ export default function NutritionScreen() {
 
             {/* ── TAB 3: Revisión del Plato Actual (Mi Plato con Edición Libre de Gramos) ── */}
             {modalTab === 'plate' && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+              >
                 {results.length === 0 ? (
                   <View style={styles.emptyPlateBox}>
                     <Utensils size={36} color="rgba(255,255,255,0.2)" />
@@ -1622,7 +1658,7 @@ export default function NutritionScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Persistent Floating Draft Dock (Minimizable Meal Bar) ── */}
@@ -1833,10 +1869,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 14,
-    paddingBottom: 100,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 8 : 4,
     gap: 4,
     paddingBottom: 2,
   },
@@ -2194,10 +2228,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 22,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    maxHeight: '90%',
+    maxHeight: '92%',
+    flex: 1,
   },
   modalHandle: {
     width: 40,
@@ -2424,7 +2458,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   modalBody: {
-    flexGrow: 0,
+    flex: 1,
+  },
+  modalBodyContent: {
+    paddingBottom: 36,
   },
   cameraBtn: {
     flexDirection: 'row',

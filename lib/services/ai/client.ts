@@ -94,18 +94,20 @@ export async function getAvailableModelsList(apiKey?: string): Promise<string[]>
 // Candidatos aislados estrictamente por Tier (sin fallbacks cruzados degradados)
 const SONNET_CANDIDATES = [
   process.env.EXPO_PUBLIC_ANTHROPIC_SONNET_MODEL,
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
+  'claude-sonnet-4-5',
   'claude-3-7-sonnet-20250219',
   'claude-3-5-sonnet-20241022',
   'claude-3-5-sonnet-20240620',
-  'claude-sonnet-5',
-  'claude-sonnet-4-6',
 ].filter(Boolean) as string[]
 
 const HAIKU_CANDIDATES = [
   process.env.EXPO_PUBLIC_ANTHROPIC_HAIKU_MODEL,
+  'claude-haiku-4-5-20251001',
+  'claude-haiku-4-5',
   'claude-3-5-haiku-20241022',
   'claude-3-haiku-20240307',
-  'claude-haiku-4-5-20251001',
 ].filter(Boolean) as string[]
 
 let activeWorkingSonnetModel: string | null = null
@@ -119,22 +121,22 @@ export function resetActiveWorkingModels() {
   activeWorkingHaikuModel = null
 }
 
-export const MODEL_HAIKU = 'claude-3-5-haiku-20241022'
-export const MODEL_SONNET = 'claude-3-7-sonnet-20250219'
+export const MODEL_HAIKU = 'claude-haiku-4-5-20251001'
+export const MODEL_SONNET = 'claude-sonnet-5'
 
 // Costes por millón de tokens (USD)
 const PRICING = {
   haiku: {
-    input: 0.8,
-    output: 4.0,
-    cacheWrite: 1.0,
-    cacheRead: 0.08,
+    input: 1.0,
+    output: 5.0,
+    cacheWrite: 1.25,
+    cacheRead: 0.10,
   },
   sonnet: {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite: 3.75,
-    cacheRead: 0.3,
+    input: 2.0,
+    output: 10.0,
+    cacheWrite: 2.50,
+    cacheRead: 0.20,
   },
 }
 

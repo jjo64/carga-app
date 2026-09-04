@@ -11,11 +11,13 @@ import {
   ScrollView,
 } from 'react-native'
 import { Link } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { theme } from '@/constants/theme'
 import { Ionicons } from '@expo/vector-icons'
 
 export default function RegisterScreen() {
+  const insets = useSafeAreaInsets()
   const { signUp } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -61,7 +63,15 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardView}
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingTop: Math.max(insets.top + 16, 24),
+            paddingBottom: Math.max(insets.bottom + 16, 24),
+          },
+        ]}
+      >
         {/* Header */}
         <View style={styles.brandContainer}>
           <Text style={styles.brandTitle}>Crear Cuenta</Text>

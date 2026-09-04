@@ -28,6 +28,7 @@ import {
   Scale,
 } from 'lucide-react-native'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { Gender, Goal, ActivityLevel, ExperienceLevel } from '@/types'
 import { calculateBMR, calculateTDEE, calculateTargetCalories } from '@/lib/utils/calories'
@@ -35,6 +36,7 @@ import { generateRoutinesForUser } from '@/lib/utils/routineGenerator'
 
 export default function OnboardingScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user, profile, updateProfile } = useAuth()
 
   // Steps: 1 -> 2 -> 3 -> 4 -> 5
@@ -185,7 +187,7 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       {/* ── Top Header / Stepper Progress ── */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <View style={styles.stepperHeaderRow}>
           {currentStep > 1 ? (
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -214,7 +216,7 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {/* ========================================================= */}
         {/* PASO 1: DATOS FÍSICOS BÁSICOS */}
         {/* ========================================================= */}
@@ -651,7 +653,7 @@ export default function OnboardingScreen() {
       </ScrollView>
 
       {/* ── Bottom Action Button ── */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {currentStep < 5 ? (
           <TouchableOpacity
             style={styles.continueBtn}

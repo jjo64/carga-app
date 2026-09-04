@@ -4,6 +4,11 @@ import { aiService } from './ai'
 import { FoodPlateItem, NutritionalLabelResult, MicronutrientItem, NaturalMealItem } from './ai/types'
 import { callAnthropicApi, extractAndParseJson } from './ai/client'
 import { optimizeImageForVision } from './ai/imageOptimizer'
+import {
+  computeImagePerceptualHash,
+  getCachedProductByImageHash,
+  saveProductByImageHash,
+} from './ai/imageHasher'
 
 import {
   FoodProduct,
@@ -300,8 +305,8 @@ export const foodScannerService = {
   },
 
   // =========================================================================
-  // NIVEL 3: Escaneo de Tabla Nutricional / OCR con IA (Claude 3.5 Sonnet)
-  // Con auditoría programática post-parse de kJ/kcal y consistencia Atwater
+  // NIVEL 3: Escaneo de Tabla Nutricional / OCR con IA (Claude Haiku 4.5 Vision)
+  // Con auditoría programática post-parse de kJ/kcal, huella perceptual y base de datos
   // =========================================================================
   async scanLabelWithAi(
     imageUriOrBase64: string,
@@ -312,9 +317,41 @@ export const foodScannerService = {
     costUsd: number
     latencyMs: number
   }> {
+    const startTime = Date.now()
+    const imageHash = computeImagePerceptualHash(imageUriOrBase64)
+
+    // 1. CAPA 0: Comprobar si esta imagen exacta o muy similar ya se procesó ($0.00)
+    try {
+      const cachedScan = await getCachedProductByImageHash<{
+        product: FoodProduct
+        aiResult: NutritionalLabelResult
+      }>(imageHash)
+      if (cachedScan && cachedScan.product && cachedScan.aiResult) {
+        return {
+          product: cachedScan.product,
+          aiResult: cachedScan.aiResult,
+          costUsd: 0,
+          latencyMs: Date.now() - startTime,
+        }
+      }
+    } catch {
+      // Continuar al flujo estándar
+    }
+
+    // 2. CAPA 1: Detección rápida de código de barras visible en la foto ($0.00)
+    let detectedBarcode = optionalBarcode || null
+    if (!detectedBarcode) {
+      try {
+        detectedBarcode = await foodScannerService.extractBarcodeFromImage(imageUriOrBase64)
+      } catch {
+        // Silencioso
+      }
+    }
+
+    // 3. CAPA 2: Llamada a Claude Haiku 4.5 Vision
     const { data: rawAiResult, metrics } = await aiService.scanNutritionLabel(imageUriOrBase64)
     const aiResult = sanitizeNutritionalLabelValues(rawAiResult)
-    const detectedBarcode = optionalBarcode || aiResult.barcode || null
+    detectedBarcode = detectedBarcode || aiResult.barcode || null
 
     let finalName = aiResult.productName || 'Producto Escaneado por IA'
     let finalBrand = aiResult.brand || null
@@ -386,6 +423,11 @@ export const foodScannerService = {
       sourceLabel: isCorroboratedWithApi ? 'Corroborado con API Oficial' : 'Lector OCR de Etiqueta (IA Auditado)',
     }
 
+    // 4. GUARDADO GLOBAL: Persistir en Supabase, AsyncStorage y huella perceptual para siempre
+    await foodScannerService.saveToLocalCache(product)
+    await foodScannerService.persistProductToDatabase(product)
+    await saveProductByImageHash(imageHash, { product, aiResult })
+
     return {
       product,
       aiResult,
@@ -395,7 +437,7 @@ export const foodScannerService = {
   },
 
   // =========================================================================
-  // NIVEL 3: Escaneo de Plato de Comida con IA (Claude 3.5 Sonnet)
+  // NIVEL 3: Escaneo de Plato de Comida con IA (Claude Haiku 4.5 Vision)
   // =========================================================================
   async scanPlateWithAi(imageUriOrBase64: string): Promise<{
     mealName: string
@@ -407,9 +449,33 @@ export const foodScannerService = {
     costUsd: number
     latencyMs: number
   }> {
+    const startTime = Date.now()
+    const imageHash = computeImagePerceptualHash(imageUriOrBase64)
+
+    // 1. CAPA 0: Comprobar huella perceptual ($0.00)
+    try {
+      const cached = await getCachedProductByImageHash<{
+        mealName: string
+        items: FoodPlateItem[]
+        totalCalories: number
+        totalProtein: number
+        totalCarbs: number
+        totalFat: number
+      }>(imageHash)
+      if (cached && cached.items) {
+        return {
+          ...cached,
+          costUsd: 0,
+          latencyMs: Date.now() - startTime,
+        }
+      }
+    } catch {
+      // Continuar
+    }
+
     const { data: aiResult, metrics } = await aiService.scanMealPlate(imageUriOrBase64)
 
-    return {
+    const scanOutput = {
       mealName: aiResult.mealName || 'Plato Detectado por IA',
       items: aiResult.items || [],
       totalCalories: aiResult.estimatedTotalCalories,
@@ -419,53 +485,51 @@ export const foodScannerService = {
       costUsd: metrics.estimatedCostUsd,
       latencyMs: metrics.latencyMs,
     }
+
+    await saveProductByImageHash(imageHash, scanOutput)
+
+    return scanOutput
   },
 
   // =========================================================================
-  // Persistencia y Caché Local Seguro
+  // Persistencia y Caché Global Permanente
   // =========================================================================
   async persistProductToDatabase(product: FoodProduct): Promise<void> {
-    if (product.dataSource === 'ai_scan') return
-
     try {
-      const { error } = await supabase.from('food_products').upsert(
-        {
-          barcode: product.barcode,
-          name: product.name,
-          brand: product.brand,
-          serving_size_g: product.servingSizeG,
-          serving_name: product.servingName,
-          calories: product.calories,
-          protein: product.protein,
-          carbs: product.carbs,
-          fat: product.fat,
-          sugars: product.sugars || 0,
-          saturated_fat: product.saturatedFat || 0,
-          salt_g: product.saltG || 0,
-          fiber: product.fiber || 0,
-          sodium_mg: product.sodiumMg || 0,
-          ingredients: product.ingredients || [],
-          ultra_processed_score: product.ultraProcessedScore || 1,
-          data_source: product.dataSource,
-        },
-        { onConflict: 'barcode' }
-      )
-
-      if (error) {
-        // Silencioso
+      const payload: Record<string, any> = {
+        name: product.name,
+        brand: product.brand,
+        serving_size_g: product.servingSizeG,
+        serving_name: product.servingName,
+        calories: product.calories,
+        protein: product.protein,
+        carbs: product.carbs,
+        fat: product.fat,
+        sugars: product.sugars || 0,
+        saturated_fat: product.saturatedFat || 0,
+        salt_g: product.saltG || 0,
+        fiber: product.fiber || 0,
+        sodium_mg: product.sodiumMg || 0,
+        ingredients: product.ingredients || [],
+        ultra_processed_score: product.ultraProcessedScore || 1,
+        data_source: product.dataSource,
       }
-    } catch {
-      // Silencioso
+
+      if (product.barcode && product.barcode.trim().length >= 5) {
+        payload.barcode = product.barcode.trim()
+        await supabase.from('food_products').upsert(payload, { onConflict: 'barcode' })
+      } else {
+        await supabase.from('food_products').insert(payload)
+      }
+    } catch (err) {
+      console.warn('[FoodScanner] Error guardando producto en Supabase:', err)
     }
   },
 
   async saveToLocalCache(product: FoodProduct): Promise<void> {
-    if (product.dataSource === 'ai_scan') return
-
     try {
       const raw = await AsyncStorage.getItem(LOCAL_PRODUCTS_CACHE_KEY)
       let list: FoodProduct[] = raw ? JSON.parse(raw) : []
-      list = list.filter((p) => p.dataSource !== 'ai_scan')
 
       // Versión ligera (omitir micronutrientes pesados y recortar ingredientes para mantener AsyncStorage ultraligero <50KB)
       const leanProduct: FoodProduct = {
@@ -474,13 +538,15 @@ export const foodScannerService = {
         ingredients: product.ingredients ? product.ingredients.slice(0, 10) : [],
       }
 
-      const index = list.findIndex((p) => (leanProduct.barcode && p.barcode === leanProduct.barcode) || p.id === leanProduct.id)
+      const index = list.findIndex(
+        (p) => (leanProduct.barcode && p.barcode === leanProduct.barcode) || p.name.toLowerCase() === leanProduct.name.toLowerCase()
+      )
       if (index >= 0) {
         list[index] = leanProduct
       } else {
         list.unshift(leanProduct)
       }
-      await AsyncStorage.setItem(LOCAL_PRODUCTS_CACHE_KEY, JSON.stringify(list.slice(0, 50)))
+      await AsyncStorage.setItem(LOCAL_PRODUCTS_CACHE_KEY, JSON.stringify(list.slice(0, 80)))
     } catch {
       // Ignorar
     }
