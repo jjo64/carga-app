@@ -44,9 +44,9 @@ export function useDashboard(targetDate?: string) {
         .single()
 
       const currentWeight =
-        latestWeightData?.weight_kg ||
-        profile?.initial_weight_kg ||
         profile?.weight_kg ||
+        profile?.initial_weight_kg ||
+        latestWeightData?.weight_kg ||
         75
 
       // 2. Obtener comidas de hoy

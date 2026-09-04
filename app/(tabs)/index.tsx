@@ -352,12 +352,12 @@ export default function DashboardScreen() {
               </View>
               <View style={styles.weightNumRow}>
                 <Text style={styles.weightBigNum}>
-                  {metrics?.currentWeightKg || profile?.initial_weight_kg || '61'}
+                  {profile?.weight_kg || profile?.initial_weight_kg || metrics?.currentWeightKg || '--'}
                 </Text>
                 <Text style={styles.weightUnit}>kg</Text>
               </View>
               <Text style={styles.weightSub}>
-                {metrics?.currentWeightKg ? 'Registro activo' : 'Toca para registrar en Perfil'}
+                {profile?.weight_kg || metrics?.currentWeightKg ? 'Registro activo' : 'Toca para registrar en Perfil'}
               </Text>
             </View>
 

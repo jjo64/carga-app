@@ -206,13 +206,13 @@ export default function ProfileScreen() {
   // Form State inside Profile Settings
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null)
   const [name, setName] = useState(profile?.name || 'Usuario')
-  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() || '175')
-  const [birthDate, setBirthDate] = useState(profile?.birth_date || '1998-01-01')
+  const [heightCm, setHeightCm] = useState(profile?.height_cm?.toString() || '')
+  const [birthDate, setBirthDate] = useState(profile?.birth_date || '')
   const [weightKg, setWeightKg] = useState(
-    profile?.initial_weight_kg?.toString() ||
     profile?.weight_kg?.toString() ||
+    profile?.initial_weight_kg?.toString() ||
     latestMeasurement?.weightKg?.toString() ||
-    '70'
+    ''
   )
   const [gender, setGender] = useState<Gender>(profile?.gender || 'male')
   const [goal, setGoal] = useState<Goal>(profile?.goal || 'muscle_gain')
@@ -273,7 +273,12 @@ export default function ProfileScreen() {
 
   // New Measurement Form State
   const [newMeasureDate, setNewMeasureDate] = useState(new Date().toISOString().split('T')[0])
-  const [newWeight, setNewWeight] = useState(latestMeasurement?.weightKg?.toString() || '70')
+  const [newWeight, setNewWeight] = useState(
+    latestMeasurement?.weightKg?.toString() ||
+    profile?.weight_kg?.toString() ||
+    profile?.initial_weight_kg?.toString() ||
+    ''
+  )
   const [newChest, setNewChest] = useState(latestMeasurement?.chestCm?.toString() || '104')
   const [newWaist, setNewWaist] = useState(latestMeasurement?.waistCm?.toString() || '84')
   const [newHips, setNewHips] = useState(latestMeasurement?.hipsCm?.toString() || '99')
@@ -320,11 +325,16 @@ export default function ProfileScreen() {
         setNewUsername(profile.name)
       }
       if (profile.avatar_url) setAvatarUrl(profile.avatar_url)
-      if (profile.height_cm) setHeightCm(profile.height_cm.toString())
+      if (profile.height_cm !== undefined && profile.height_cm !== null) setHeightCm(profile.height_cm.toString())
       if (profile.birth_date) setBirthDate(profile.birth_date)
-      if (profile.initial_weight_kg) setWeightKg(profile.initial_weight_kg.toString())
-      else if (profile.weight_kg) setWeightKg(profile.weight_kg.toString())
-      else if (latestMeasurement?.weightKg) setWeightKg(latestMeasurement.weightKg.toString())
+      
+      const currentWeight = profile.weight_kg ?? profile.initial_weight_kg
+      if (currentWeight !== undefined && currentWeight !== null) {
+        setWeightKg(currentWeight.toString())
+      } else if (latestMeasurement?.weightKg) {
+        setWeightKg(latestMeasurement.weightKg.toString())
+      }
+
       if (profile.gender) setGender(profile.gender)
       if (profile.goal) setGoal(profile.goal)
       if (profile.experience_level) setExperienceLevel(profile.experience_level)
@@ -516,13 +526,13 @@ export default function ProfileScreen() {
     setSaving(true)
     setSaveSuccess(false)
 
-    const parsedHeight = parseInt(heightCm, 10) || 175
-    const parsedWeight = parseFloat(weightKg.replace(',', '.')) || null
+    const parsedHeight = heightCm ? parseInt(heightCm, 10) : (profile?.height_cm || null)
+    const parsedWeight = weightKg ? parseFloat(weightKg.replace(',', '.')) : (profile?.weight_kg || profile?.initial_weight_kg || null)
 
     const { error } = await updateProfile({
       name: name.trim(),
       height_cm: parsedHeight,
-      birth_date: birthDate,
+      birth_date: birthDate || profile?.birth_date || null,
       initial_weight_kg: parsedWeight,
       weight_kg: parsedWeight,
       avatar_url: avatarUrl,
@@ -532,16 +542,18 @@ export default function ProfileScreen() {
       activity_level: computedActivityLevel,
     })
 
-    if (user && parsedWeight) {
+    if (parsedWeight) {
       const todayStr = new Date().toISOString().split('T')[0]
-      try {
-        await supabase.from('body_weight').insert({
-          user_id: user.id,
-          date: todayStr,
-          weight_kg: parsedWeight,
-        })
-      } catch (e) {
-        console.log('Error inserting weight log:', e)
+      if (user) {
+        try {
+          await supabase.from('body_weight').upsert({
+            user_id: user.id,
+            date: todayStr,
+            weight_kg: parsedWeight,
+          }, { onConflict: 'user_id, date' })
+        } catch (e) {
+          console.log('Error upserting weight log:', e)
+        }
       }
     }
 
@@ -1803,66 +1815,57 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.settingsModalSheet}>
             <View style={styles.modalHandle} />
             
             <View style={styles.settingsHeaderRow}>
-              <Text style={[styles.settingsTitle, { color: colors.text }]}>{t('account_settings')}</Text>
+              <Text style={styles.settingsTitle}>{t('account_settings') || 'Ajustes de Cuenta'}</Text>
               <TouchableOpacity
                 onPress={() => setShowSettingsModal(false)}
                 style={styles.modalCloseIconBtn}
+                activeOpacity={0.7}
               >
-                <X size={20} color="rgba(255,255,255,0.5)" />
+                <X size={20} color="#FAFAFA" />
               </TouchableOpacity>
             </View>
 
-            {/* Settings Navigation Chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.settingsNavRow}>
+            {/* Settings Navigation Segmented Bar */}
+            <View style={styles.settingsSegmentedBar}>
               <TouchableOpacity
-                style={[styles.settingsNavChip, activeSettingsSection === 'profile' && styles.settingsNavChipActive]}
+                style={[styles.settingsSegmentedBtn, activeSettingsSection === 'profile' && styles.settingsSegmentedBtnActive]}
                 onPress={() => setActiveSettingsSection('profile')}
+                activeOpacity={0.8}
               >
-                <UserIcon size={14} color={activeSettingsSection === 'profile' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-                <Text style={[styles.settingsNavChipText, activeSettingsSection === 'profile' && styles.settingsNavChipTextActive]}>
+                <Text style={[styles.settingsSegmentedBtnText, activeSettingsSection === 'profile' && styles.settingsSegmentedBtnTextActive]}>
                   Perfil
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.settingsNavChip, activeSettingsSection === 'account' && styles.settingsNavChipActive]}
+                style={[styles.settingsSegmentedBtn, activeSettingsSection === 'account' && styles.settingsSegmentedBtnActive]}
                 onPress={() => setActiveSettingsSection('account')}
+                activeOpacity={0.8}
               >
-                <Key size={14} color={activeSettingsSection === 'account' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-                <Text style={[styles.settingsNavChipText, activeSettingsSection === 'account' && styles.settingsNavChipTextActive]}>
+                <Text style={[styles.settingsSegmentedBtnText, activeSettingsSection === 'account' && styles.settingsSegmentedBtnTextActive]}>
                   Cuenta
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.settingsNavChip, activeSettingsSection === 'notifications' && styles.settingsNavChipActive]}
+                style={[styles.settingsSegmentedBtn, activeSettingsSection === 'notifications' && styles.settingsSegmentedBtnActive]}
                 onPress={() => setActiveSettingsSection('notifications')}
+                activeOpacity={0.8}
               >
-                <Bell size={14} color={activeSettingsSection === 'notifications' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-                <Text style={[styles.settingsNavChipText, activeSettingsSection === 'notifications' && styles.settingsNavChipTextActive]}>
+                <Text style={[styles.settingsSegmentedBtnText, activeSettingsSection === 'notifications' && styles.settingsSegmentedBtnTextActive]}>
                   Notificaciones
                 </Text>
               </TouchableOpacity>
+            </View>
 
-              <TouchableOpacity
-                style={[styles.settingsNavChip, activeSettingsSection === 'preferences' && styles.settingsNavChipActive]}
-                onPress={() => setActiveSettingsSection('preferences')}
-              >
-                <Globe size={14} color={activeSettingsSection === 'preferences' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-                <Text style={[styles.settingsNavChipText, activeSettingsSection === 'preferences' && styles.settingsNavChipTextActive]}>
-                  Preferencias
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.settingsScrollView}>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.settingsScrollView} contentContainerStyle={{ paddingBottom: 24 }}>
               {/* SECTION 1: PERFIL */}
               {activeSettingsSection === 'profile' && (
-                <View style={[styles.settingsCardSection, { backgroundColor: colors.cardSubtle, borderColor: colors.border }]}>
+                <View style={styles.settingsCardSection}>
                   <Text style={styles.settingsSectionTitle}>DATOS PERSONALES & FÍSICOS</Text>
 
                   {/* Avatar Picker Row in Settings */}
@@ -1871,29 +1874,31 @@ export default function ProfileScreen() {
                       {avatarUrl ? (
                         <Image source={{ uri: avatarUrl }} style={styles.settingsAvatarImg} />
                       ) : (
-                        <View style={[styles.avatarInner, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
-                          <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+                        <View style={styles.avatarInner}>
+                          <Text style={styles.avatarInitial}>{(name || displayName || 'U').charAt(0).toUpperCase()}</Text>
                         </View>
                       )}
                     </TouchableOpacity>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={[styles.settingsAvatarLabel, { color: colors.text }]}>Foto de Perfil</Text>
-                      <TouchableOpacity onPress={handlePickAvatar} style={styles.changePhotoBtn}>
-                        <Camera size={13} color="#38BDF8" />
-                        <Text style={styles.changePhotoBtnText}>Cambiar foto</Text>
-                      </TouchableOpacity>
-                    </View>
+
+                    <Text style={styles.settingsAvatarName} numberOfLines={1}>
+                      {name || displayName || 'Usuario'}
+                    </Text>
+
+                    <TouchableOpacity onPress={handlePickAvatar} style={styles.changePhotoBtn} activeOpacity={0.75}>
+                      <Camera size={13} color="#FAFAFA" />
+                      <Text style={styles.changePhotoBtnText}>Cambiar foto</Text>
+                    </TouchableOpacity>
                   </View>
 
                   {/* Name Input */}
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>NOMBRE</Text>
                     <TextInput
-                      style={[styles.regularInput, { color: colors.text }]}
+                      style={styles.regularInput}
                       value={name}
                       onChangeText={setName}
                       placeholder="Tu nombre"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      placeholderTextColor="#52525B"
                     />
                   </View>
 
@@ -1901,72 +1906,75 @@ export default function ProfileScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>SEXO</Text>
                     <View style={styles.genderRow}>
-                      {(['male', 'female', 'other'] as const).map((g) => (
-                        <TouchableOpacity
-                          key={g}
-                          onPress={() => setGender(g)}
-                          style={[
-                            styles.genderBtn,
-                            gender === g && styles.genderBtnActive,
-                          ]}
-                          activeOpacity={0.8}
-                        >
-                          <Text
+                      {(['male', 'female', 'other'] as const).map((g) => {
+                        const isSelected = gender === g
+                        return (
+                          <TouchableOpacity
+                            key={g}
+                            onPress={() => setGender(g)}
                             style={[
-                              styles.genderBtnText,
-                              gender === g && styles.genderBtnTextActive,
+                              styles.genderBtn,
+                              isSelected && styles.genderBtnActive,
                             ]}
+                            activeOpacity={0.8}
                           >
-                            {g === 'male' ? 'Hombre' : g === 'female' ? 'Mujer' : 'Otro'}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.genderBtnText,
+                                isSelected && styles.genderBtnTextActive,
+                              ]}
+                            >
+                              {g === 'male' ? 'Hombre' : g === 'female' ? 'Mujer' : 'Otro'}
+                            </Text>
+                          </TouchableOpacity>
+                        )
+                      })}
                     </View>
                   </View>
 
-                  {/* Birthdate, Weight, Height */}
+                  {/* Birthdate, Weight, Height (3 Columns) */}
                   <View style={styles.threeInputsRow}>
-                    <View style={{ flex: 1.2 }}>
+                    <View style={{ flex: 1.25 }}>
                       <Text style={styles.inputLabel}>CUMPLEAÑOS</Text>
                       <TouchableOpacity
-                        style={[styles.smallInput, styles.datePickerBtn, { borderColor: colors.border }]}
+                        style={styles.datePickerBtn}
                         onPress={() => {
-                          const parts = (birthDate || '1998-01-01').split('-')
-                          setTempBirthYear(parseInt(parts[0], 10) || 1998)
+                          const parts = (birthDate || '2004-01-15').split('-')
+                          setTempBirthYear(parseInt(parts[0], 10) || 2004)
                           setTempBirthMonth(parseInt(parts[1], 10) || 1)
-                          setTempBirthDay(parseInt(parts[2], 10) || 1)
+                          setTempBirthDay(parseInt(parts[2], 10) || 15)
                           setShowBirthDatePickerModal(true)
                         }}
                         activeOpacity={0.8}
                       >
-                        <Text style={[styles.datePickerBtnText, { color: colors.text }]} numberOfLines={1}>
-                          {birthDate || 'Elegir'}
+                        <Text style={styles.datePickerBtnText} numberOfLines={1}>
+                          {birthDate || '2004-01-15'}
                         </Text>
-                        <CalendarIcon size={14} color="#38BDF8" />
+                        <CalendarIcon size={14} color="#71717A" />
                       </TouchableOpacity>
                     </View>
 
-                    <View style={{ flex: 0.9 }}>
+                    <View style={{ flex: 0.85 }}>
                       <Text style={styles.inputLabel}>PESO (KG)</Text>
                       <TextInput
-                        style={[styles.smallInput, { color: colors.text }]}
+                        style={styles.smallInput}
                         value={weightKg}
                         onChangeText={setWeightKg}
                         keyboardType="decimal-pad"
-                        placeholder="Ej. 61"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        placeholder="70"
+                        placeholderTextColor="#52525B"
                       />
                     </View>
 
                     <View style={{ flex: 0.9 }}>
                       <Text style={styles.inputLabel}>ALTURA (CM)</Text>
                       <TextInput
-                        style={[styles.smallInput, { color: colors.text }]}
+                        style={styles.smallInput}
                         value={heightCm}
                         onChangeText={setHeightCm}
                         keyboardType="decimal-pad"
-                        placeholder="Ej. 175"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        placeholder="166"
+                        placeholderTextColor="#52525B"
                       />
                     </View>
                   </View>
@@ -1975,34 +1983,37 @@ export default function ProfileScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>NIVEL DE EXPERIENCIA EN GIMNASIO</Text>
                     <View style={styles.goalsGrid}>
-                      {EXPERIENCE_OPTIONS.map((e) => (
-                        <TouchableOpacity
-                          key={e.value}
-                          onPress={() => setExperienceLevel(e.value)}
-                          style={[
-                            styles.goalOptionBtn,
-                            experienceLevel === e.value && styles.goalOptionBtnActive,
-                          ]}
-                          activeOpacity={0.8}
-                        >
-                          <Text
+                      {EXPERIENCE_OPTIONS.map((e) => {
+                        const isSelected = experienceLevel === e.value
+                        return (
+                          <TouchableOpacity
+                            key={e.value}
+                            onPress={() => setExperienceLevel(e.value)}
                             style={[
-                              styles.goalOptionTitle,
-                              experienceLevel === e.value && styles.goalOptionTitleActive,
+                              styles.goalOptionBtn,
+                              isSelected && styles.goalOptionBtnActive,
                             ]}
+                            activeOpacity={0.8}
                           >
-                            {e.label}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.goalOptionDesc,
-                              experienceLevel === e.value && styles.goalOptionDescActive,
-                            ]}
-                          >
-                            {e.desc}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.goalOptionTitle,
+                                isSelected && styles.goalOptionTitleActive,
+                              ]}
+                            >
+                              {e.label}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.goalOptionDesc,
+                                isSelected && styles.goalOptionDescActive,
+                              ]}
+                            >
+                              ({e.desc})
+                            </Text>
+                          </TouchableOpacity>
+                        )
+                      })}
                     </View>
                   </View>
 
@@ -2010,34 +2021,37 @@ export default function ProfileScreen() {
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>OBJETIVO</Text>
                     <View style={styles.goalsGrid}>
-                      {GOAL_OPTIONS.map((g) => (
-                        <TouchableOpacity
-                          key={g.value}
-                          onPress={() => setGoal(g.value)}
-                          style={[
-                            styles.goalOptionBtn,
-                            goal === g.value && styles.goalOptionBtnActive,
-                          ]}
-                          activeOpacity={0.8}
-                        >
-                          <Text
+                      {GOAL_OPTIONS.map((g) => {
+                        const isSelected = goal === g.value
+                        return (
+                          <TouchableOpacity
+                            key={g.value}
+                            onPress={() => setGoal(g.value)}
                             style={[
-                              styles.goalOptionTitle,
-                              goal === g.value && styles.goalOptionTitleActive,
+                              styles.goalOptionBtn,
+                              isSelected && styles.goalOptionBtnActive,
                             ]}
+                            activeOpacity={0.8}
                           >
-                            {g.label}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.goalOptionDesc,
-                              goal === g.value && styles.goalOptionDescActive,
-                            ]}
-                          >
-                            {g.desc}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.goalOptionTitle,
+                                isSelected && styles.goalOptionTitleActive,
+                              ]}
+                            >
+                              {g.label}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.goalOptionDesc,
+                                isSelected && styles.goalOptionDescActive,
+                              ]}
+                            >
+                              {g.desc}
+                            </Text>
+                          </TouchableOpacity>
+                        )
+                      })}
                     </View>
                   </View>
 
@@ -2046,14 +2060,17 @@ export default function ProfileScreen() {
                     style={styles.saveProfileBtn}
                     onPress={handleSaveProfile}
                     disabled={saving}
-                    activeOpacity={0.85}
+                    activeOpacity={0.88}
                   >
                     {saving ? (
-                      <ActivityIndicator color="#FFFFFF" />
+                      <ActivityIndicator color="#09090B" />
                     ) : (
-                      <Text style={styles.saveProfileBtnText}>
-                        {saveSuccess ? '✓ CAMBIOS GUARDADOS' : 'GUARDAR CAMBIOS'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Check size={17} color="#09090B" strokeWidth={2.5} />
+                        <Text style={styles.saveProfileBtnText}>
+                          {saveSuccess ? 'CAMBIOS GUARDADOS' : 'CONFIRMAR CAMBIOS'}
+                        </Text>
+                      </View>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -3213,18 +3230,69 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 40,
   },
+  settingsModalSheet: {
+    backgroundColor: '#09090B',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 14,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    maxHeight: '92%',
+    borderTopWidth: 1,
+    borderColor: '#27272A',
+  },
   settingsHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 16,
+    marginTop: 4,
   },
   settingsTitle: {
+    color: '#FAFAFA',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.3,
   },
   modalCloseIconBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsSegmentedBar: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 9999,
     padding: 4,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 16,
+  },
+  settingsSegmentedBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9999,
+  },
+  settingsSegmentedBtnActive: {
+    backgroundColor: '#FAFAFA',
+  },
+  settingsSegmentedBtnText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  settingsSegmentedBtnTextActive: {
+    color: '#09090B',
+    fontWeight: '900',
   },
   settingsNavRow: {
     flexDirection: 'row',
@@ -3256,52 +3324,98 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   settingsCardSection: {
+    backgroundColor: '#14151B',
     borderRadius: 20,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
+    borderColor: '#27272A',
     gap: 14,
     marginBottom: 16,
   },
   settingsSectionTitle: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 10,
+    color: '#71717A',
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+  },
+  settingsAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  settingsAvatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#38BDF8',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+  },
+  settingsAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  settingsAvatarName: {
+    flex: 1,
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#27272A',
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9999,
+  },
+  changePhotoBtnText: {
+    color: '#FAFAFA',
+    fontSize: 12,
+    fontWeight: '700',
   },
   inputGroup: {
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   formRow: {
     flexDirection: 'row',
     gap: 8,
   },
   inputLabel: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+    color: '#71717A',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   regularInput: {
-    backgroundColor: '#121212',
-    borderRadius: 12,
+    backgroundColor: '#18181B',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    fontSize: 14,
-    fontWeight: '600',
+    borderColor: '#27272A',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FAFAFA',
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   smallActionBtn: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#FAFAFA',
     paddingHorizontal: 16,
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   smallActionBtnText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   genderRow: {
     flexDirection: 'row',
@@ -3309,38 +3423,59 @@ const styles = StyleSheet.create({
   },
   genderBtn: {
     flex: 1,
-    backgroundColor: '#121212',
-    borderRadius: 12,
+    backgroundColor: '#18181B',
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    paddingVertical: 10,
+    borderColor: '#27272A',
+    paddingVertical: 9,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   genderBtnActive: {
-    backgroundColor: 'rgba(59,130,246,0.12)',
-    borderColor: '#3B82F6',
+    borderColor: '#FAFAFA',
+    borderWidth: 1.5,
   },
   genderBtnText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#A1A1AA',
     fontSize: 13,
     fontWeight: '700',
   },
   genderBtnTextActive: {
-    color: '#60A5FA',
+    color: '#FAFAFA',
+    fontWeight: '900',
   },
   threeInputsRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  smallInput: {
-    backgroundColor: '#121212',
-    borderRadius: 12,
+  datePickerBtn: {
+    backgroundColor: '#18181B',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    fontSize: 14,
+    borderColor: '#27272A',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerBtnText: {
+    color: '#FAFAFA',
+    fontSize: 13.5,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  smallInput: {
+    backgroundColor: '#18181B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FAFAFA',
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    fontVariant: ['tabular-nums'],
   },
   goalsGrid: {
     flexDirection: 'row',
@@ -3348,45 +3483,53 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   goalOptionBtn: {
-    width: '48%',
-    backgroundColor: '#121212',
-    borderRadius: 14,
+    width: '48.5%',
+    backgroundColor: '#18181B',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    padding: 12,
+    borderColor: '#27272A',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalOptionBtnActive: {
-    backgroundColor: 'rgba(59,130,246,0.1)',
-    borderColor: '#3B82F6',
+    borderColor: '#FAFAFA',
+    borderWidth: 1.5,
   },
   goalOptionTitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '800',
+    textAlign: 'center',
   },
   goalOptionTitleActive: {
-    color: '#60A5FA',
+    color: '#FAFAFA',
+    fontWeight: '900',
   },
   goalOptionDesc: {
-    color: 'rgba(255,255,255,0.25)',
-    fontSize: 10,
+    color: '#71717A',
+    fontSize: 10.5,
     marginTop: 2,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   goalOptionDescActive: {
-    color: 'rgba(96,165,250,0.6)',
+    color: '#A1A1AA',
   },
   saveProfileBtn: {
-    backgroundColor: '#0284C7',
-    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 6,
+    justifyContent: 'center',
+    marginTop: 8,
   },
   saveProfileBtnText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 0.5,
   },
   notificationToggleRow: {
     flexDirection: 'row',
@@ -3667,63 +3810,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#0B0D14',
-  },
-  settingsAvatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 12,
-  },
-  settingsAvatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#38BDF8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E293B',
-  },
-  settingsAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  settingsAvatarLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  changePhotoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  changePhotoBtnText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  datePickerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  datePickerBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
   },
   datePickerModalContent: {
     width: '92%',

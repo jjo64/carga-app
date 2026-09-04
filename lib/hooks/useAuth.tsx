@@ -61,11 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (!error && data) {
+        const effectiveWeight = (data as any).weight_kg || (data as Profile).initial_weight_kg || cachedProfile?.weight_kg || cachedProfile?.initial_weight_kg || null
+
         const merged: Profile = {
           ...(cachedProfile || {}),
           ...(data as Profile),
+          initial_weight_kg: effectiveWeight,
+          weight_kg: effectiveWeight,
           // Preservar avatar local si Supabase no lo tiene
           avatar_url: (data as Profile).avatar_url || cachedProfile?.avatar_url || null,
+          experience_level: (data as Profile).experience_level || cachedProfile?.experience_level || 'intermediate',
         }
         setProfile(merged)
         await AsyncStorage.setItem(`${STORAGE_PROFILE_PREFIX}${userId}`, JSON.stringify(merged))
@@ -185,9 +190,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 3. Sincronizar con Supabase si hay usuario conectado
     if (user) {
       try {
+        const supabaseData: Record<string, any> = {
+          id: userId,
+          updated_at: updatedProfile.updated_at,
+        }
+        if (updatedProfile.name !== undefined) supabaseData.name = updatedProfile.name
+        if (updatedProfile.birth_date !== undefined) supabaseData.birth_date = updatedProfile.birth_date
+        if (updatedProfile.gender !== undefined) supabaseData.gender = updatedProfile.gender
+        if (updatedProfile.height_cm !== undefined) supabaseData.height_cm = updatedProfile.height_cm
+        if (updatedProfile.goal !== undefined) supabaseData.goal = updatedProfile.goal
+        if (updatedProfile.activity_level !== undefined) supabaseData.activity_level = updatedProfile.activity_level
+        if (updatedProfile.experience_level !== undefined) supabaseData.experience_level = updatedProfile.experience_level
+        if (updatedProfile.training_days_per_week !== undefined) supabaseData.training_days_per_week = updatedProfile.training_days_per_week
+        if (updatedProfile.onboarding_completed !== undefined) supabaseData.onboarding_completed = updatedProfile.onboarding_completed
+        if (updatedProfile.initial_weight_kg !== undefined || updatedProfile.weight_kg !== undefined) {
+          supabaseData.initial_weight_kg = updatedProfile.initial_weight_kg || updatedProfile.weight_kg
+        }
+        if (updatedProfile.avatar_url !== undefined) supabaseData.avatar_url = updatedProfile.avatar_url
+
         const { error } = await supabase
           .from('profiles')
-          .upsert(updatedProfile, { onConflict: 'id' })
+          .upsert(supabaseData, { onConflict: 'id' })
 
         if (error) {
           console.warn('Supabase upsert warning:', error.message)
