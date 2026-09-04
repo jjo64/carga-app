@@ -1670,6 +1670,18 @@ export default function NutritionScreen() {
                         </>
                       )}
                     </TouchableOpacity>
+
+                    {/* Discard Meal Action */}
+                    <TouchableOpacity
+                      style={styles.plateDiscardMealBtn}
+                      onPress={handleConfirmDiscardDraft}
+                      activeOpacity={0.7}
+                    >
+                      <Trash2 size={14} color="#EF4444" />
+                      <Text style={styles.plateDiscardMealBtnText}>
+                        {editingFoodLogId ? 'Cancelar y descartar cambios' : 'Descartar plato'}
+                      </Text>
+                    </TouchableOpacity>
                   </>
                 )}
               </ScrollView>
@@ -3409,13 +3421,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   plateConfirmBtnText: {
     color: '#09090B',
     fontSize: 13.5,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+  plateDiscardMealBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 20,
+    borderRadius: 12,
+  },
+  plateDiscardMealBtnText: {
+    color: '#EF4444',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   removeItemBtn: {
     flexDirection: 'row',
