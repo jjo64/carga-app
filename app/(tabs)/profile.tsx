@@ -15,6 +15,7 @@ import {
   Image,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
+import * as FileSystem from 'expo-file-system'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter } from 'expo-router'
 import {
@@ -59,18 +60,24 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/theme'
 import { useLanguage, SUPPORTED_LANGUAGES } from '@/lib/i18n'
 import { getSeniorityBadge } from '@/constants/fitnessData'
-import { Goal, Gender, ActivityLevel } from '@/types'
+import { Goal, Gender, ActivityLevel, ExperienceLevel } from '@/types'
 import { useWorkoutHistory, UserWorkoutHistoryItem, useRoutines, calculateStreak } from '@/lib/hooks/useWorkout'
 import { useBodyMeasurements, BodyMeasurementEntry } from '@/lib/hooks/useBodyMeasurements'
 import { exportAllAppData, importAppData } from '@/lib/utils/exportImport'
-import { EXERCISE_DATABASE, ExerciseDefinition } from '@/constants/exerciseDatabase'
+import { EXERCISE_DATABASE, ExerciseDefinition, getExerciseById, searchExercises } from '@/constants/exerciseDatabase'
 import ExerciseProgressView from '@/components/workout/ExerciseProgressView'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import { supabase } from '@/lib/supabase'
 
-type ProfileTab = 'stats' | 'measures'
+type ProfileTab = 'stats' | 'exercises' | 'calendar' | 'measures'
 type SettingsSection = 'profile' | 'account' | 'notifications' | 'preferences'
 type FirstDayOfWeek = 'monday' | 'sunday' | 'saturday'
+
+const EXPERIENCE_OPTIONS: { value: ExperienceLevel; label: string; desc: string }[] = [
+  { value: 'beginner', label: 'Principiante', desc: '< 1 año entrenando' },
+  { value: 'intermediate', label: 'Intermedio', desc: '1 a 3 años de entrenamiento' },
+  { value: 'advanced', label: 'Avanzado', desc: '+3 años de entrenamiento' },
+]
 
 const GOAL_OPTIONS: { value: Goal; label: string; desc: string }[] = [
   { value: 'muscle_gain', label: 'Hipertrofia', desc: '+300 kcal' },
@@ -81,7 +88,7 @@ const GOAL_OPTIONS: { value: Goal; label: string; desc: string }[] = [
 
 const FIRST_DAY_STORAGE_KEY = '@fitness_ia_first_day_of_week'
 
-// Exercise icon for past workout cards
+// Exercise icon fallback for past workout cards
 function ExerciseMiniIcon({ muscleGroup }: { muscleGroup: string }) {
   const mg = (muscleGroup || '').toLowerCase()
   const isBiceps = mg.includes('bícep') || mg.includes('bicep') || mg.includes('curl')
@@ -128,6 +135,46 @@ function ExerciseMiniIcon({ muscleGroup }: { muscleGroup: string }) {
   )
 }
 
+function WorkoutExerciseRow({
+  exerciseName,
+  sets,
+  muscleGroup,
+  colors,
+  isDark,
+}: {
+  exerciseName: string
+  sets: number
+  muscleGroup: string
+  colors?: any
+  isDark?: boolean
+}) {
+  const exerciseDef = useMemo(() => {
+    return getExerciseById(exerciseName) || searchExercises(exerciseName)[0] || null
+  }, [exerciseName])
+
+  return (
+    <View style={styles.weExerciseRow}>
+      {exerciseDef?.imageUrl ? (
+        <Image
+          source={{ uri: exerciseDef.imageUrl }}
+          style={[styles.weExerciseImage, { backgroundColor: isDark ? '#27272A' : '#E2E8F0' }]}
+          resizeMode="cover"
+        />
+      ) : (
+        <ExerciseMiniIcon muscleGroup={muscleGroup} />
+      )}
+      <View style={styles.weExerciseInfo}>
+        <Text style={styles.weSeriesText}>
+          {sets} {sets === 1 ? 'serie' : 'series'}
+        </Text>
+        <Text style={[styles.weNameText, { color: colors?.text || '#FAFAFA' }]} numberOfLines={2}>
+          {exerciseName}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
 export default function ProfileScreen() {
   const router = useRouter()
   const { user, profile, updateProfile, updateAccountEmail, updateAccountPassword, signOut } = useAuth()
@@ -142,8 +189,16 @@ export default function ProfileScreen() {
     deleteMeasurement,
   } = useBodyMeasurements()
 
-  // Active Sub-Tab: 'stats' | 'measures'
+  // Active Sub-Tab: 'stats' | 'exercises' | 'calendar' | 'measures'
   const [activeTab, setActiveTab] = useState<ProfileTab>('stats')
+  const [expandedWorkoutIds, setExpandedWorkoutIds] = useState<Record<string, boolean>>({})
+
+  const toggleExpandWorkout = (workoutId: string) => {
+    setExpandedWorkoutIds((prev) => ({
+      ...prev,
+      [workoutId]: !prev[workoutId],
+    }))
+  }
 
   // Calendar configuration
   const [firstDayOfWeek, setFirstDayOfWeek] = useState<FirstDayOfWeek>('monday')
@@ -161,6 +216,7 @@ export default function ProfileScreen() {
   )
   const [gender, setGender] = useState<Gender>(profile?.gender || 'male')
   const [goal, setGoal] = useState<Goal>(profile?.goal || 'muscle_gain')
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(profile?.experience_level || 'advanced')
   const [showBirthDatePickerModal, setShowBirthDatePickerModal] = useState(false)
   const [tempBirthYear, setTempBirthYear] = useState(1998)
   const [tempBirthMonth, setTempBirthMonth] = useState(1)
@@ -190,6 +246,7 @@ export default function ProfileScreen() {
   const [showCalendarModal, setShowCalendarModal] = useState(false)
   const [showCalendarFilterModal, setShowCalendarFilterModal] = useState(false)
   const [showDayWorkoutsModal, setShowDayWorkoutsModal] = useState(false)
+  const [showMeasuresModal, setShowMeasuresModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importJsonText, setImportJsonText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -270,6 +327,7 @@ export default function ProfileScreen() {
       else if (latestMeasurement?.weightKg) setWeightKg(latestMeasurement.weightKg.toString())
       if (profile.gender) setGender(profile.gender)
       if (profile.goal) setGoal(profile.goal)
+      if (profile.experience_level) setExperienceLevel(profile.experience_level)
     }
   }, [profile, latestMeasurement])
 
@@ -285,19 +343,36 @@ export default function ProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
-        base64: true,
+        quality: 0.8,
       })
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0]
-        const newUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
-        setAvatarUrl(newUri)
-        await updateProfile({ avatar_url: newUri })
+        let persistentUri = asset.uri
+
+        // En plataformas móviles nativas, copiar la imagen de la caché temporal a documentDirectory permanente
+        if (FileSystem.documentDirectory) {
+          const avatarsDir = `${FileSystem.documentDirectory}avatars/`
+          const dirInfo = await FileSystem.getInfoAsync(avatarsDir)
+          if (!dirInfo.exists) {
+            await FileSystem.makeDirectoryAsync(avatarsDir, { intermediates: true })
+          }
+          const filename = `avatar_${user?.id || 'local'}_${Date.now()}.jpg`
+          const targetPath = `${avatarsDir}${filename}`
+          await FileSystem.copyAsync({
+            from: asset.uri,
+            to: targetPath,
+          })
+          persistentUri = targetPath
+        }
+
+        setAvatarUrl(persistentUri)
+        await updateProfile({ avatar_url: persistentUri })
         Alert.alert('Éxito', 'Foto de perfil actualizada correctamente.')
       }
     } catch (err) {
       console.log('Error picking avatar image:', err)
+      Alert.alert('Error', 'No se pudo guardar la imagen de perfil.')
     }
   }
 
@@ -453,6 +528,7 @@ export default function ProfileScreen() {
       avatar_url: avatarUrl,
       gender,
       goal,
+      experience_level: experienceLevel,
       activity_level: computedActivityLevel,
     })
 
@@ -681,9 +757,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* ── Top Bar Header ── */}
+      {/* ── Top Bar Header with Edit, Share, Settings Icons ── */}
       <View style={[styles.topBar, { backgroundColor: colors.background }]}>
-        <Text style={[styles.topBarUsername, { color: colors.text }]}>{displayName}</Text>
+        <View style={{ width: 40 }} />
 
         <View style={styles.topBarIconsRow}>
           {/* Edit icon -> Opens Profile Settings */}
@@ -722,378 +798,310 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* ── Profile Section ── */}
-        <View style={styles.profileHeroSection}>
-          {/* Avatar circle */}
+        {/* ── Profile Hero Section (Centered Avatar + Name + Capsule Pill) ── */}
+        <View style={styles.profileHeroSectionCentered}>
+          {/* Centered Avatar */}
           <TouchableOpacity
             onPress={handlePickAvatar}
             activeOpacity={0.8}
-            style={[styles.avatarCircle, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.heroAvatarCircle, { backgroundColor: isDark ? '#18181B' : '#F1F5F9', borderColor: isDark ? '#27272A' : colors.border }]}
           >
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+              <Image source={{ uri: avatarUrl }} style={styles.heroAvatarImg} />
             ) : (
-              <View style={[styles.avatarInner, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
-                <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+              <View style={[styles.avatarInner, { backgroundColor: isDark ? '#27272A' : '#E2E8F0' }]}>
+                <Text style={styles.heroAvatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
               </View>
             )}
-            <View style={styles.avatarEditBadge}>
+            <View style={styles.heroAvatarEditBadge}>
               <Camera size={12} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
 
-          {/* Profile Name & 3-Column Stats */}
-          <View style={styles.profileStatsCol}>
-            <Text style={[styles.profileUsernameText, { color: colors.text }]}>{displayName}</Text>
+          {/* Display Name */}
+          <Text style={[styles.heroDisplayName, { color: colors.text }]}>{displayName}</Text>
 
-            <View style={styles.threeStatsRow}>
-              <View style={styles.statColumn}>
-                <Text style={styles.statColLabel}>Entrenos</Text>
-                <Text style={[styles.statColVal, { color: colors.text }]}>{history.length}</Text>
-              </View>
-
-              <View style={styles.statColumn}>
-                <Text style={styles.statColLabel}>Seguidores</Text>
-                <Text style={[styles.statColVal, { color: colors.text }]}>0</Text>
-              </View>
-
-              <View style={styles.statColumn}>
-                <Text style={styles.statColLabel}>Siguiendo</Text>
-                <Text style={[styles.statColVal, { color: colors.text }]}>0</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Seniority & Goal Badges ── */}
-        <View style={styles.badgesRow}>
-          <View style={[styles.seniorityBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-            <Text style={{ fontSize: 12 }}>{badge.icon}</Text>
-            <Text style={[styles.seniorityBadgeText, { color: badge.color }]}>{badge.label}</Text>
-          </View>
-
-          <View style={styles.goalBadge}>
-            <Text style={styles.goalBadgeText}>
-              {GOAL_OPTIONS.find((g) => g.value === goal)?.label || 'Hipertrofia'}
-            </Text>
-          </View>
-
-          <Text style={styles.tenureText}>
-            {badge.months} meses entrenando
-          </Text>
-        </View>
-
-        {/* ── Sub-navigation Information Tabs (Estadísticas, Ejercicios, Calendario, Medidas) ── */}
-        <View style={[styles.tabBarContainer, { backgroundColor: isDark ? '#121212' : '#F1F5F9', borderColor: colors.border }]}>
+          {/* Level • Goal Pill (Toca para editar en Ajustes) */}
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'stats' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('stats')}
-            activeOpacity={0.7}
+            onPress={() => {
+              setActiveSettingsSection('profile')
+              setShowSettingsModal(true)
+            }}
+            activeOpacity={0.8}
+            style={[styles.heroCapsulePill, { backgroundColor: isDark ? '#18181B' : '#F1F5F9', borderColor: isDark ? '#27272A' : colors.border }]}
           >
-            <Activity size={15} color={activeTab === 'stats' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-            <Text style={[styles.tabBtnText, activeTab === 'stats' && styles.tabBtnTextActive]}>
+            <Text style={styles.heroCapsuleText}>
+              {(EXPERIENCE_OPTIONS.find((e) => e.value === experienceLevel)?.label || 'AVANZADO').toUpperCase()} • {(GOAL_OPTIONS.find((g) => g.value === goal)?.label || 'HIPERTROFIA').toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sub-navigation 4 Pills (Estadísticas, Ejercicios, Calendario, Medidas) ── */}
+        <View style={styles.navPillsRow}>
+          {/* Estadísticas (Always Selected / Active) */}
+          <TouchableOpacity
+            style={[
+              styles.navPill,
+              {
+                backgroundColor: isDark ? '#27272A' : '#E2E8F0',
+                borderColor: isDark ? '#52525B' : '#CBD5E1',
+              },
+              styles.navPillActive,
+            ]}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.navPillText, { color: colors.text }, styles.navPillTextActive]}>
               Estadísticas
             </Text>
           </TouchableOpacity>
 
+          {/* Ejercicios (Modal Popup) */}
           <TouchableOpacity
-            style={styles.tabBtn}
+            style={[
+              styles.navPill,
+              {
+                backgroundColor: isDark ? '#18181B' : '#F1F5F9',
+                borderColor: isDark ? '#27272A' : '#E2E8F0',
+              },
+            ]}
             onPress={() => setShowExerciseSelectorModal(true)}
             activeOpacity={0.7}
           >
-            <Dumbbell size={15} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.tabBtnText}>
+            <Text style={[styles.navPillText, { color: isDark ? '#A1A1AA' : '#64748B' }]}>
               Ejercicios
             </Text>
           </TouchableOpacity>
 
+          {/* Calendario (Modal Popup) */}
           <TouchableOpacity
-            style={styles.tabBtn}
+            style={[
+              styles.navPill,
+              {
+                backgroundColor: isDark ? '#18181B' : '#F1F5F9',
+                borderColor: isDark ? '#27272A' : '#E2E8F0',
+              },
+            ]}
             onPress={() => setShowCalendarModal(true)}
             activeOpacity={0.7}
           >
-            <CalendarIcon size={15} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.tabBtnText}>
+            <Text style={[styles.navPillText, { color: isDark ? '#A1A1AA' : '#64748B' }]}>
               Calendario
             </Text>
           </TouchableOpacity>
 
+          {/* Medidas (Modal Popup) */}
           <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'measures' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('measures')}
+            style={[
+              styles.navPill,
+              {
+                backgroundColor: isDark ? '#18181B' : '#F1F5F9',
+                borderColor: isDark ? '#27272A' : '#E2E8F0',
+              },
+            ]}
+            onPress={() => setShowMeasuresModal(true)}
             activeOpacity={0.7}
           >
-            <Ruler size={15} color={activeTab === 'measures' ? '#FFFFFF' : 'rgba(255,255,255,0.5)'} />
-            <Text style={[styles.tabBtnText, activeTab === 'measures' && styles.tabBtnTextActive]}>
+            <Text style={[styles.navPillText, { color: isDark ? '#A1A1AA' : '#64748B' }]}>
               Medidas
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── TAB 1: ESTADÍSTICAS GLOBALES ── */}
-        {activeTab === 'stats' && (
-          <View style={styles.tabContentContainer}>
-            {/* Global Aggregated Metrics */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={styles.cardTitle}>ESTADÍSTICAS GLOBALES</Text>
-              
-              <View style={styles.statsGrid}>
-                <View style={[styles.statGridItem, { backgroundColor: colors.cardSubtle }]}>
-                  <Weight size={18} color="#38BDF8" />
-                  <Text style={[styles.statGridVal, { color: colors.text }]}>
-                    {(totalVolumeAccumulated / 1000).toFixed(1)}t
-                  </Text>
-                  <Text style={styles.statGridLabel}>Volumen Total</Text>
-                </View>
+        {/* ── ESTADÍSTICAS GLOBALES CARD (Always Visible) ── */}
+        <View style={[styles.globalStatsCard, { backgroundColor: isDark ? '#121215' : colors.card, borderColor: isDark ? '#27272A' : colors.border }]}>
+          <Text style={styles.globalStatsHeaderTitle}>ESTADÍSTICAS GLOBALES</Text>
 
-                <View style={[styles.statGridItem, { backgroundColor: colors.cardSubtle }]}>
-                  <Clock size={18} color="#60A5FA" />
-                  <Text style={[styles.statGridVal, { color: colors.text }]}>
-                    {(totalMinutesTrained / 60).toFixed(1)}h
-                  </Text>
-                  <Text style={styles.statGridLabel}>Tiempo Total</Text>
-                </View>
-
-                <View style={[styles.statGridItem, { backgroundColor: colors.cardSubtle }]}>
-                  <Award size={18} color="#FBBF24" />
-                  <Text style={[styles.statGridVal, { color: colors.text }]}>
-                    {totalRecordsAchieved}
-                  </Text>
-                  <Text style={styles.statGridLabel}>Récords Logrados</Text>
-                </View>
-
-                <View style={[styles.statGridItem, { backgroundColor: colors.cardSubtle }]}>
-                  <Flame size={18} color="#EF4444" />
-                  <Text style={[styles.statGridVal, { color: colors.text }]}>
-                    {history.length > 0 ? `${history.length} entrenos` : 'Inicio'}
-                  </Text>
-                  <Text style={styles.statGridLabel}>Nivel de Actividad</Text>
-                </View>
+          <View style={styles.globalStatsGrid}>
+            <View style={[styles.globalStatItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+              <View style={styles.globalStatIconRow}>
+                <Weight size={14} color="#38BDF8" />
+                <Text style={styles.globalStatItemLabel}>Volumen Total</Text>
               </View>
+              <Text style={[styles.globalStatItemVal, { color: colors.text }]}>
+                {(totalVolumeAccumulated / 1000).toFixed(1)} <Text style={styles.globalStatUnit}>t</Text>
+              </Text>
             </View>
 
-            {/* Quick Access Card to Exercise PRs */}
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-              onPress={() => setShowExerciseSelectorModal(true)}
-              activeOpacity={0.8}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View style={[styles.iconCircleThumb, { backgroundColor: 'rgba(56, 189, 248, 0.12)' }]}>
-                  <Award size={22} color="#38BDF8" />
-                </View>
-                <View>
-                  <Text style={[styles.quickCardTitle, { color: colors.text }]}>Récords por Ejercicio</Text>
-                  <Text style={styles.quickCardSub}>Mayor peso, mejor 1RM, mejor volumen y marcas</Text>
-                </View>
+            <View style={[styles.globalStatItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+              <View style={styles.globalStatIconRow}>
+                <Clock size={14} color="#60A5FA" />
+                <Text style={styles.globalStatItemLabel}>Tiempo Total</Text>
               </View>
-              <ChevronRight size={18} color="#38BDF8" />
-            </TouchableOpacity>
+              <Text style={[styles.globalStatItemVal, { color: colors.text }]}>
+                {(totalMinutesTrained / 60).toFixed(1)} <Text style={styles.globalStatUnit}>h</Text>
+              </Text>
+            </View>
+
+            <View style={[styles.globalStatItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+              <View style={styles.globalStatIconRow}>
+                <Award size={14} color="#FBBF24" />
+                <Text style={styles.globalStatItemLabel}>Récords PRs</Text>
+              </View>
+              <Text style={[styles.globalStatItemVal, { color: colors.text }]}>
+                {totalRecordsAchieved}
+              </Text>
+            </View>
+
+            <View style={[styles.globalStatItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+              <View style={styles.globalStatIconRow}>
+                <Flame size={14} color="#EF4444" />
+                <Text style={styles.globalStatItemLabel}>Entrenamientos</Text>
+              </View>
+              <Text style={[styles.globalStatItemVal, { color: colors.text }]}>
+                {history.length}
+              </Text>
+            </View>
           </View>
-        )}
+        </View>
 
-        {/* ── TAB 2: MEDIDAS ── */}
-        {activeTab === 'measures' && (
-          <View style={styles.tabContentContainer}>
-            {/* Top action button: Add new measurement */}
-            <View style={styles.measuresActionRow}>
-              <Text style={[styles.measuresSectionTitle, { color: colors.text }]}>Medidas Corporales</Text>
-              <TouchableOpacity
-                style={styles.addMeasureBtn}
-                onPress={() => setShowAddMeasureModal(true)}
-                activeOpacity={0.8}
-              >
-                <Plus size={16} color="#FFFFFF" strokeWidth={2.5} />
-                <Text style={styles.addMeasureBtnText}>AÑADIR MEDIDA</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Latest Measurement Big Summary Card */}
-            {latestMeasurement && (
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>ÚLTIMO REGISTRO ({latestMeasurement.date})</Text>
+        {/* ── WORKOUTS FEED / HISTORY SECTION (Always Visible) ── */}
+        <View style={styles.historySection}>
+            {historyLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#38BDF8" size="large" />
+              </View>
+            ) : history.length === 0 ? (
+              /* Empty State */
+              <View style={[styles.emptyWorkoutCard, { backgroundColor: isDark ? '#121215' : colors.card, borderColor: isDark ? '#27272A' : colors.border }]}>
+                <View style={styles.emptyIconCircle}>
+                  <Dumbbell size={28} color="#38BDF8" />
                 </View>
+                <Text style={[styles.emptyWorkoutTitle, { color: colors.text }]}>Sin entrenamientos registrados</Text>
+                <Text style={styles.emptyWorkoutSub}>
+                  Inicia una rutina cronometrada para registrar tu tiempo, volumen levantado y récords personales.
+                </Text>
+                <TouchableOpacity
+                  style={styles.startFirstWorkoutBtn}
+                  onPress={() => router.push('/(tabs)/workout')}
+                  activeOpacity={0.85}
+                >
+                  <Play size={15} color="#FFFFFF" fill="#FFFFFF" />
+                  <Text style={styles.startFirstWorkoutBtnText}>IR A ENTRENAR</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              /* Dynamic Workout Feed Cards */
+              <View style={styles.pastWorkoutsList}>
+                {history.map((workout) => {
+                  const isExpanded = !!expandedWorkoutIds[workout.id]
+                  const exercisesToDisplay = isExpanded ? workout.exercises : workout.exercises.slice(0, 3)
+                  const remainingCount = workout.exercises.length - 3
 
-                <View style={styles.measuresGrid}>
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>PESO</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.weightKg || '--'} <Text style={styles.measureItemUnit}>kg</Text>
-                    </Text>
-                  </View>
+                  return (
+                    <View
+                      key={workout.id}
+                      style={[
+                        styles.wfCard,
+                        {
+                          backgroundColor: isDark ? '#121215' : colors.card,
+                          borderColor: isDark ? '#27272A' : colors.border,
+                        },
+                      ]}
+                    >
+                      {/* Card Header: User avatar + Display Name + Date + 3-dots */}
+                      <View style={styles.wfHeaderRow}>
+                        <View style={styles.wfUserInfo}>
+                          {avatarUrl ? (
+                            <Image source={{ uri: avatarUrl }} style={styles.wfAvatarImg} />
+                          ) : (
+                            <View style={[styles.wfAvatarPlaceholder, { backgroundColor: isDark ? '#27272A' : '#E2E8F0' }]}>
+                              <Text style={styles.wfAvatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+                            </View>
+                          )}
+                          <View style={{ marginLeft: 10 }}>
+                            <Text style={[styles.wfUserName, { color: colors.text }]}>{displayName}</Text>
+                            <Text style={styles.wfDateText}>{workout.dateLabel}</Text>
+                          </View>
+                        </View>
 
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>PECHO</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.chestCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
-                    </Text>
-                  </View>
+                        {/* 3-dots Menu Button */}
+                        <TouchableOpacity
+                          style={styles.wfDotsBtn}
+                          onPress={() => {
+                            setSelectedWorkout(workout)
+                            setShowWorkoutActionModal(true)
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <MoreHorizontal size={18} color={isDark ? '#71717A' : '#94A3B8'} />
+                        </TouchableOpacity>
+                      </View>
 
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>CINTURA</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.waistCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
-                    </Text>
-                  </View>
+                      {/* Workout Routine Title */}
+                      <Text style={[styles.wfRoutineTitle, { color: colors.text }]}>{workout.routineName}</Text>
 
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>CADERA</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.hipsCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
-                    </Text>
-                  </View>
+                      {/* Workout Metric Badges: Tiempo | Volumen | PRs */}
+                      <View style={[styles.wfMetricsRow, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                        <View style={styles.wfMetricItem}>
+                          <Clock size={13} color="#71717A" />
+                          <Text style={[styles.wfMetricValue, { color: colors.text }]}>{workout.durationFormatted}</Text>
+                        </View>
 
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>BÍCEPS</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.bicepsCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
-                    </Text>
-                  </View>
+                        <View style={styles.wfMetricDivider} />
 
-                  <View style={[styles.measureGridItem, { backgroundColor: colors.cardSubtle }]}>
-                    <Text style={styles.measureItemLabel}>MUSLO</Text>
-                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
-                      {latestMeasurement.thighCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
-                    </Text>
-                  </View>
-                </View>
+                        <View style={styles.wfMetricItem}>
+                          <Weight size={13} color="#71717A" />
+                          <Text style={[styles.wfMetricValue, { color: colors.text }]}>
+                            {workout.volumeKg.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}{' '}
+                            <Text style={{ fontSize: 11, color: '#71717A' }}>kg</Text>
+                          </Text>
+                        </View>
+
+                        {workout.recordsCount > 0 && (
+                          <>
+                            <View style={styles.wfMetricDivider} />
+                            <View style={styles.wfMetricItem}>
+                              <Text style={{ fontSize: 12 }}>🥇</Text>
+                              <Text style={[styles.wfMetricValue, { color: colors.text }]}>
+                                {workout.recordsCount} {workout.recordsCount === 1 ? 'PR' : 'PRs'}
+                              </Text>
+                            </View>
+                          </>
+                        )}
+                      </View>
+
+                      {/* Divider */}
+                      <View style={[styles.wfDivider, { backgroundColor: isDark ? '#27272A' : '#E2E8F0' }]} />
+
+                      {/* Exercise Rows with Real Image Thumbnails */}
+                      <View style={styles.wfExercisesContainer}>
+                        {exercisesToDisplay.map((ex, i) => (
+                          <WorkoutExerciseRow
+                            key={i}
+                            exerciseName={ex.name}
+                            sets={ex.sets}
+                            muscleGroup={ex.muscleGroup}
+                            colors={colors}
+                            isDark={isDark}
+                          />
+                        ))}
+                      </View>
+
+                      {/* Expand / Collapse Button if workout has > 3 exercises */}
+                      {workout.exercises.length > 3 && (
+                        <TouchableOpacity
+                          style={[styles.wfExpandBtn, { borderTopColor: isDark ? '#1E1E24' : '#F1F5F9' }]}
+                          onPress={() => toggleExpandWorkout(workout.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.wfExpandBtnText}>
+                            {isExpanded
+                              ? 'Ver menos ejercicios'
+                              : `+ Ver ${remainingCount} ejercicios más`}
+                          </Text>
+                          <ChevronDown
+                            size={14}
+                            color="#71717A"
+                            style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )
+                })}
               </View>
             )}
-
-            {/* Measurement History List */}
-            <View style={styles.measurementHistoryList}>
-              <Text style={[styles.historySubTitle, { color: colors.textSecondary }]}>Historial de Registros</Text>
-              {measurements.map((m) => (
-                <View key={m.id} style={[styles.measurementHistoryRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View>
-                    <Text style={[styles.measureHistDate, { color: colors.text }]}>{m.date}</Text>
-                    <Text style={styles.measureHistSummary}>
-                      Peso: {m.weightKg || '--'} kg · Pecho: {m.chestCm || '--'} cm · Cintura: {m.waistCm || '--'} cm
-                    </Text>
-                    {m.notes && <Text style={styles.measureHistNotes}>{m.notes}</Text>}
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => deleteMeasurement(m.id)}
-                    style={styles.deleteMeasureBtn}
-                  >
-                    <Trash2 size={16} color="rgba(255,255,255,0.3)" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
           </View>
-        )}
-
-        {/* ── Real Workout History Section (Entrenamientos Registrados) ── */}
-        <View style={styles.historySection}>
-          <View style={styles.historyHeaderRow}>
-            <Text style={[styles.historySectionTitle, { color: colors.text }]}>{t('workout_history')}</Text>
-            <Text style={styles.historyCountText}>{history.length} completados</Text>
-          </View>
-
-          {historyLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#38BDF8" size="large" />
-            </View>
-          ) : history.length === 0 ? (
-            /* Empty State if no workouts have been completed yet */
-            <View style={[styles.emptyWorkoutCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.emptyIconCircle}>
-                <Dumbbell size={28} color="#38BDF8" />
-              </View>
-              <Text style={[styles.emptyWorkoutTitle, { color: colors.text }]}>Sin entrenamientos registrados</Text>
-              <Text style={styles.emptyWorkoutSub}>
-                Inicia una rutina cronometrada para registrar tu tiempo, volumen levantado y récords personales.
-              </Text>
-              <TouchableOpacity
-                style={styles.startFirstWorkoutBtn}
-                onPress={() => router.push('/(tabs)/workout')}
-                activeOpacity={0.85}
-              >
-                <Play size={15} color="#FFFFFF" fill="#FFFFFF" />
-                <Text style={styles.startFirstWorkoutBtnText}>IR A ENTRENAR</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            /* Real dynamic workout history cards */
-            <View style={styles.pastWorkoutsList}>
-              {history.map((workout) => (
-                <View key={workout.id} style={[styles.pastWorkoutCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  {/* Header: User avatar + name + date & privacy + options button */}
-                  <View style={styles.pwHeader}>
-                    <View style={styles.pwAvatarCircle}>
-                      <Text style={styles.pwAvatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
-                    </View>
-
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.pwUserName, { color: colors.text }]}>{displayName}</Text>
-                      <View style={styles.pwDateRow}>
-                        <Text style={styles.pwDateText}>{workout.dateLabel}</Text>
-                        <Lock size={10} color="rgba(255,255,255,0.4)" style={{ marginHorizontal: 4 }} />
-                        <Text style={styles.pwPrivacyText}>{workout.privacy}</Text>
-                      </View>
-                    </View>
-
-                    {/* 3-dots Menu Button */}
-                    <TouchableOpacity
-                      style={styles.pwDotsBtn}
-                      onPress={() => {
-                        setSelectedWorkout(workout)
-                        setShowWorkoutActionModal(true)
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <MoreHorizontal size={18} color="rgba(255,255,255,0.6)" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Workout Title (Nombre de la Rutina) */}
-                  <Text style={[styles.pwWorkoutTitle, { color: colors.text }]}>{workout.routineName}</Text>
-
-                  {/* Stats Row: Tiempo Cronometrado | Volumen Total | Récords Logrados */}
-                  <View style={styles.pwStatsRow}>
-                    <View style={styles.pwStatItem}>
-                      <Text style={styles.pwStatLabel}>Tiempo</Text>
-                      <Text style={[styles.pwStatVal, { color: colors.text }]}>{workout.durationFormatted}</Text>
-                    </View>
-
-                    <View style={styles.pwStatItem}>
-                      <Text style={styles.pwStatLabel}>Volumen</Text>
-                      <Text style={[styles.pwStatVal, { color: colors.text }]}>
-                        {workout.volumeKg.toLocaleString('es-ES', { minimumFractionDigits: 1 })}{' '}
-                        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>kg</Text>
-                      </Text>
-                    </View>
-
-                    <View style={styles.pwStatItem}>
-                      <Text style={styles.pwStatLabel}>Récords</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                        <Text style={{ fontSize: 14 }}>🥇</Text>
-                        <Text style={[styles.pwStatVal, { color: colors.text }]}>{workout.recordsCount}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Divider Line */}
-                  <View style={styles.pwDivider} />
-
-                  {/* Exercises preview with circular thumbnail */}
-                  <View style={styles.pwExercisesList}>
-                    {workout.exercises.map((ex, i) => (
-                      <View key={i} style={styles.pwExerciseRow}>
-                        <ExerciseMiniIcon muscleGroup={ex.muscleGroup} />
-                        <Text style={[styles.pwExerciseText, { color: colors.text }]}>
-                          {ex.sets} {ex.sets === 1 ? 'serie' : 'series'} {ex.name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
       </ScrollView>
 
       {/* ── POPUP MODAL: CALENDARIO (Matching Image Reference) ── */}
@@ -1558,6 +1566,133 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* ── POPUP MODAL: MEDIDAS CORPORALES ── */}
+      <Modal
+        visible={showMeasuresModal}
+        animationType="slide"
+        onRequestClose={() => setShowMeasuresModal(false)}
+      >
+        <View style={[styles.measuresModalContainer, { backgroundColor: colors.background }]}>
+          {/* Top Bar Header */}
+          <View style={[styles.measuresModalTopBar, { backgroundColor: colors.background, borderBottomColor: isDark ? '#27272A' : colors.border }]}>
+            <TouchableOpacity
+              onPress={() => setShowMeasuresModal(false)}
+              style={styles.measuresModalIconBtn}
+              activeOpacity={0.7}
+            >
+              <ArrowLeft size={22} color={colors.text} />
+            </TouchableOpacity>
+
+            <Text style={[styles.measuresModalTitle, { color: colors.text }]}>Medidas Corporales</Text>
+
+            <TouchableOpacity
+              style={styles.measuresModalAddBtn}
+              onPress={() => setShowAddMeasureModal(true)}
+              activeOpacity={0.8}
+            >
+              <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.measuresModalAddBtnText}>AÑADIR</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.measuresModalContent} showsVerticalScrollIndicator={false}>
+            {/* Latest Measurement Big Summary Card */}
+            {latestMeasurement ? (
+              <View style={[styles.card, { backgroundColor: isDark ? '#121215' : colors.card, borderColor: isDark ? '#27272A' : colors.border }]}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>ÚLTIMO REGISTRO ({latestMeasurement.date})</Text>
+                </View>
+
+                <View style={styles.measuresGrid}>
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>PESO</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.weightKg || '--'} <Text style={styles.measureItemUnit}>kg</Text>
+                    </Text>
+                  </View>
+
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>PECHO</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.chestCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
+                    </Text>
+                  </View>
+
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>CINTURA</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.waistCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
+                    </Text>
+                  </View>
+
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>CADERA</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.hipsCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
+                    </Text>
+                  </View>
+
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>BÍCEPS</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.bicepsCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
+                    </Text>
+                  </View>
+
+                  <View style={[styles.measureGridItem, { backgroundColor: isDark ? '#18181B' : colors.cardSubtle }]}>
+                    <Text style={styles.measureItemLabel}>MUSLO</Text>
+                    <Text style={[styles.measureItemVal, { color: colors.text }]}>
+                      {latestMeasurement.thighCm || '--'} <Text style={styles.measureItemUnit}>cm</Text>
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.emptyWorkoutCard, { backgroundColor: isDark ? '#121215' : colors.card, borderColor: isDark ? '#27272A' : colors.border }]}>
+                <Ruler size={32} color="#38BDF8" />
+                <Text style={[styles.emptyWorkoutTitle, { color: colors.text }]}>Sin medidas registradas</Text>
+                <Text style={styles.emptyWorkoutSub}>
+                  Registra tu peso, cintura, pecho y otras medidas para monitorizar tu evolución corporal.
+                </Text>
+                <TouchableOpacity
+                  style={styles.startFirstWorkoutBtn}
+                  onPress={() => setShowAddMeasureModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
+                  <Text style={styles.startFirstWorkoutBtnText}>REGISTRAR PRIMERA MEDIDA</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Measurement History List */}
+            {measurements.length > 0 && (
+              <View style={styles.measurementHistoryList}>
+                <Text style={[styles.historySubTitle, { color: colors.textSecondary }]}>Historial de Registros</Text>
+                {measurements.map((m) => (
+                  <View key={m.id} style={[styles.measurementHistoryRow, { backgroundColor: isDark ? '#121215' : colors.card, borderColor: isDark ? '#27272A' : colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.measureHistDate, { color: colors.text }]}>{m.date}</Text>
+                      <Text style={styles.measureHistSummary}>
+                        Peso: {m.weightKg || '--'} kg · Pecho: {m.chestCm || '--'} cm · Cintura: {m.waistCm || '--'} cm
+                      </Text>
+                      {m.notes && <Text style={styles.measureHistNotes}>{m.notes}</Text>}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => deleteMeasurement(m.id)}
+                      style={styles.deleteMeasureBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Trash2 size={16} color="rgba(255,255,255,0.4)" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* ── Add Measurement Modal ── */}
       <Modal
         visible={showAddMeasureModal}
@@ -1833,6 +1968,41 @@ export default function ProfileScreen() {
                         placeholder="Ej. 175"
                         placeholderTextColor="rgba(255,255,255,0.3)"
                       />
+                    </View>
+                  </View>
+
+                  {/* Experience Level Selector */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>NIVEL DE EXPERIENCIA EN GIMNASIO</Text>
+                    <View style={styles.goalsGrid}>
+                      {EXPERIENCE_OPTIONS.map((e) => (
+                        <TouchableOpacity
+                          key={e.value}
+                          onPress={() => setExperienceLevel(e.value)}
+                          style={[
+                            styles.goalOptionBtn,
+                            experienceLevel === e.value && styles.goalOptionBtnActive,
+                          ]}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[
+                              styles.goalOptionTitle,
+                              experienceLevel === e.value && styles.goalOptionTitleActive,
+                            ]}
+                          >
+                            {e.label}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.goalOptionDesc,
+                              experienceLevel === e.value && styles.goalOptionDescActive,
+                            ]}
+                          >
+                            {e.desc}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
                   </View>
 
@@ -2383,20 +2553,29 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 60,
   },
-  profileHeroSection: {
-    flexDirection: 'row',
+  profileHeroSectionCentered: {
     alignItems: 'center',
-    paddingVertical: 10,
-    gap: 20,
+    paddingVertical: 12,
+    gap: 10,
   },
-  avatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
-    overflow: 'hidden',
+  heroAvatarCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 1.5,
+    overflow: 'visible',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroAvatarImg: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+  },
+  heroAvatarInitial: {
+    color: '#38BDF8',
+    fontSize: 34,
+    fontWeight: '900',
   },
   avatarInner: {
     width: '100%',
@@ -2405,102 +2584,104 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitial: {
-    color: '#60A5FA',
+    color: '#38BDF8',
     fontSize: 34,
     fontWeight: '900',
   },
-  profileStatsCol: {
-    flex: 1,
-    gap: 8,
-  },
-  profileUsernameText: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  threeStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statColumn: {
-    alignItems: 'flex-start',
-  },
-  statColLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  statColVal: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  badgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: -4,
-  },
-  seniorityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  seniorityBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  goalBadge: {
-    backgroundColor: 'rgba(59,130,246,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.25)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  goalBadgeText: {
-    color: '#3B82F6',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  tenureText: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 11,
-    marginLeft: 'auto',
-  },
-  tabBarContainer: {
-    flexDirection: 'row',
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-    justifyContent: 'space-between',
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  heroAvatarEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#09090B',
+  },
+  heroDisplayName: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  heroCapsulePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  heroCapsuleText: {
+    color: '#A1A1AA',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  navPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 4,
+  },
+  navPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  navPillActive: {},
+  navPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  navPillTextActive: {
+    fontWeight: '800',
+  },
+  globalStatsCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  globalStatsHeaderTitle: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  globalStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  globalStatItem: {
+    width: '48.5%',
+    borderRadius: 14,
+    padding: 12,
     gap: 6,
   },
-  tabBtnActive: {
-    backgroundColor: '#0284C7',
+  globalStatIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  tabBtnText: {
-    color: 'rgba(255,255,255,0.5)',
+  globalStatItemLabel: {
+    color: '#71717A',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
+  globalStatItemVal: {
+    fontSize: 18,
     fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  globalStatUnit: {
+    fontSize: 12,
+    color: '#71717A',
+    fontWeight: '600',
   },
   tabContentContainer: {
     gap: 14,
@@ -2767,11 +2948,135 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   pastWorkoutsList: {
-    gap: 16,
+    gap: 14,
+  },
+  wfCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  wfHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  wfUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  wfAvatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  wfAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wfAvatarInitial: {
+    color: '#38BDF8',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  wfUserName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  wfDateText: {
+    color: '#71717A',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  wfDotsBtn: {
+    padding: 6,
+  },
+  wfRoutineTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  wfMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 12,
+  },
+  wfMetricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  wfMetricDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#3F3F46',
+  },
+  wfMetricValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  wfDivider: {
+    height: 1,
+    marginVertical: 2,
+  },
+  wfExercisesContainer: {
+    gap: 10,
+  },
+  wfExpandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    gap: 4,
+  },
+  wfExpandBtnText: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  weExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  weExerciseImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  weExerciseInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  weSeriesText: {
+    color: '#71717A',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  weNameText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  exerciseCircleThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pastWorkoutCard: {
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
   },
   pwHeader: {
@@ -2779,83 +3084,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pwAvatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1C',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1C1C1E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pwAvatarInitial: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 16,
+    color: '#38BDF8',
+    fontSize: 15,
     fontWeight: '800',
   },
   pwUserName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
-  pwDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  pwDateText: {
+    color: '#71717A',
+    fontSize: 11,
     marginTop: 1,
   },
-  pwDateText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-  },
-  pwPrivacyText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-  },
   pwDotsBtn: {
-    padding: 8,
-  },
-  pwWorkoutTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 14,
-  },
-  pwStatsRow: {
-    flexDirection: 'row',
-    gap: 24,
-    marginTop: 8,
-  },
-  pwStatItem: {
-    alignItems: 'flex-start',
-  },
-  pwStatLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-  },
-  pwStatVal: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 2,
+    padding: 6,
   },
   pwDivider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
-    marginVertical: 14,
+    marginVertical: 10,
   },
   pwExercisesList: {
-    gap: 12,
+    gap: 8,
   },
   pwExerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  exerciseCircleThumb: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
   },
   pwExerciseText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
@@ -2906,6 +3173,45 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
+  },
+  measuresModalContainer: {
+    flex: 1,
+  },
+  measuresModalTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  measuresModalIconBtn: {
+    padding: 6,
+  },
+  measuresModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  measuresModalAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  measuresModalAddBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  measuresModalContent: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 40,
   },
   settingsHeaderRow: {
     flexDirection: 'row',
