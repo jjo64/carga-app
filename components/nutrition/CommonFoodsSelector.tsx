@@ -17,6 +17,7 @@ import {
   Apple,
   Utensils,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react-native'
 import {
   COMMON_FOODS_DATABASE,
@@ -140,9 +141,15 @@ export default function CommonFoodsSelector({
                 </View>
 
                 <View style={styles.foodCardInfo}>
-                  <Text style={styles.foodCardName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.foodCardName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <View style={styles.verifiedMiniBadge}>
+                      <ShieldCheck size={11} color="#10B981" />
+                      <Text style={styles.verifiedMiniBadgeText}>Verificado</Text>
+                    </View>
+                  </View>
                   <Text style={styles.foodCardServing}>
                     {item.defaultServingName} · <Text style={{ color: '#38BDF8', fontWeight: '700' }}>{servingCals} kcal</Text>
                   </Text>
@@ -276,6 +283,23 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     marginBottom: 2,
+    flexShrink: 1,
+  },
+  verifiedMiniBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  verifiedMiniBadgeText: {
+    color: '#10B981',
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   foodCardServing: {
     color: 'rgba(255,255,255,0.5)',

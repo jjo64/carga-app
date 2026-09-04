@@ -35,6 +35,7 @@ import {
   RotateCcw,
   ShoppingBag,
   ListPlus,
+  Database,
 } from 'lucide-react-native'
 import { foodScannerService, FoodProduct } from '@/lib/services/foodScannerService'
 import { aiService } from '@/lib/services/ai'
@@ -438,6 +439,31 @@ export default function SmartFoodScannerModal({
       setActiveMode('plate')
     } else {
       setToastMessage(`✓ Añadido: ${scannedProduct.name} (${portion}g)`)
+    }
+  }
+
+  // =========================================================================
+  // 7.5. Verificación Colaborativa de Producto
+  // =========================================================================
+  const handleVerifyProduct = async (product: FoodProduct | null, isBarcode: boolean) => {
+    if (!product || !product.id) return
+    try {
+      const ok = await foodScannerService.verifyFoodProduct(product.id)
+      if (ok) {
+        const updated: FoodProduct = {
+          ...product,
+          isVerified: true,
+          verifiedCount: (product.verifiedCount || 0) + 1,
+        }
+        if (isBarcode) {
+          setBarcodeProduct(updated)
+        } else {
+          setScannedProduct(updated)
+        }
+        setToastMessage('✓ ¡Gracias! Producto marcado como verificado')
+      }
+    } catch {
+      setToastMessage('No se pudo verificar el producto')
     }
   }
 
@@ -968,9 +994,33 @@ export default function SmartFoodScannerModal({
 
                   {barcodeProduct && (
                     <View style={styles.productCard}>
-                      <View style={styles.productBadgeDetected}>
-                        <Check size={14} color="#10B981" />
-                        <Text style={styles.productBadgeDetectedText}>Producto Encontrado</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                        <View style={styles.productBadgeDetected}>
+                          <Check size={14} color="#10B981" />
+                          <Text style={styles.productBadgeDetectedText}>Producto Encontrado</Text>
+                        </View>
+                        {barcodeProduct.isVerified || (barcodeProduct.verifiedCount && barcodeProduct.verifiedCount > 0) ? (
+                          <View style={styles.verifiedCommunityBadge}>
+                            <ShieldCheck size={12} color="#10B981" />
+                            <Text style={styles.verifiedCommunityBadgeText}>
+                              Verificado {barcodeProduct.verifiedCount ? `(${barcodeProduct.verifiedCount})` : ''}
+                            </Text>
+                          </View>
+                        ) : barcodeProduct.dataSource === 'openfoodfacts' ? (
+                          <View style={styles.officialDbBadge}>
+                            <Database size={12} color="#38BDF8" />
+                            <Text style={styles.officialDbBadgeText}>Base Oficial</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.verifyFoodActionBtn}
+                            onPress={() => handleVerifyProduct(barcodeProduct, true)}
+                            activeOpacity={0.7}
+                          >
+                            <ShieldCheck size={12} color="#94A3B8" />
+                            <Text style={styles.verifyFoodActionBtnText}>Confirmar precisión</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
 
                       <Text style={styles.productName}>{barcodeProduct.name}</Text>
@@ -1149,6 +1199,29 @@ export default function SmartFoodScannerModal({
                             {scannedProduct.brand && (
                               <Text style={styles.productBrand}>Marca: {scannedProduct.brand}</Text>
                             )}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                              {scannedProduct.isVerified || (scannedProduct.verifiedCount && scannedProduct.verifiedCount > 0) ? (
+                                <View style={styles.verifiedCommunityBadge}>
+                                  <ShieldCheck size={11} color="#10B981" />
+                                  <Text style={styles.verifiedCommunityBadgeText}>
+                                    Verificado {scannedProduct.verifiedCount ? `(${scannedProduct.verifiedCount})` : ''}
+                                  </Text>
+                                </View>
+                              ) : (
+                                <TouchableOpacity
+                                  style={styles.verifyFoodActionBtn}
+                                  onPress={() => handleVerifyProduct(scannedProduct, false)}
+                                  activeOpacity={0.7}
+                                >
+                                  <ShieldCheck size={11} color="#94A3B8" />
+                                  <Text style={styles.verifyFoodActionBtnText}>Confirmar precisión</Text>
+                                </TouchableOpacity>
+                              )}
+                              <View style={styles.aiAuditedBadge}>
+                                <Sparkles size={11} color="#A78BFA" />
+                                <Text style={styles.aiAuditedBadgeText}>Auditado por IA</Text>
+                              </View>
+                            </View>
                           </View>
 
                           {/* Badge de Calidad / Ultraprocesado */}
@@ -2075,5 +2148,69 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 15,
     fontWeight: '800',
+  },
+  verifiedCommunityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  verifiedCommunityBadgeText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  officialDbBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  officialDbBadgeText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  aiAuditedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(167, 139, 250, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+  },
+  aiAuditedBadgeText: {
+    color: '#A78BFA',
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  verifyFoodActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  verifyFoodActionBtnText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
   },
 })

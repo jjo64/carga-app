@@ -68,6 +68,8 @@ import { exportAllAppData, importAppData } from '@/lib/utils/exportImport'
 import { EXERCISE_DATABASE, ExerciseDefinition, getExerciseById, searchExercises } from '@/constants/exerciseDatabase'
 import ExerciseProgressView from '@/components/workout/ExerciseProgressView'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
+import GamificationCard from '@/components/gamification/GamificationCard'
+import HealthSyncCard from '@/components/health/HealthSyncCard'
 import { supabase } from '@/lib/supabase'
 
 type ProfileTab = 'stats' | 'exercises' | 'calendar' | 'measures'
@@ -967,6 +969,12 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* ── GAMIFICACIÓN: NIVEL, XP Y LOGROS ── */}
+        <GamificationCard />
+
+        {/* ── SINCRONIZACIÓN DE SALUD (HEALTHKIT / HEALTH CONNECT) ── */}
+        <HealthSyncCard />
 
         {/* ── WORKOUTS FEED / HISTORY SECTION (Always Visible) ── */}
         <View style={styles.historySection}>

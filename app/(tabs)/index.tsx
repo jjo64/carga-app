@@ -23,10 +23,11 @@ import { useSleep } from '@/lib/hooks/useSleep'
 import { useSteps } from '@/lib/hooks/useSteps'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { calculateReadinessScore } from '@/lib/services/readinessService'
+import { useGamification } from '@/lib/hooks/useGamification'
 import ReadinessScoreCard from '@/components/recovery/ReadinessScoreCard'
 import MorningSleepCheckinModal from '@/components/sleep/MorningSleepCheckinModal'
 import MacroProgressRings from '@/components/visuals/MacroProgressRings'
-import { CheckCircle2, Utensils, Scale, Flame } from 'lucide-react-native'
+import { CheckCircle2, Utensils, Scale, Flame, Zap } from 'lucide-react-native'
 import { typography } from '@/constants/typography'
 
 const mealLabel: Record<string, string> = {
@@ -77,6 +78,7 @@ export default function DashboardScreen() {
   const { routines } = useRoutines()
   const { history } = useWorkoutHistory()
   const { logs: todayLogs } = useNutrition()
+  const { level } = useGamification()
 
   const todayDateObj = new Date()
   const rawWeekday = todayDateObj.toLocaleDateString('es-ES', { weekday: 'long' })
@@ -191,6 +193,16 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.headerRightRow}>
+            {/* Level Pill Badge */}
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/profile')}
+              style={styles.headerLevelBadge}
+              activeOpacity={0.8}
+            >
+              <Zap size={13} color="#38BDF8" fill="#38BDF8" />
+              <Text style={styles.headerLevelText}>Nv. {level}</Text>
+            </TouchableOpacity>
+
             {/* Quick Streak Pill Badge */}
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/profile')}
@@ -422,7 +434,24 @@ const styles = StyleSheet.create({
   headerRightRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  headerLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  headerLevelText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   headerStreakBadge: {
     flexDirection: 'row',

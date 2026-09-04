@@ -6,6 +6,8 @@ import { theme } from '@/constants/theme'
 import { AuthProvider, useAuth } from '@/lib/hooks/useAuth'
 import { LanguageProvider } from '@/lib/i18n'
 import { ThemeProvider, useTheme } from '@/lib/theme'
+import { ActiveWorkoutProvider } from '@/lib/hooks/useActiveWorkout'
+import ActiveWorkoutFloatingBar from '@/components/workout/ActiveWorkoutFloatingBar'
 
 function RootNavigator() {
   const { session, profile, loading } = useAuth()
@@ -76,6 +78,7 @@ function ThemedAppContainer() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <RootNavigator />
+        <ActiveWorkoutFloatingBar />
       </View>
     </View>
   )
@@ -86,7 +89,9 @@ export default function RootLayout() {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <ThemedAppContainer />
+          <ActiveWorkoutProvider>
+            <ThemedAppContainer />
+          </ActiveWorkoutProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

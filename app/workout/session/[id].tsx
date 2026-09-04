@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Share,
   AppState,
+  Vibration,
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router'
@@ -30,6 +31,7 @@ import {
   useWorkoutHistory,
 } from '@/lib/hooks/useWorkout'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useActiveWorkout, SessionExercise, SetRowData, SetType } from '@/lib/hooks/useActiveWorkout'
 import { supabase } from '@/lib/supabase'
 import Svg, { Circle } from 'react-native-svg'
 import * as Notifications from 'expo-notifications'
@@ -40,25 +42,7 @@ import {
   NOTIFICATION_ACTIONS,
 } from '@/lib/services/notifications'
 
-export type SetType = 'normal' | 'warmup' | 'dropset' | 'failure'
-
-export interface SetRowData {
-  id: string
-  setNum: number
-  setType: SetType
-  previous: string
-  weightKg: string
-  reps: string
-  placeholderWeight: string
-  placeholderReps: string
-  completed: boolean
-}
-
-export interface SessionExercise {
-  id: string
-  exercise: ExerciseDefinition
-  sets: SetRowData[]
-}
+export { SessionExercise, SetRowData, SetType }
 
 export default function LiveWorkoutSessionScreen() {
   const insets = useSafeAreaInsets()
@@ -67,14 +51,33 @@ export default function LiveWorkoutSessionScreen() {
   const { user, profile } = useAuth()
   const { history: workoutHistory } = useWorkoutHistory()
 
-  const [routineTitle, setRoutineTitle] = useState('Entrenamiento')
-  const [exercises, setExercises] = useState<SessionExercise[]>([])
-  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [restSeconds, setRestSeconds] = useState(0)
-  const [isResting, setIsResting] = useState(false)
-  const [restTimerEnabled, setRestTimerEnabled] = useState(true)
-  const [defaultRestSeconds, setDefaultRestSeconds] = useState(90)
+  const {
+    activeWorkout,
+    startOrResumeWorkout,
+    setExercises,
+    setActiveExerciseIndex,
+    setRoutineTitle,
+    setDefaultRestSeconds,
+    setRestTimerEnabled,
+    startRest,
+    skipRest,
+    addRestSeconds,
+    setElapsedDuration,
+    minimizeWorkout,
+    restoreWorkout,
+    discardWorkout,
+    finishWorkout,
+  } = useActiveWorkout()
+
+  const routineTitle = activeWorkout?.routineTitle || 'Entrenamiento'
+  const exercises = activeWorkout?.exercises || []
+  const activeExerciseIndex = activeWorkout?.activeExerciseIndex || 0
+  const elapsedSeconds = activeWorkout?.elapsedSeconds || 0
+  const restSeconds = activeWorkout?.restSeconds || 0
+  const isResting = activeWorkout?.isResting || false
+  const restTimerEnabled = activeWorkout?.restTimerEnabled ?? true
+  const defaultRestSeconds = activeWorkout?.defaultRestSeconds || 90
+
   const [showEditDurationModal, setShowEditDurationModal] = useState(false)
   const [manualDurationInput, setManualDurationInput] = useState('45')
   const [finishEditedMinutes, setFinishEditedMinutes] = useState(45)
@@ -84,20 +87,7 @@ export default function LiveWorkoutSessionScreen() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPainModal, setShowPainModal] = useState(false)
   const [detailModalExercise, setDetailModalExercise] = useState<ExerciseDefinition | null>(null)
-  const startTimeRef = useRef<number>(Date.now())
-  const restEndTimeRef = useRef<number | null>(null)
   const carouselScrollRef = useRef<ScrollView>(null)
-
-  // Mutable refs to access latest session state inside background interval tick without recreating interval
-  const exercisesRef = useRef<SessionExercise[]>(exercises)
-  exercisesRef.current = exercises
-  const activeExerciseIndexRef = useRef<number>(activeExerciseIndex)
-  activeExerciseIndexRef.current = activeExerciseIndex
-  const routineTitleRef = useRef<string>(routineTitle)
-  routineTitleRef.current = routineTitle
-  const isRestingRef = useRef<boolean>(isResting)
-  isRestingRef.current = isResting
-  const restFinishedNotifiedRef = useRef<boolean>(false)
 
   // Calculated finish stats
   const [finishStats, setFinishStats] = useState({
@@ -113,10 +103,14 @@ export default function LiveWorkoutSessionScreen() {
     userWeight: 75,
   })
 
-  // Load routine data on mount
+  // Load routine data on mount or restore active
   useEffect(() => {
     async function loadRoutine() {
       const routineId = params.id || 'starter-pecho'
+
+      if (activeWorkout && activeWorkout.routineId === routineId && activeWorkout.exercises.length > 0) {
+        return
+      }
 
       // 1. Check starter template routines
       const starter = DEFAULT_STARTER_ROUTINES.find(
@@ -124,7 +118,6 @@ export default function LiveWorkoutSessionScreen() {
       )
 
       if (starter) {
-        setRoutineTitle(starter.name)
         const builtExercises: SessionExercise[] = starter.exercises.map((exItem, idx) => {
           const matchedDb = EXERCISE_DATABASE.find(
             (e) => e.name.toLowerCase() === exItem.name.toLowerCase()
@@ -155,7 +148,7 @@ export default function LiveWorkoutSessionScreen() {
           }
         })
 
-        setExercises(builtExercises)
+        startOrResumeWorkout(routineId, starter.name, builtExercises)
         return
       }
 
@@ -171,7 +164,6 @@ export default function LiveWorkoutSessionScreen() {
           .single()
 
         if (dbRoutine && dbRoutine.exercises && dbRoutine.exercises.length > 0) {
-          setRoutineTitle(dbRoutine.name)
           const builtExercises: SessionExercise[] = dbRoutine.exercises.map((exItem: any, idx: number) => {
             const matchedDb = EXERCISE_DATABASE.find(
               (e) => e.name.toLowerCase() === exItem.name.toLowerCase()
@@ -201,7 +193,7 @@ export default function LiveWorkoutSessionScreen() {
               sets: initialSets,
             }
           })
-          setExercises(builtExercises)
+          startOrResumeWorkout(routineId, dbRoutine.name, builtExercises)
           return
         }
       } catch (err) {
@@ -209,7 +201,6 @@ export default function LiveWorkoutSessionScreen() {
       }
 
       // Fallback default exercises
-      setRoutineTitle('Pecho - Hipertrofia')
       const defaultExList = [EXERCISE_DATABASE[0], EXERCISE_DATABASE[1]]
       const builtFallback: SessionExercise[] = defaultExList.map((exDef, idx) => {
         const initialSets: SetRowData[] = [1, 2, 3].map((setNum) => {
@@ -232,111 +223,11 @@ export default function LiveWorkoutSessionScreen() {
           sets: initialSets,
         }
       })
-      setExercises(builtFallback)
+      startOrResumeWorkout(routineId, 'Pecho - Hipertrofia', builtFallback)
     }
 
     loadRoutine()
-  }, [params.id])
-
-  // Global live workout chronometer with background timestamp persistence
-  useEffect(() => {
-    const storageKey = `@workout_session_start_${params.id || 'current'}`
-    async function initTimer() {
-      try {
-        const saved = await AsyncStorage.getItem(storageKey)
-        if (saved) {
-          const parsed = parseInt(saved, 10)
-          if (parsed && Date.now() - parsed < 86400000) {
-            startTimeRef.current = parsed
-            const diff = Math.floor((Date.now() - parsed) / 1000)
-            setElapsedSeconds(diff >= 0 ? diff : 0)
-          } else {
-            startTimeRef.current = Date.now()
-            await AsyncStorage.setItem(storageKey, String(startTimeRef.current))
-          }
-        } else {
-          startTimeRef.current = Date.now()
-          await AsyncStorage.setItem(storageKey, String(startTimeRef.current))
-        }
-      } catch (e) {
-        startTimeRef.current = Date.now()
-      }
-    }
-    initTimer()
-
-    const timer = setInterval(() => {
-      const diff = Math.floor((Date.now() - startTimeRef.current) / 1000)
-      setElapsedSeconds(diff >= 0 ? diff : 0)
-
-      const activeEx = exercisesRef.current[activeExerciseIndexRef.current] || exercisesRef.current[0]
-      const currentSetData = activeEx?.sets.find((s) => !s.completed) || activeEx?.sets[activeEx.sets.length - 1]
-      const currentSetNum = currentSetData ? currentSetData.setNum : 1
-
-      // Live rest countdown tick against exact target timestamp
-      if (restEndTimeRef.current) {
-        const remaining = Math.round((restEndTimeRef.current - Date.now()) / 1000)
-        if (remaining <= 0) {
-          setRestSeconds(0)
-          setIsResting(false)
-          restEndTimeRef.current = null
-
-          // Trigger "Descanso Terminado" in the SAME notification if not yet notified
-          if (!restFinishedNotifiedRef.current && activeEx) {
-            restFinishedNotifiedRef.current = true
-            updateWorkoutActiveNotification({
-              routineName: routineTitleRef.current,
-              exerciseName: activeEx.exercise.name,
-              currentSet: currentSetNum,
-              totalSets: activeEx.sets.length,
-              targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
-              targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
-              durationFormatted: formatChronometer(diff),
-              isResting: false,
-              isRestFinished: true,
-            })
-
-            // After 4 seconds, seamlessly transition back to the next set view to complete or log
-            setTimeout(() => {
-              if (!restEndTimeRef.current && activeEx) {
-                updateWorkoutActiveNotification({
-                  routineName: routineTitleRef.current,
-                  exerciseName: activeEx.exercise.name,
-                  currentSet: currentSetNum,
-                  totalSets: activeEx.sets.length,
-                  targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
-                  targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
-                  durationFormatted: formatChronometer(diff + 4),
-                  isResting: false,
-                  isRestFinished: false,
-                })
-              }
-            }, 4000)
-          }
-        } else {
-          setRestSeconds(remaining)
-          restFinishedNotifiedRef.current = false
-
-          // Update active notification with live rest countdown tick
-          if (activeEx) {
-            updateWorkoutActiveNotification({
-              routineName: routineTitleRef.current,
-              exerciseName: activeEx.exercise.name,
-              currentSet: currentSetNum,
-              totalSets: activeEx.sets.length,
-              targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
-              targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
-              durationFormatted: formatChronometer(diff),
-              isResting: true,
-              restSecondsLeft: remaining,
-              isRestFinished: false,
-            })
-          }
-        }
-      }
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [params.id])
+  }, [params.id, activeWorkout?.routineId])
 
   const activeSessionExercise = exercises[activeExerciseIndex] || exercises[0]
   const currentExercise = activeSessionExercise?.exercise || EXERCISE_DATABASE[0]
@@ -447,7 +338,7 @@ export default function LiveWorkoutSessionScreen() {
     )
   }
 
-  const formatChronometer = (totalSecs: number) => {
+   const formatChronometer = (totalSecs: number) => {
     const hours = Math.floor(totalSecs / 3600)
     const mins = Math.floor((totalSecs % 3600) / 60)
     const secs = totalSecs % 60
@@ -456,123 +347,6 @@ export default function LiveWorkoutSessionScreen() {
     }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
-
-  // Setup Notification Channels & Categories
-  useEffect(() => {
-    setupWorkoutNotifications()
-    return () => {
-      clearAllWorkoutNotifications()
-    }
-  }, [])
-
-  // Interactive Notification Actions Listener (Complete Set / +30s / Skip)
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const actionId = response.actionIdentifier
-      if (actionId === NOTIFICATION_ACTIONS.COMPLETE_SET) {
-        // Complete current active set from notifications bar
-        let shouldAutoAdvance = false
-        let nextExIndex = activeExerciseIndex
-
-        setExercises((prev) => {
-          let completedAny = false
-          return prev.map((ex, exIdx) => {
-            if (exIdx !== activeExerciseIndex) return ex
-            const nextSets = ex.sets.map((st) => {
-              if (!completedAny && !st.completed) {
-                completedAny = true
-                if (restTimerEnabled && defaultRestSeconds > 0) {
-                  restEndTimeRef.current = Date.now() + defaultRestSeconds * 1000
-                  setRestSeconds(defaultRestSeconds)
-                  setIsResting(true)
-                }
-                return { ...st, completed: true }
-              }
-              return st
-            })
-
-            const allCompleted = nextSets.length > 0 && nextSets.every((s) => s.completed)
-            if (allCompleted && activeExerciseIndex < prev.length - 1) {
-              shouldAutoAdvance = true
-              nextExIndex = activeExerciseIndex + 1
-            }
-
-            return { ...ex, sets: nextSets }
-          })
-        })
-
-        if (shouldAutoAdvance) {
-          setTimeout(() => {
-            setActiveExerciseIndex(nextExIndex)
-            carouselScrollRef.current?.scrollTo({ x: nextExIndex * 66, animated: true })
-          }, 350)
-        }
-      } else if (actionId === NOTIFICATION_ACTIONS.REST_PLUS_30) {
-        const newEnd = (restEndTimeRef.current && restEndTimeRef.current > Date.now() ? restEndTimeRef.current : Date.now()) + 30000
-        restEndTimeRef.current = newEnd
-        setRestSeconds(Math.round((newEnd - Date.now()) / 1000))
-        setIsResting(true)
-      } else if (actionId === NOTIFICATION_ACTIONS.SKIP_REST) {
-        restEndTimeRef.current = null
-        setIsResting(false)
-        setRestSeconds(0)
-      }
-    })
-
-    return () => subscription.remove()
-  }, [activeExerciseIndex, currentExercise, defaultRestSeconds, restTimerEnabled])
-
-  // Sync active notification with current exercise, sets progress when state changes or app backgrounds
-  const syncNotification = (overrideIsRestFinished?: boolean) => {
-    const activeEx = exercises[activeExerciseIndex] || exercises[0]
-    if (!activeEx) return
-
-    const currentSetData = activeEx.sets.find((s) => !s.completed) || activeEx.sets[activeEx.sets.length - 1]
-    const currentSetNum = currentSetData ? currentSetData.setNum : 1
-
-    updateWorkoutActiveNotification({
-      routineName: routineTitle,
-      exerciseName: activeEx.exercise.name,
-      currentSet: currentSetNum,
-      totalSets: activeEx.sets.length,
-      targetWeight: currentSetData?.weightKg || currentSetData?.placeholderWeight || '',
-      targetReps: currentSetData?.reps || currentSetData?.placeholderReps || '10',
-      durationFormatted: formatChronometer(elapsedSeconds),
-      isResting,
-      restSecondsLeft: restSeconds,
-      isRestFinished: overrideIsRestFinished,
-    })
-  }
-
-  useEffect(() => {
-    syncNotification()
-  }, [exercises, activeExerciseIndex, isResting, routineTitle])
-
-  // Handle AppState changes (returning to foreground or backgrounding)
-  useEffect(() => {
-    const appStateSub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        syncNotification()
-      } else if (nextState === 'active') {
-        // Immediately sync timers upon returning to app to prevent any frozen visuals
-        const diffElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
-        setElapsedSeconds(diffElapsed >= 0 ? diffElapsed : 0)
-
-        if (restEndTimeRef.current) {
-          const remaining = Math.round((restEndTimeRef.current - Date.now()) / 1000)
-          if (remaining <= 0) {
-            setRestSeconds(0)
-            setIsResting(false)
-            restEndTimeRef.current = null
-          } else {
-            setRestSeconds(remaining)
-            setIsResting(true)
-          }
-        }
-      }
-    })
-    return () => appStateSub.remove()
-  }, [exercises, activeExerciseIndex, elapsedSeconds, isResting, restSeconds, routineTitle])
 
   const toggleSetComplete = (setId: string) => {
     let shouldAutoAdvance = false
@@ -588,10 +362,12 @@ export default function LiveWorkoutSessionScreen() {
             const effectiveReps = st.reps.trim() || st.placeholderReps || '10'
 
             if (nextState && restTimerEnabled && defaultRestSeconds > 0) {
-              // Trigger rest timer with configured seconds
-              restEndTimeRef.current = Date.now() + defaultRestSeconds * 1000
-              setRestSeconds(defaultRestSeconds)
-              setIsResting(true)
+              startRest(defaultRestSeconds)
+            }
+            if (nextState) {
+              try {
+                Vibration.vibrate(Platform.OS === 'ios' ? 40 : 30)
+              } catch {}
             }
             return {
               ...st,
@@ -603,17 +379,13 @@ export default function LiveWorkoutSessionScreen() {
           return st
         })
 
-        // Auto jump to next exercise if all sets in current exercise are completed
         const allCompleted = nextSets.length > 0 && nextSets.every((s) => s.completed)
         if (allCompleted && activeExerciseIndex < prev.length - 1) {
           shouldAutoAdvance = true
           nextExIndex = activeExerciseIndex + 1
         }
 
-        return {
-          ...ex,
-          sets: nextSets,
-        }
+        return { ...ex, sets: nextSets }
       })
     )
 
@@ -782,8 +554,8 @@ export default function LiveWorkoutSessionScreen() {
       await discardWorkoutSession(params.id, user?.id)
       await AsyncStorage.removeItem(`@workout_session_start_${params.id || 'current'}`)
     }
-    await clearAllWorkoutNotifications()
-    router.back()
+    await discardWorkout()
+    router.replace('/(tabs)')
   }
 
   // Calculate real metrics and finish workout
@@ -919,7 +691,7 @@ export default function LiveWorkoutSessionScreen() {
       })
 
       await AsyncStorage.removeItem(`@workout_session_start_${params.id || 'current'}`)
-      await clearAllWorkoutNotifications()
+      await finishWorkout()
     } catch (e) {
       console.log('Error in recordWorkoutSession:', e)
     } finally {
@@ -952,7 +724,7 @@ export default function LiveWorkoutSessionScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ── Screen Header with Routine Name only ── */}
+      {/* ── Screen Header with Routine Name & Minimize Button ── */}
       <Stack.Screen
         options={{
           title: routineTitle || 'Entrenamiento',
@@ -960,10 +732,22 @@ export default function LiveWorkoutSessionScreen() {
           headerTintColor: '#FAFAFA',
           headerTitleStyle: { fontWeight: '800', fontSize: 18 },
           headerShadowVisible: false,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => {
+                minimizeWorkout()
+                router.replace('/(tabs)')
+              }}
+              style={styles.minimizeHeaderBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-down" size={24} color="#FAFAFA" />
+            </TouchableOpacity>
+          ),
         }}
       />
 
-      {/* ── Top Control Bar with Live Chronometer, Discard & Rest Settings ── */}
+      {/* ── Top Control Bar with Live Chronometer, Discard, Minimize & Rest Settings ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={handlePromptDiscard}
@@ -988,11 +772,6 @@ export default function LiveWorkoutSessionScreen() {
           <TouchableOpacity
             onPress={() => {
               setRestTimerEnabled((prev) => !prev)
-              if (isResting) {
-                restEndTimeRef.current = null
-                setIsResting(false)
-                setRestSeconds(0)
-              }
             }}
             style={styles.innerRestToggle}
             activeOpacity={0.7}
@@ -1006,6 +785,18 @@ export default function LiveWorkoutSessionScreen() {
               {restTimerEnabled ? `${defaultRestSeconds}s` : 'Off'}
             </Text>
           </TouchableOpacity>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            minimizeWorkout()
+            router.replace('/(tabs)')
+          }}
+          style={styles.minimizeTopBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="contract-outline" size={14} color="#38BDF8" style={{ marginRight: 4 }} />
+          <Text style={styles.minimizeTopText}>Minimizar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1117,10 +908,7 @@ export default function LiveWorkoutSessionScreen() {
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => {
-                const restSec = defaultRestSeconds || 90
-                restEndTimeRef.current = Date.now() + restSec * 1000
-                setRestSeconds(restSec)
-                setIsResting(true)
+                startRest(defaultRestSeconds || 90)
               }}
               activeOpacity={0.7}
             >
@@ -1328,33 +1116,21 @@ export default function LiveWorkoutSessionScreen() {
           <View style={styles.restBarActions}>
             <TouchableOpacity
               style={styles.restAdjustBtn}
-              onPress={() => {
-                const newEnd = Math.max(Date.now(), (restEndTimeRef.current || Date.now()) - 15000)
-                restEndTimeRef.current = newEnd
-                setRestSeconds(Math.round((newEnd - Date.now()) / 1000))
-              }}
+              onPress={() => addRestSeconds(-15)}
             >
               <Text style={styles.restAdjustText}>-15s</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.restAdjustBtn}
-              onPress={() => {
-                const newEnd = (restEndTimeRef.current && restEndTimeRef.current > Date.now() ? restEndTimeRef.current : Date.now()) + 15000
-                restEndTimeRef.current = newEnd
-                setRestSeconds(Math.round((newEnd - Date.now()) / 1000))
-              }}
+              onPress={() => addRestSeconds(15)}
             >
               <Text style={styles.restAdjustText}>+15s</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.restSkipBtn}
-              onPress={() => {
-                restEndTimeRef.current = null
-                setIsResting(false)
-                setRestSeconds(0)
-              }}
+              onPress={() => skipRest()}
             >
               <Text style={styles.restSkipText}>SALTAR</Text>
             </TouchableOpacity>
@@ -1443,8 +1219,7 @@ export default function LiveWorkoutSessionScreen() {
                 onPress={() => {
                   const parsed = parseInt(manualDurationInput, 10) || 1
                   const newSecs = parsed * 60
-                  setElapsedSeconds(newSecs)
-                  startTimeRef.current = Date.now() - newSecs * 1000
+                  setElapsedDuration(newSecs)
                   setShowEditDurationModal(false)
                 }}
               >
@@ -1720,6 +1495,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  minimizeHeaderBtn: {
+    padding: 6,
+    marginLeft: -4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  minimizeTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 9999,
+  },
+  minimizeTopText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
   },
   finishTopBtn: {
     backgroundColor: '#FAFAFA',

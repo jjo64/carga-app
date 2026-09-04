@@ -22,6 +22,9 @@ export interface FoodProduct {
   ultraProcessedScore?: number // 1 (Limpio) a 10 (Ultraprocesado)
   dataSource: 'verified' | 'openfoodfacts' | 'ai_scan' | 'user'
   sourceLabel?: string
+  isVerified?: boolean
+  verifiedCount?: number
+  createdBy?: string | null
 }
 
 export const KJ_TO_KCAL = 4.184

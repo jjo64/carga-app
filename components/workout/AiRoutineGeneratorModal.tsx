@@ -126,6 +126,7 @@ Parámetros del usuario:
 
       const { text } = await callAnthropicApi({
         modelTier: 'haiku',
+        actionType: 'generate_routine',
         system: AI_ROUTINE_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,

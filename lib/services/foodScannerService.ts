@@ -492,10 +492,18 @@ export const foodScannerService = {
   },
 
   // =========================================================================
-  // Persistencia y Caché Global Permanente
+  // Persistencia y Caché Global Permanente con Verificación Comunitaria
   // =========================================================================
   async persistProductToDatabase(product: FoodProduct): Promise<void> {
     try {
+      let currentUserId: string | null = null
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        currentUserId = session?.user?.id || null
+      } catch {
+        // Silencioso
+      }
+
       const payload: Record<string, any> = {
         name: product.name,
         brand: product.brand,
@@ -513,6 +521,8 @@ export const foodScannerService = {
         ingredients: product.ingredients || [],
         ultra_processed_score: product.ultraProcessedScore || 1,
         data_source: product.dataSource,
+        is_verified: product.dataSource === 'openfoodfacts' || product.dataSource === 'verified',
+        created_by: currentUserId,
       }
 
       if (product.barcode && product.barcode.trim().length >= 5) {
@@ -523,6 +533,38 @@ export const foodScannerService = {
       }
     } catch (err) {
       console.warn('[FoodScanner] Error guardando producto en Supabase:', err)
+    }
+  },
+
+  /**
+   * Permite a los usuarios confirmar que los datos nutricionales son precisos.
+   * Si 3 o más usuarios lo verifican, se marca como `is_verified = true`.
+   */
+  async verifyFoodProduct(barcodeOrId: string): Promise<boolean> {
+    try {
+      const isBarcode = /^\d+$/.test(barcodeOrId.trim())
+      const { data: existing } = await (isBarcode
+        ? supabase.from('food_products').select('*').eq('barcode', barcodeOrId.trim()).maybeSingle()
+        : supabase.from('food_products').select('*').eq('id', barcodeOrId).maybeSingle())
+
+      if (!existing) return false
+
+      const newCount = (existing.verified_count || 0) + 1
+      const shouldVerify = newCount >= 3 || existing.data_source === 'openfoodfacts' || existing.data_source === 'verified'
+
+      await supabase
+        .from('food_products')
+        .update({
+          verified_count: newCount,
+          is_verified: shouldVerify,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+
+      return true
+    } catch (err) {
+      console.warn('[FoodScanner] Error verificando producto:', err)
+      return false
     }
   },
 

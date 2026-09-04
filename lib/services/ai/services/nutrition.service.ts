@@ -48,6 +48,7 @@ export async function scanNutritionLabel(
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'scan_label',
     system: NUTRITION_LABEL_SYSTEM_PROMPT,
     messages: [
       {
@@ -94,6 +95,7 @@ export async function scanMealPlate(
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'scan_plate',
     system: FOOD_VISION_SYSTEM_PROMPT,
     messages: [
       {
@@ -141,6 +143,7 @@ export async function parseNaturalMeal(
   if (!rawParsed) {
     const aiRes = await callAnthropicApi({
       modelTier: 'haiku',
+      actionType: 'parse_meal',
       system: NATURAL_MEAL_PARSER_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: textDescription }],
       temperature: 0.0,
@@ -227,6 +230,7 @@ Tiempo disponible: ${params.availableTimeMinutes || 10} minutos
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'close_macros',
     system: MACRO_CLOSER_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.2,
@@ -304,6 +308,7 @@ Realiza una auditoría exhaustiva de salud preventiva, destacando excesos de sal
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'audit_nutrition',
     system: NUTRITION_HEALTH_AUDIT_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.1,

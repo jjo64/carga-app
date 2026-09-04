@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { supabase } from '@/lib/supabase'
 import {
   AiModelTier,
   AnthropicMessage,
@@ -142,6 +143,7 @@ const PRICING = {
 
 export interface CallAnthropicOptions {
   modelTier?: AiModelTier
+  actionType?: string
   system: AnthropicSystemBlock[]
   messages: AnthropicMessage[]
   tools?: AnthropicTool[]
@@ -251,7 +253,8 @@ export function extractAndParseJson<T>(
 }
 
 /**
- * Realiza una petición directa al API de Anthropic con Prompt Caching, Model Tiering y Tool Calling.
+ * Realiza una petición segura al API de Anthropic a través del proxy en Supabase Edge Functions,
+ * con fallback directo en desarrollo local si no hay conexión al backend.
  */
 export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
   text: string
@@ -260,6 +263,7 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
 }> {
   const {
     modelTier = 'haiku',
+    actionType = 'general',
     system,
     messages,
     tools,
@@ -269,8 +273,45 @@ export async function callAnthropicApi(options: CallAnthropicOptions): Promise<{
     apiKey,
   } = options
 
-  const resolvedApiKey = getAnthropicApiKey(apiKey)
   const startTime = Date.now()
+
+  // 1. INTENTO PRIMARIO SEGURO: Invocar Edge Function ai-proxy en Supabase
+  try {
+    const { data: proxyData, error: proxyError } = await supabase.functions.invoke('ai-proxy', {
+      body: {
+        modelTier,
+        actionType,
+        system,
+        messages,
+        tools,
+        toolChoice,
+        maxTokens,
+        temperature,
+      },
+    })
+
+    if (!proxyError && proxyData && proxyData.text) {
+      if (proxyData.metrics) {
+        await recordApiCall(
+          proxyData.metrics.inputTokens + proxyData.metrics.outputTokens,
+          proxyData.metrics.estimatedCostUsd
+        )
+      }
+      return proxyData
+    }
+
+    if (proxyError && proxyError.message && proxyError.message.includes('429')) {
+      throw new Error(proxyData?.error || 'Has alcanzado el límite de uso diario de IA.')
+    }
+  } catch (proxyErr: any) {
+    if (proxyErr.message && (proxyErr.message.includes('límite') || proxyErr.message.includes('429') || proxyErr.message.includes('RATE_LIMIT'))) {
+      throw proxyErr
+    }
+    console.warn('[AiClient] Proxy de Supabase no disponible, intentando llamada de desarrollo local:', proxyErr?.message || proxyErr)
+  }
+
+  // 2. FALLBACK DE DESARROLLO LOCAL (Si se provee clave local en .env)
+  const resolvedApiKey = getAnthropicApiKey(apiKey)
 
   // Si no hay API key configurada, usamos el motor de fallback simulado
   if (!resolvedApiKey) {

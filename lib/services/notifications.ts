@@ -5,7 +5,7 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const isOngoing = notification.request.content.data?.type === 'workout_ongoing'
     return {
-      shouldShowAlert: !isOngoing,
+      shouldShowAlert: true,
       shouldPlaySound: !isOngoing,
       shouldSetBadge: false,
     }
@@ -23,7 +23,8 @@ export const NOTIFICATION_ACTIONS = {
   SKIP_REST: 'action_skip_rest',
 }
 
-let activeWorkoutNotificationId: string | null = null
+const ONGOING_NOTIFICATION_ID = 'carga_active_workout'
+const REST_ALARM_NOTIFICATION_ID = 'carga_rest_finished_alarm'
 
 export async function setupWorkoutNotifications(): Promise<boolean> {
   if (Platform.OS === 'web') return false
@@ -39,9 +40,19 @@ export async function setupWorkoutNotifications(): Promise<boolean> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('workout_channel', {
         name: 'Entrenamiento en Vivo',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 300, 150, 300],
         lightColor: '#38BDF8',
+        sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+      })
+
+      await Notifications.setNotificationChannelAsync('workout_rest_channel', {
+        name: 'Fin de Descanso',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 400, 200, 400],
+        lightColor: '#10B981',
         sound: 'default',
         enableLights: true,
         enableVibrate: true,
@@ -75,6 +86,56 @@ export async function setupWorkoutNotifications(): Promise<boolean> {
   } catch (error) {
     console.log('Error setting up notifications:', error)
     return false
+  }
+}
+
+/**
+ * Schedules a precise OS-level background alarm for when the rest timer ends.
+ * Even if the JS thread is frozen outside the app, the native OS will ring this alarm at the exact second.
+ */
+export async function scheduleRestFinishAlarm({
+  seconds,
+  exerciseName,
+  currentSet,
+  totalSets,
+}: {
+  seconds: number
+  exerciseName: string
+  currentSet: number
+  totalSets: number
+}) {
+  if (Platform.OS === 'web' || seconds <= 0) return
+  try {
+    // First cancel any existing rest finish alarm
+    await cancelRestFinishAlarm()
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_ALARM_NOTIFICATION_ID,
+      content: {
+        title: '⏰ ¡Descanso Terminado!',
+        body: `Es hora de la Serie ${currentSet}/${totalSets} de ${exerciseName}. ¡A por todas!`,
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        data: { type: 'rest_alarm', exerciseName, currentSet },
+        categoryIdentifier: NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.round(seconds)),
+      },
+    })
+  } catch (err) {
+    console.log('Error scheduling rest finish alarm:', err)
+  }
+}
+
+export async function cancelRestFinishAlarm() {
+  if (Platform.OS === 'web') return
+  try {
+    await Notifications.cancelScheduledNotificationAsync(REST_ALARM_NOTIFICATION_ID).catch(() => {})
+    await Notifications.dismissNotificationAsync(REST_ALARM_NOTIFICATION_ID).catch(() => {})
+  } catch (err) {
+    console.log('Error cancelling rest finish alarm:', err)
   }
 }
 
@@ -126,15 +187,15 @@ export async function updateWorkoutActiveNotification({
       category = NOTIFICATION_CATEGORIES.WORKOUT_ACTIVE
     }
 
-    activeWorkoutNotificationId = await Notifications.scheduleNotificationAsync({
-      identifier: 'carga_active_workout',
+    await Notifications.scheduleNotificationAsync({
+      identifier: ONGOING_NOTIFICATION_ID,
       content: {
         title,
         body,
         data: { type: 'workout_ongoing', exerciseName, currentSet, isResting },
         categoryIdentifier: category,
         sticky: true,
-        priority: Notifications.AndroidNotificationPriority.MAX,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
         sound: playSound ? 'default' : undefined,
       },
       trigger: null,
@@ -147,9 +208,9 @@ export async function updateWorkoutActiveNotification({
 export async function clearAllWorkoutNotifications() {
   if (Platform.OS === 'web') return
   try {
-    await Notifications.dismissNotificationAsync('carga_active_workout').catch(() => {})
-    await Notifications.cancelScheduledNotificationAsync('carga_active_workout').catch(() => {})
-    activeWorkoutNotificationId = null
+    await Notifications.dismissNotificationAsync(ONGOING_NOTIFICATION_ID).catch(() => {})
+    await Notifications.cancelScheduledNotificationAsync(ONGOING_NOTIFICATION_ID).catch(() => {})
+    await cancelRestFinishAlarm()
   } catch (err) {
     console.log('Error clearing workout notifications:', err)
   }

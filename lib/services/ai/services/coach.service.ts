@@ -63,6 +63,7 @@ Detalles adicionales: ${params.exerciseNotes || 'Ninguno'}
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'adapt_pain',
     system: PAIN_ADAPTOR_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.1,
@@ -80,7 +81,7 @@ Detalles adicionales: ${params.exerciseNotes || 'Ninguno'}
 }
 
 /**
- * Asistente Biomecánico y Nutricional en Vivo (Claude 3.5 Haiku)
+ * Asistente Biomecánico y Nutricional en Vivo (Claude Haiku 4.5)
  * Con Contexto en Bloque System (para Prompt Caching)
  */
 export async function chatWithCoach(
@@ -122,6 +123,7 @@ export async function chatWithCoach(
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'chat_coach',
     system: systemBlocks,
     messages: formattedMessages,
     temperature: 0.2,

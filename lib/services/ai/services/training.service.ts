@@ -41,6 +41,7 @@ Tipo de movimiento: ${params.isUpperBody ? 'Torso / Tren Superior' : 'Pierna / T
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'recommend_load',
     system: LOAD_ADVISOR_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.1,
@@ -56,7 +57,7 @@ Tipo de movimiento: ${params.isUpperBody ? 'Torso / Tren Superior' : 'Pierna / T
 }
 
 /**
- * Smart Deload Advisor - Predicción de Fatiga (Claude 3.5 Haiku)
+ * Smart Deload Advisor - Predicción de Fatiga (Claude Haiku 4.5)
  */
 export async function evaluateDeload(params: {
   weeksTrainingConsecutive: number
@@ -80,6 +81,7 @@ ${athleteContext}Historial de entrenamiento reciente:
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'haiku',
+    actionType: 'evaluate_deload',
     system: DELOAD_ADVISOR_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.1,
@@ -95,7 +97,7 @@ ${athleteContext}Historial de entrenamiento reciente:
 }
 
 /**
- * Generador de Mesociclos Periodizados (Claude 3.5 Sonnet)
+ * Generador de Mesociclos Periodizados (Claude Sonnet 5)
  * Con Validación Post-Parse de Semana de Deload
  */
 export async function generateMesocycle(
@@ -119,6 +121,7 @@ ${athleteContext}SOLICITUD DE MESOCICLO PERIODIZADO:
 
   const { text, metrics } = await callAnthropicApi({
     modelTier: 'sonnet',
+    actionType: 'generate_mesocycle',
     system: MESOCYCLE_BUILDER_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: promptText }],
     temperature: 0.2,
