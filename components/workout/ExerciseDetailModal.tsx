@@ -10,7 +10,7 @@ import {
   Share,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, Share2, MoreHorizontal, Play, Pause } from 'lucide-react-native'
+import { ArrowLeft, Share2, MoreHorizontal, Play, Pause, X, Zap, Trophy, ListChecks } from 'lucide-react-native'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import RoutineAnatomicalCover from '@/components/visuals/RoutineAnatomicalCover'
 import { ExerciseDefinition } from '@/constants/exerciseDatabase'
@@ -36,7 +36,7 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Detalles del ejercicio: ${exercise.name} (${exercise.muscleGroup}) en FitAI.`,
+        message: `Detalles del ejercicio: ${exercise.name} (${exercise.muscleGroup || exercise.category}) en FitAI.`,
       })
     } catch (e) {
       console.log('Share error:', e)
@@ -45,11 +45,11 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
-        {/* Top Bar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-            <ArrowLeft size={22} color="#FFFFFF" />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Top Header Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={onClose} style={styles.topIconBtn} activeOpacity={0.7}>
+            <ArrowLeft size={18} color="#FAFAFA" />
           </TouchableOpacity>
 
           <Text style={styles.topBarTitle} numberOfLines={1}>
@@ -57,42 +57,46 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
           </Text>
 
           <View style={styles.topBarRight}>
-            <TouchableOpacity onPress={handleShare} style={styles.iconBtn}>
-              <Share2 size={20} color="#FFFFFF" />
+            <TouchableOpacity onPress={handleShare} style={styles.topIconBtn} activeOpacity={0.7}>
+              <Share2 size={18} color="#A1A1AA" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn}>
-              <MoreHorizontal size={20} color="#FFFFFF" />
+            <TouchableOpacity onPress={onClose} style={styles.topIconBtn} activeOpacity={0.7}>
+              <X size={18} color="#A1A1AA" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* 3 Tabs (Resumen, Historial, Indicaciones) */}
-        <View style={styles.tabsRow}>
-          {[
-            { id: 'resumen', label: 'Resumen' },
-            { id: 'historial', label: 'Historial' },
-            { id: 'indicaciones', label: 'Indicaciones' },
-          ].map((tab) => {
-            const isActive = activeTab === tab.id
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id as TabType)}
-                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}>
-                  {tab.label}
-                </Text>
-                {isActive && <View style={styles.tabActiveIndicator} />}
-              </TouchableOpacity>
-            )
-          })}
+        {/* 3 Capsule Tabs (Resumen, Historial, Indicaciones) */}
+        <View style={styles.tabsContainer}>
+          <View style={styles.tabsCapsule}>
+            {[
+              { id: 'resumen', label: 'Resumen' },
+              { id: 'historial', label: 'Historial' },
+              { id: 'indicaciones', label: 'Indicaciones' },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id
+              return (
+                <TouchableOpacity
+                  key={tab.id}
+                  onPress={() => setActiveTab(tab.id as TabType)}
+                  style={[styles.tabSegment, isActive && styles.tabSegmentActive]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.tabSegmentText, isActive && styles.tabSegmentTextActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
         </View>
 
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Main Visual Render with Pause/Play Indicator */}
-          <View style={styles.illustrationWrapper}>
+          <View style={styles.mediaCard}>
             <ExerciseIllustration
               exerciseId={exercise.id}
               exerciseName={exercise.name}
@@ -108,9 +112,9 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
               activeOpacity={0.85}
             >
               {isPlaying ? (
-                <Pause size={14} color="#FFFFFF" />
+                <Pause size={14} color="#FAFAFA" />
               ) : (
-                <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                <Play size={14} color="#FAFAFA" fill="#FAFAFA" />
               )}
             </TouchableOpacity>
           </View>
@@ -126,7 +130,7 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
           {/* TAB 1: RESUMEN */}
           {activeTab === 'resumen' && (
             <View style={styles.tabSection}>
-              {/* Muscle Targets Card with Native Anatomical Vector Highlight */}
+              {/* Muscle Targets Card */}
               <View style={styles.card}>
                 <Text style={styles.cardLabel}>MÚSCULOS TRABAJADOS</Text>
                 <View style={styles.muscleCardContent}>
@@ -136,11 +140,13 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
                         Principal: {exercise.category || exercise.muscleGroup}
                       </Text>
                     </View>
-                    {exercise.secondaryMuscles.map((sec) => (
-                      <View key={sec} style={styles.secondaryMusclePill}>
-                        <Text style={styles.secondaryMuscleText}>{sec}</Text>
-                      </View>
-                    ))}
+                    <View style={styles.secondaryMusclesRow}>
+                      {exercise.secondaryMuscles.map((sec) => (
+                        <View key={sec} style={styles.secondaryMusclePill}>
+                          <Text style={styles.secondaryMuscleText}>{sec}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
 
                   <View style={styles.muscleAnatomyThumb}>
@@ -155,13 +161,14 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
 
               {/* Records Quick View */}
               <View style={styles.card}>
-                <Text style={styles.cardLabel}>RÉCORD ACTUAL</Text>
+                <Text style={styles.cardLabel}>RÉCORD ACTUAL & RENDIMIENTO</Text>
                 <View style={styles.quickRecordRow}>
                   <Text style={styles.quickRecordVal}>
-                    {recordData.maxWeightOverall > 0 ? `${recordData.maxWeightOverall} kg` : 'Sin registros'}
+                    {recordData.maxWeightOverall > 0 ? `${recordData.maxWeightOverall} kg` : 'Sin registros aún'}
                   </Text>
                   {recordData.maxWeightOverall > 0 && (
                     <View style={styles.quickRecordBadge}>
+                      <Trophy size={12} color="#FAFAFA" />
                       <Text style={styles.quickRecordBadgeText}>
                         Mejor serie: {recordData.bestSetSummary}
                       </Text>
@@ -177,7 +184,7 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
             <View style={styles.tabSection}>
               {recordData.lastSessionSets.length > 0 ? (
                 <View style={styles.card}>
-                  <Text style={styles.cardDate}>Última sesión registrada</Text>
+                  <Text style={styles.cardLabel}>ÚLTIMA SESIÓN REGISTRADA</Text>
                   <View style={styles.setsList}>
                     {recordData.lastSessionSets.map((s) => (
                       <View key={s.setNum} style={styles.setRow}>
@@ -191,8 +198,8 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
                 </View>
               ) : (
                 <View style={styles.card}>
-                  <Text style={[styles.cardLabel, { marginBottom: 4 }]}>SIN HISTORIAL</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                  <Text style={styles.cardLabel}>SIN HISTORIAL REGISTRADO</Text>
+                  <Text style={styles.emptySubText}>
                     Aún no has completado series de este ejercicio en tus entrenamientos.
                   </Text>
                 </View>
@@ -203,12 +210,21 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
           {/* TAB 3: INDICACIONES (PASO A PASO EN ESPAÑOL) */}
           {activeTab === 'indicaciones' && (
             <View style={styles.tabSection}>
-              {exercise.instructions.allSteps.map((step, idx) => (
-                <View key={idx} style={styles.card}>
-                  <Text style={styles.cardLabel}>PASO {idx + 1}</Text>
-                  <Text style={styles.instructionText}>{step}</Text>
+              {exercise.instructions.allSteps.length > 0 ? (
+                exercise.instructions.allSteps.map((step, idx) => (
+                  <View key={idx} style={styles.card}>
+                    <Text style={styles.cardLabel}>PASO {idx + 1}</Text>
+                    <Text style={styles.instructionText}>{step}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.card}>
+                  <Text style={styles.cardLabel}>INDICACIONES</Text>
+                  <Text style={styles.instructionText}>
+                    {exercise.instructions.execution || exercise.instructions.setup || 'Mantén una técnica controlada durante todo el recorrido del movimiento.'}
+                  </Text>
                 </View>
-              ))}
+              )}
             </View>
           )}
         </ScrollView>
@@ -220,117 +236,129 @@ export default function ExerciseDetailModal({ exercise, visible, onClose }: Prop
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#09090B',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#18181B',
   },
-  iconBtn: {
-    padding: 6,
+  topIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topBarTitle: {
     flex: 1,
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 16,
-    fontWeight: '700',
-    marginHorizontal: 10,
+    fontWeight: '800',
+    marginHorizontal: 12,
+    textAlign: 'center',
   },
   topBarRight: {
     flexDirection: 'row',
     gap: 8,
   },
-  tabsRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0A0A0A',
+  tabsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  tabBtn: {
+  tabsCapsule: {
+    flexDirection: 'row',
+    backgroundColor: '#121214',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  tabSegment: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
-    position: 'relative',
+    paddingVertical: 9,
+    borderRadius: 10,
   },
-  tabBtnActive: {},
-  tabBtnText: {
-    color: 'rgba(255,255,255,0.4)',
+  tabSegmentActive: {
+    backgroundColor: '#FAFAFA',
+  },
+  tabSegmentText: {
+    color: '#71717A',
     fontSize: 13,
     fontWeight: '700',
   },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  tabActiveIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: '20%',
-    right: '20%',
-    height: 3,
-    backgroundColor: '#38BDF8',
-    borderRadius: 2,
+  tabSegmentTextActive: {
+    color: '#09090B',
+    fontWeight: '900',
   },
   scrollContent: {
     padding: 16,
     gap: 16,
-    paddingBottom: 50,
   },
-  illustrationWrapper: {
+  mediaCard: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#121212',
+    backgroundColor: '#121214',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
   },
   pausePlayBtn: {
     position: 'absolute',
     bottom: 12,
     right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#27272A',
   },
   titleSection: {
     gap: 4,
+    paddingHorizontal: 2,
   },
   exerciseLargeTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
+    color: '#FAFAFA',
+    fontSize: 22,
     fontWeight: '900',
+    letterSpacing: -0.4,
   },
   exerciseSubtitle: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 13,
     fontWeight: '600',
   },
   tabSection: {
-    gap: 14,
+    gap: 12,
   },
   card: {
-    backgroundColor: '#121212',
+    backgroundColor: '#121214',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 10,
   },
   cardLabel: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 11,
+    color: '#71717A',
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   muscleCardContent: {
     flexDirection: 'row',
@@ -339,8 +367,40 @@ const styles = StyleSheet.create({
   },
   muscleCardLeft: {
     flex: 1,
-    gap: 6,
+    gap: 8,
     paddingRight: 12,
+  },
+  secondaryMusclesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  primaryMusclePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#27272A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3F3F46',
+  },
+  primaryMuscleText: {
+    color: '#FAFAFA',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  secondaryMusclePill: {
+    backgroundColor: '#18181B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  secondaryMuscleText: {
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '600',
   },
   muscleAnatomyThumb: {
     width: 85,
@@ -348,83 +408,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryMusclePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.3)',
-  },
-  primaryMuscleText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  secondaryMusclePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  secondaryMuscleText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
   quickRecordRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
   },
   quickRecordVal: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: '#FAFAFA',
+    fontSize: 24,
     fontWeight: '900',
   },
   quickRecordBadge: {
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   quickRecordBadgeText: {
-    color: '#38BDF8',
+    color: '#FAFAFA',
     fontSize: 11,
     fontWeight: '700',
   },
-  cardDate: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
   setsList: {
-    gap: 6,
+    gap: 8,
   },
   setRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: '#18181B',
   },
   setLabel: {
-    color: 'rgba(255,255,255,0.5)',
+    color: '#71717A',
     fontSize: 13,
+    fontWeight: '600',
   },
   setVal: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  emptySubText: {
+    color: '#71717A',
+    fontSize: 13,
+    lineHeight: 18,
   },
   instructionText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    lineHeight: 20,
+    color: '#D4D4D8',
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '500',
   },
 })
