@@ -47,6 +47,7 @@ interface SmartFoodScannerModalProps {
   onClose: () => void
   mealType: MealType
   onSaveToMeal: (foods: FoodItemParsed[], rawInput: string) => Promise<void>
+  initialMode?: ScannerMode
 }
 
 const MEAL_NAMES: Record<string, string> = {
@@ -61,8 +62,9 @@ export default function SmartFoodScannerModal({
   onClose,
   mealType,
   onSaveToMeal,
+  initialMode = 'plate',
 }: SmartFoodScannerModalProps) {
-  const [activeMode, setActiveMode] = useState<ScannerMode>('plate')
+  const [activeMode, setActiveMode] = useState<ScannerMode>(initialMode)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
@@ -72,9 +74,10 @@ export default function SmartFoodScannerModal({
 
   useEffect(() => {
     if (visible) {
+      if (initialMode) setActiveMode(initialMode)
       foodScannerService.clearCorruptedCache().catch(() => {})
     }
-  }, [visible])
+  }, [visible, initialMode])
 
   // Clear toast after 3.5s
   useEffect(() => {

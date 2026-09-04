@@ -43,19 +43,25 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   Footprints,
+  Mic,
+  Barcode,
+  FileText,
 } from 'lucide-react-native'
 import { useNutrition } from '@/lib/hooks/useNutrition'
 import { useSteps } from '@/lib/hooks/useSteps'
 import { MealType, FoodItemParsed } from '@/types'
-import SmartFoodScannerModal from '@/components/nutrition/SmartFoodScannerModal'
+import SmartFoodScannerModal, { ScannerMode } from '@/components/nutrition/SmartFoodScannerModal'
 import NutritionEvolutionModal from '@/components/nutrition/NutritionEvolutionModal'
 import NutritionHealthAuditModal from '@/components/nutrition/NutritionHealthAuditModal'
+import NutritionDatePickerModal from '@/components/nutrition/NutritionDatePickerModal'
+import NutritionHeroCard from '@/components/nutrition/NutritionHeroCard'
 import CommonFoodsSelector from '@/components/nutrition/CommonFoodsSelector'
 import { CommonFoodItem } from '@/constants/commonFoodsDatabase'
 import { aiService } from '@/lib/services/ai'
+import { typography } from '@/constants/typography'
 
 const MEAL_DRAFT_STORAGE_KEY = '@nutrition_active_meal_draft'
-type ModalTabType = 'basic' | 'frequent' | 'scanner' | 'plate'
+type ModalTabType = 'ai' | 'basic' | 'frequent' | 'plate'
 
 const mealLabel: Record<string, string> = {
   breakfast: 'Desayuno',
@@ -167,7 +173,7 @@ export default function NutritionScreen() {
 
   const [filterType, setFilterType] = useState<MealType | 'all'>('all')
   const [modalVisible, setModalVisible] = useState(false)
-  const [modalTab, setModalTab] = useState<ModalTabType>('basic')
+  const [modalTab, setModalTab] = useState<ModalTabType>('ai')
   const [modalMealType, setModalMealType] = useState<MealType>('lunch')
   const [foodText, setFoodText] = useState('')
   const [analysisState, setAnalysisState] = useState<'idle' | 'loading' | 'result'>('idle')
@@ -178,13 +184,18 @@ export default function NutritionScreen() {
   // Editing existing logged food
   const [editingFoodLogId, setEditingFoodLogId] = useState<string | null>(null)
   const [editingFoodLogTitle, setEditingFoodLogTitle] = useState<string>('')
+  const [initialEditingSnapshot, setInitialEditingSnapshot] = useState<string>('')
 
   // Frequent sub-tab: 'meals' (platos completos) vs 'ingredients' (ingredientes individuales usados)
   const [frequentSubTab, setFrequentSubTab] = useState<'meals' | 'ingredients'>('meals')
   const [expandedMealIds, setExpandedMealIds] = useState<Record<string, boolean>>({})
 
+  // Date Picker (Days & Months) Modal State
+  const [datePickerVisible, setDatePickerVisible] = useState(false)
+
   // Smart Food Scanner Modal State
   const [smartScannerVisible, setSmartScannerVisible] = useState(false)
+  const [smartScannerInitialMode, setSmartScannerInitialMode] = useState<ScannerMode>('plate')
 
   // Evolution & Calendar Modal State
   const [evolutionModalVisible, setEvolutionModalVisible] = useState(false)
@@ -217,16 +228,16 @@ export default function NutritionScreen() {
     loadDraft()
   }, [])
 
-  // 2. Guardar borrador en AsyncStorage cuando cambie el plato
+  // 2. Guardar borrador en AsyncStorage cuando cambie el plato (solo para nuevas comidas, no al editar)
   useEffect(() => {
     const saveDraft = async () => {
       try {
-        if (results.length > 0) {
+        if (results.length > 0 && !editingFoodLogId) {
           await AsyncStorage.setItem(
             MEAL_DRAFT_STORAGE_KEY,
             JSON.stringify({ results, modalMealType, foodText, date: selectedDate })
           )
-        } else {
+        } else if (results.length === 0 && !editingFoodLogId) {
           await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
         }
       } catch (e) {
@@ -234,7 +245,7 @@ export default function NutritionScreen() {
       }
     }
     saveDraft()
-  }, [results, modalMealType, foodText, selectedDate])
+  }, [results, modalMealType, foodText, selectedDate, editingFoodLogId])
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
@@ -243,11 +254,12 @@ export default function NutritionScreen() {
       const parts = dateStr.split('-')
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-        const todayStr = new Date().toISOString().split('T')[0]
-        if (dateStr === todayStr) {
-          return `Hoy, ${d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
-        }
-        return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+        const rawWeekday = d.toLocaleDateString('es-ES', { weekday: 'long' })
+        const rawMonth = d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')
+        const dayNum = d.getDate()
+        const weekdayCap = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1)
+        const monthCap = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1)
+        return `${weekdayCap}, ${dayNum} ${monthCap}`
       }
     } catch {}
     return dateStr
@@ -255,14 +267,18 @@ export default function NutritionScreen() {
 
   const filteredLogs = filterType === 'all' ? logs : logs.filter((l) => l.meal_type === filterType)
 
-  const handleLaunchCamera = () => {
+  const handleOpenSmartScannerMode = (mode: ScannerMode) => {
+    setSmartScannerInitialMode(mode)
     setModalVisible(false)
     setSmartScannerVisible(true)
   }
 
+  const handleLaunchCamera = () => {
+    handleOpenSmartScannerMode('plate')
+  }
+
   const handleLaunchGallery = () => {
-    setModalVisible(false)
-    setSmartScannerVisible(true)
+    handleOpenSmartScannerMode('plate')
   }
 
   const handleSaveFromSmartScanner = async (foods: FoodItemParsed[], rawInput: string) => {
@@ -388,6 +404,7 @@ export default function NutritionScreen() {
       })
       setEditingFoodLogId(null)
       setEditingFoodLogTitle('')
+      setInitialEditingSnapshot('')
     } else {
       await logFood({
         mealType: modalMealType,
@@ -405,6 +422,7 @@ export default function NutritionScreen() {
     setFoodText('')
     setPhotoUri(null)
     setAnalysisState('idle')
+    setInitialEditingSnapshot('')
     setModalVisible(false)
     try {
       await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
@@ -515,10 +533,25 @@ export default function NutritionScreen() {
     setModalVisible(true)
   }
 
+  const resetMealModalState = async () => {
+    setResults([])
+    setFoodText('')
+    setPhotoUri(null)
+    setAnalysisState('idle')
+    setEditingFoodLogId(null)
+    setEditingFoodLogTitle('')
+    setInitialEditingSnapshot('')
+    setModalVisible(false)
+    try {
+      await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
+    } catch {}
+  }
+
   const handleEditMeal = (log: any) => {
     setEditingFoodLogId(log.id)
     setEditingFoodLogTitle(log.raw_input || 'Comida')
-    setModalMealType(log.meal_type || 'lunch')
+    const mealType = log.meal_type || 'lunch'
+    setModalMealType(mealType)
     const itemsToEdit: FoodItemParsed[] =
       log.foods_parsed && log.foods_parsed.length > 0
         ? JSON.parse(JSON.stringify(log.foods_parsed))
@@ -534,392 +567,247 @@ export default function NutritionScreen() {
             },
           ]
     setResults(itemsToEdit)
+    setInitialEditingSnapshot(JSON.stringify({ mealType, results: itemsToEdit }))
     setModalTab('plate')
     setModalVisible(true)
   }
 
   const handleConfirmDiscardDraft = () => {
-    if (results.length === 0 && !foodText.trim()) {
-      setEditingFoodLogId(null)
-      setEditingFoodLogTitle('')
-      setModalVisible(false)
+    if (editingFoodLogId) {
+      const currentSnapshot = JSON.stringify({ mealType: modalMealType, results })
+      const hasChanges = initialEditingSnapshot !== '' && currentSnapshot !== initialEditingSnapshot
+      if (!hasChanges) {
+        // No se hicieron cambios: cerrar directamente sin diálogo ni dejar dock flotante
+        resetMealModalState()
+        return
+      }
+
+      Alert.alert(
+        '¿Descartar cambios?',
+        'Se cancelará la edición de esta comida.',
+        [
+          { text: 'Continuar editando', style: 'cancel' },
+          {
+            text: 'Descartar',
+            style: 'destructive',
+            onPress: resetMealModalState,
+          },
+        ]
+      )
       return
     }
+
+    if (results.length === 0 && !foodText.trim()) {
+      resetMealModalState()
+      return
+    }
+
     Alert.alert(
       '¿Descartar cambios?',
-      editingFoodLogId
-        ? 'Se cancelará la edición de esta comida.'
-        : 'Se borrarán los productos que estabas añadiendo a esta comida.',
+      'Se borrarán los productos que estabas añadiendo a esta comida.',
       [
         { text: 'Continuar', style: 'cancel' },
         {
           text: 'Descartar',
           style: 'destructive',
-          onPress: async () => {
-            setResults([])
-            setFoodText('')
-            setPhotoUri(null)
-            setAnalysisState('idle')
-            setEditingFoodLogId(null)
-            setEditingFoodLogTitle('')
-            setModalVisible(false)
-            try {
-              await AsyncStorage.removeItem(MEAL_DRAFT_STORAGE_KEY)
-            } catch {}
-          },
+          onPress: resetMealModalState,
         },
       ]
     )
   }
 
   const handleMinimizeModal = () => {
+    if (editingFoodLogId) {
+      handleConfirmDiscardDraft()
+      return
+    }
     setModalVisible(false)
   }
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Top Header con Navegación de Fechas */}
+        {/* Top Header: "Nutrición" + Date Selector Subtitle (Sin avatar, desplegable de fechas y meses) */}
         <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <View>
-              <Text style={styles.headerSub}>NUTRICIÓN & SALUD INTEGRAL</Text>
-              <Text style={styles.headerTitle}>Nutrición</Text>
-            </View>
-
-            {/* Botones de Cabecera: Calendario y Salud */}
-            <View style={styles.headerIconsRow}>
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={() => setEvolutionModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <TrendingUp size={16} color="#38BDF8" />
-                <Text style={styles.headerIconBtnText}>Evolución</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.headerIconBtn, styles.headerIconBtnHealth]}
-                onPress={() => setHealthModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <HeartPulse size={16} color="#10B981" />
-                <Text style={[styles.headerIconBtnText, { color: '#10B981' }]}>Salud</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Barra de Navegación de Fecha Día a Día */}
-          <View style={styles.dateNavigatorRow}>
-            <TouchableOpacity onPress={goToPrevDay} style={styles.dateNavArrow} activeOpacity={0.7}>
-              <ChevronLeft size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setEvolutionModalVisible(true)}
-              style={styles.dateDisplayBtn}
-              activeOpacity={0.8}
-            >
-              <CalendarIcon size={15} color="#38BDF8" />
-              <Text style={styles.dateDisplayText}>{formatDisplayDate(selectedDate)}</Text>
-              {!isToday && (
-                <TouchableOpacity onPress={goToToday} style={styles.returnTodayPill}>
-                  <Text style={styles.returnTodayText}>Ir a Hoy</Text>
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={goToNextDay}
-              style={[styles.dateNavArrow, isToday && { opacity: 0.3 }]}
-              disabled={isToday}
-              activeOpacity={0.7}
-            >
-              <ChevronRight size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Resumen del Día Card con Consumo vs Objetivo */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Flame size={18} color="#F59E0B" />
-              <Text style={styles.summaryCardSub}>RESUMEN NUTRICIONAL</Text>
-            </View>
-
-            {/* Badge de Estatus Calórico */}
-            <View
-              style={[
-                styles.statusBadge,
-                calorieAnalysis.diff > 250
-                  ? styles.statusBadgeSurplus
-                  : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
-                  ? styles.statusBadgeDeficit
-                  : styles.statusBadgeOptimal,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  calorieAnalysis.diff > 250
-                    ? { color: '#EF4444' }
-                    : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
-                    ? { color: '#38BDF8' }
-                    : { color: '#10B981' },
-                ]}
-              >
-                {calorieAnalysis.diff > 250
-                  ? `+${calorieAnalysis.diff} kcal Superávit`
-                  : calorieAnalysis.diff < -350 && calorieAnalysis.consumed > 0
-                  ? `${calorieAnalysis.diff} kcal Déficit`
-                  : 'Balance Óptimo'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Fila Principal de Calorías (Consumidas / Objetivo) */}
-          <View style={styles.calorieRow}>
-            <Text style={styles.caloriesMain}>{calorieAnalysis.consumed}</Text>
-            <Text style={styles.caloriesTarget}>/ {calorieAnalysis.target} kcal</Text>
-          </View>
-
-          {/* Subtítulo dinámico de calorías restantes o excedidas */}
-          <Text
-            style={[
-              styles.caloriesSubNotice,
-              calorieAnalysis.isExceeded ? { color: '#F87171' } : { color: '#38BDF8' },
-            ]}
-          >
-            {calorieAnalysis.isExceeded
-              ? `⚠️ Exceso calórico: +${calorieAnalysis.excess} kcal sobre tu meta`
-              : `Te restan ${calorieAnalysis.remaining} kcal para completar el objetivo`}
-          </Text>
-
-          {/* Badges de gasto calórico por actividad (Entrenamiento + Pasos) */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {(targets as any).burnedCalories > 0 && (
-              <View style={styles.workoutBurnedBadge}>
-                <Flame size={13} color="#F97316" />
-                <Text style={styles.workoutBurnedBadgeText}>
-                  +{(targets as any).burnedCalories} kcal por entreno
-                </Text>
-              </View>
-            )}
-
-            {stepsCalories > 0 && (
-              <View style={[styles.workoutBurnedBadge, { backgroundColor: 'rgba(251, 191, 36, 0.12)', borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
-                <Footprints size={13} color="#FBBF24" />
-                <Text style={[styles.workoutBurnedBadgeText, { color: '#FBBF24' }]}>
-                  +{stepsCalories} kcal ({steps.toLocaleString('es-ES')} pasos)
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Barra de progreso de calorías */}
-          <View style={styles.calProgressBarBg}>
-            <View
-              style={[
-                styles.calProgressBarFill,
-                {
-                  width: `${calorieAnalysis.progressPercent}%`,
-                  backgroundColor: calorieAnalysis.isExceeded ? '#EF4444' : '#38BDF8',
-                },
-              ]}
-            />
-          </View>
-
-          {/* Macro Grid con Consumido vs Objetivo y Gramos Restantes/Excedidos */}
-          <View style={styles.macroGrid}>
-            {/* Proteínas */}
-            <View style={styles.macroBox}>
-              <View style={styles.macroTopRow}>
-                <Text style={styles.macroLabel}>Proteína</Text>
-                <Text style={styles.macroVal}>
-                  {proteinAnalysis.consumed} / {proteinAnalysis.target}g
-                </Text>
-              </View>
-              <View style={styles.macroBarBg}>
-                <View
-                  style={[
-                    styles.macroBarFill,
-                    {
-                      width: `${proteinAnalysis.progressPercent}%`,
-                      backgroundColor: proteinAnalysis.isMet ? '#10B981' : '#38BDF8',
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.macroDifferenceText,
-                  proteinAnalysis.isMet ? { color: '#10B981' } : { color: '#94A3B8' },
-                ]}
-              >
-                {proteinAnalysis.isMet
-                  ? `✓ Meta alcanzada (+${proteinAnalysis.excess}g)`
-                  : `Faltan ${proteinAnalysis.remaining}g`}
-              </Text>
-            </View>
-
-            {/* Carbohidratos */}
-            <View style={styles.macroBox}>
-              <View style={styles.macroTopRow}>
-                <Text style={styles.macroLabel}>Carbos</Text>
-                <Text style={styles.macroVal}>
-                  {carbsAnalysis.consumed} / {carbsAnalysis.target}g
-                </Text>
-              </View>
-              <View style={styles.macroBarBg}>
-                <View
-                  style={[
-                    styles.macroBarFill,
-                    {
-                      width: `${carbsAnalysis.progressPercent}%`,
-                      backgroundColor: carbsAnalysis.isExceeded ? '#EF4444' : '#FBBF24',
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.macroDifferenceText,
-                  carbsAnalysis.isExceeded ? { color: '#F87171' } : { color: '#94A3B8' },
-                ]}
-              >
-                {carbsAnalysis.isExceeded
-                  ? `⚠️ +${carbsAnalysis.excess}g exceso`
-                  : `Quedan ${carbsAnalysis.remaining}g`}
-              </Text>
-            </View>
-
-            {/* Grasas */}
-            <View style={styles.macroBox}>
-              <View style={styles.macroTopRow}>
-                <Text style={styles.macroLabel}>Grasas</Text>
-                <Text style={styles.macroVal}>
-                  {fatAnalysis.consumed} / {fatAnalysis.target}g
-                </Text>
-              </View>
-              <View style={styles.macroBarBg}>
-                <View
-                  style={[
-                    styles.macroBarFill,
-                    {
-                      width: `${fatAnalysis.progressPercent}%`,
-                      backgroundColor: fatAnalysis.isExceeded ? '#EF4444' : '#F472B6',
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.macroDifferenceText,
-                  fatAnalysis.isExceeded ? { color: '#F87171' } : { color: '#94A3B8' },
-                ]}
-              >
-                {fatAnalysis.isExceeded
-                  ? `⚠️ +${fatAnalysis.excess}g exceso`
-                  : `Quedan ${fatAnalysis.remaining}g`}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Mini Preview de Salud & Micronutrientes (Toca para abrir auditoría completa) */}
-        <TouchableOpacity
-          style={styles.healthMiniCard}
-          onPress={() => setHealthModalVisible(true)}
-          activeOpacity={0.85}
-        >
-          <View style={styles.healthMiniHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <HeartPulse size={15} color="#10B981" />
-              <Text style={styles.healthMiniTitle}>CONTROL DE SALUD & MICRONUTRIENTES</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={styles.healthMiniActionText}>Auditoría IA</Text>
-              <Sparkles size={13} color="#38BDF8" />
-              <ChevronRight size={14} color="#64748B" />
-            </View>
-          </View>
-
-          <View style={styles.healthPillsRow}>
-            {/* Sal */}
-            <View style={styles.healthMiniPill}>
-              <Text style={styles.healthMiniPillLabel}>Sal/Sodio</Text>
-              <Text
-                style={[
-                  styles.healthMiniPillVal,
-                  dayStats.healthMetrics.saltG > 5 ? { color: '#EF4444' } : { color: '#FFFFFF' },
-                ]}
-              >
-                {dayStats.healthMetrics.saltG}g / 5g
-              </Text>
-            </View>
-
-            {/* Azúcar */}
-            <View style={styles.healthMiniPill}>
-              <Text style={styles.healthMiniPillLabel}>Azúcares</Text>
-              <Text
-                style={[
-                  styles.healthMiniPillVal,
-                  dayStats.healthMetrics.sugarsG > 35 ? { color: '#EF4444' } : { color: '#FFFFFF' },
-                ]}
-              >
-                {dayStats.healthMetrics.sugarsG}g / 35g
-              </Text>
-            </View>
-
-            {/* Fibra */}
-            <View style={styles.healthMiniPill}>
-              <Text style={styles.healthMiniPillLabel}>Fibra</Text>
-              <Text style={[styles.healthMiniPillVal, { color: '#10B981' }]}>
-                {dayStats.healthMetrics.fiberG}g / 30g
-              </Text>
-            </View>
-
-            {/* Ultraprocesados */}
-            <View style={styles.healthMiniPill}>
-              <Text style={styles.healthMiniPillLabel}>Procesados</Text>
-              <Text
-                style={[
-                  styles.healthMiniPillVal,
-                  dayStats.healthMetrics.ultraProcessedRatio > 30
-                    ? { color: '#EF4444' }
-                    : { color: '#38BDF8' },
-                ]}
-              >
-                {dayStats.healthMetrics.ultraProcessedRatio}%
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* AI Smart Actions Row */}
-        <View style={styles.aiActionRow}>
+          <Text style={styles.headerTitle}>Nutrición</Text>
           <TouchableOpacity
-            style={styles.aiActionBtnPrimary}
-            onPress={() => setSmartScannerVisible(true)}
-            activeOpacity={0.85}
+            onPress={() => setDatePickerVisible(true)}
+            style={styles.dateSelectorBtn}
+            activeOpacity={0.7}
           >
-            <Camera size={16} color="#0F172A" />
-            <Text style={styles.aiActionBtnPrimaryText}>Escáner Visión & Código</Text>
-            <Sparkles size={14} color="#0F172A" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.aiActionBtnSecondary}
-            onPress={handleOpenMacroCloser}
-            activeOpacity={0.85}
-          >
-            <Sparkles size={15} color="#38BDF8" />
-            <Text style={styles.aiActionBtnSecondaryText}>Cierra tus Macros</Text>
+            <Text style={styles.dateSubtitle}>{formatDisplayDate(selectedDate)}</Text>
+            <ChevronDown size={14} color="#71717A" />
           </TouchableOpacity>
         </View>
 
-        {/* Meal Type Filter Pills */}
+        {/* 1. Hero Card: Calorie Gauge Circular + 3 Macro Rings (Imagen 1) */}
+        <NutritionHeroCard
+          caloriesConsumed={calorieAnalysis.consumed}
+          caloriesTarget={calorieAnalysis.target}
+          proteinConsumed={proteinAnalysis.consumed}
+          proteinTarget={proteinAnalysis.target}
+          carbsConsumed={carbsAnalysis.consumed}
+          carbsTarget={carbsAnalysis.target}
+          fatConsumed={fatAnalysis.consumed}
+          fatTarget={fatAnalysis.target}
+        />
+
+        {/* 2. Tarjetas de Análisis Rápido: Evolución & Estadísticas y Control de Salud */}
+        <View style={styles.analysisCardsContainer}>
+          {/* 2.1 Evolución & Estadísticas (Seguimiento Nutricional) */}
+          <TouchableOpacity
+            style={styles.evolutionMiniCard}
+            onPress={() => setEvolutionModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.evolutionMiniHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TrendingUp size={15} color="#38BDF8" />
+                <Text style={styles.evolutionMiniTitle}>EVOLUCIÓN & ESTADÍSTICAS</Text>
+              </View>
+              <View style={styles.evolutionStatsBadge}>
+                <Text style={styles.evolutionStatsBadgeText}>7, 14, 30 Días</Text>
+                <ChevronRight size={12} color="#38BDF8" />
+              </View>
+            </View>
+
+            <View style={styles.evolutionPillsRow}>
+              {/* Promedio Diario */}
+              <View style={styles.evolutionMiniPill}>
+                <Text style={styles.evolutionMiniPillLabel}>Promedio Diario</Text>
+                <Text style={styles.evolutionMiniPillVal}>
+                  {Math.round(history7Days.avgCalories || 0)} <Text style={styles.evolutionMiniPillUnit}>kcal</Text>
+                </Text>
+              </View>
+
+              {/* Balance Neto */}
+              <View style={styles.evolutionMiniPill}>
+                <Text style={styles.evolutionMiniPillLabel}>Balance Neto</Text>
+                <Text
+                  style={[
+                    styles.evolutionMiniPillVal,
+                    {
+                      color:
+                        history7Days.netCaloriesBalance > 0
+                          ? '#F59E0B'
+                          : history7Days.netCaloriesBalance < 0
+                          ? '#38BDF8'
+                          : '#10B981',
+                    },
+                  ]}
+                >
+                  {history7Days.netCaloriesBalance > 0
+                    ? `+${history7Days.netCaloriesBalance}`
+                    : `${history7Days.netCaloriesBalance}`} <Text style={styles.evolutionMiniPillUnit}>kcal</Text>
+                </Text>
+              </View>
+
+              {/* Días Óptimos */}
+              <View style={styles.evolutionMiniPill}>
+                <Text style={styles.evolutionMiniPillLabel}>Días Óptimos</Text>
+                <Text style={[styles.evolutionMiniPillVal, { color: '#10B981' }]}>
+                  {history7Days.optimalDaysCount}/{history7Days.daysLoggedCount || 7}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* 2.2 Control de Salud & Micronutrientes (Auditar con IA) */}
+          <TouchableOpacity
+            style={styles.healthMiniCard}
+            onPress={() => setHealthModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.healthMiniHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <HeartPulse size={15} color="#10B981" />
+                <Text style={styles.healthMiniTitle}>CONTROL DE SALUD</Text>
+              </View>
+              <View style={styles.healthAiBadge}>
+                <Sparkles size={11} color="#C4B5FD" />
+                <Text style={styles.healthAiBadgeText}>Auditoría IA</Text>
+                <ChevronRight size={12} color="#A78BFA" />
+              </View>
+            </View>
+
+            <View style={styles.healthPillsRow}>
+              {/* Sal */}
+              <View style={styles.healthMiniPill}>
+                <Text style={styles.healthMiniPillLabel}>Sal/Sodio</Text>
+                <Text
+                  style={[
+                    styles.healthMiniPillVal,
+                    dayStats.healthMetrics.saltG > 5 ? { color: '#EF4444' } : { color: '#FAFAFA' },
+                  ]}
+                >
+                  {dayStats.healthMetrics.saltG}g / 5g
+                </Text>
+              </View>
+
+              {/* Azúcar */}
+              <View style={styles.healthMiniPill}>
+                <Text style={styles.healthMiniPillLabel}>Azúcares</Text>
+                <Text
+                  style={[
+                    styles.healthMiniPillVal,
+                    dayStats.healthMetrics.sugarsG > 35 ? { color: '#EF4444' } : { color: '#FAFAFA' },
+                  ]}
+                >
+                  {dayStats.healthMetrics.sugarsG}g / 35g
+                </Text>
+              </View>
+
+              {/* Fibra */}
+              <View style={styles.healthMiniPill}>
+                <Text style={styles.healthMiniPillLabel}>Fibra</Text>
+                <Text style={[styles.healthMiniPillVal, { color: '#10B981' }]}>
+                  {dayStats.healthMetrics.fiberG}g / 30g
+                </Text>
+              </View>
+
+              {/* Ultraprocesados */}
+              <View style={styles.healthMiniPill}>
+                <Text style={styles.healthMiniPillLabel}>Procesados</Text>
+                <Text
+                  style={[
+                    styles.healthMiniPillVal,
+                    dayStats.healthMetrics.ultraProcessedRatio > 30
+                      ? { color: '#EF4444' }
+                      : { color: '#38BDF8' },
+                  ]}
+                >
+                  {dayStats.healthMetrics.ultraProcessedRatio}%
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 3. Sección AI (Imagen 2: "Ai" + Píldoras brillantes violeta) */}
+        <View style={styles.aiSectionCard}>
+          <Text style={styles.aiSectionTitle}>Ai</Text>
+          <View style={styles.aiPillsRow}>
+            <TouchableOpacity
+              style={styles.aiGlowingPill}
+              onPress={() => setSmartScannerVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Sparkles size={14} color="#C4B5FD" />
+              <Text style={styles.aiGlowingPillText}>Escáner Visión</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.aiGlowingPill}
+              onPress={handleOpenMacroCloser}
+              activeOpacity={0.85}
+            >
+              <Sparkles size={14} color="#C4B5FD" />
+              <Text style={styles.aiGlowingPillText}>Cierra tus Macros</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 4. Filtros de Tipo de Comida (Imagen 3) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -934,7 +822,7 @@ export default function NutritionScreen() {
                 style={[styles.filterPill, active && styles.filterPillActive]}
                 activeOpacity={0.8}
               >
-                {t !== 'all' && getMealIcon(t, 14, active ? '#FFFFFF' : 'rgba(255,255,255,0.4)')}
+                {t !== 'all' && getMealIcon(t, 14, active ? '#FAFAFA' : '#71717A')}
                 <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
                   {t === 'all' ? 'Todas' : mealLabel[t]}
                 </Text>
@@ -943,18 +831,18 @@ export default function NutritionScreen() {
           })}
         </ScrollView>
 
-        {/* Meals list */}
+        {/* 5. Comidas Registradas List (Imagen 2) */}
         <View style={styles.logsList}>
           {filteredLogs.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Utensils size={32} color="rgba(255,255,255,0.25)" />
+              <Utensils size={28} color="#71717A" />
               <Text style={styles.emptyText}>Sin comidas registradas en esta fecha</Text>
               <TouchableOpacity
                 style={styles.emptyAddBtn}
                 onPress={() => setModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Plus size={14} color="#38BDF8" />
+                <Plus size={14} color="#FAFAFA" />
                 <Text style={styles.emptyAddBtnText}>Añadir comida</Text>
               </TouchableOpacity>
             </View>
@@ -963,24 +851,42 @@ export default function NutritionScreen() {
               const type = log.meal_type || 'lunch'
               const foods = log.foods_parsed || []
               return (
-                <View key={log.id} style={styles.logCard}>
-                  <View style={styles.logHeader}>
-                    <View style={styles.logHeaderLeft}>
-                      <View style={styles.mealIconThumb}>
-                        {getMealIcon(type, 18, '#38BDF8')}
+                <View key={log.id} style={styles.mealCard}>
+                  {/* Meal Group Header */}
+                  <View style={styles.mealCardHeader}>
+                    <View style={styles.mealCardHeaderLeft}>
+                      <View style={styles.mealIconBox}>
+                        {getMealIcon(type, 16, '#FAFAFA')}
                       </View>
                       <View>
-                        <Text style={styles.logTitle}>{mealLabel[type] || 'Comida'}</Text>
-                        <Text style={styles.logTime}>{log.date || selectedDate}</Text>
+                        <Text style={styles.mealTypeName}>{mealLabel[type] || 'Comida'}</Text>
+                        <Text style={styles.mealMacrosSummary}>
+                          P: {Math.round(log.protein_g || 0)}g • C: {Math.round(log.carbs_g || 0)}g • G: {Math.round(log.fat_g || 0)}g
+                        </Text>
                       </View>
                     </View>
 
-                    <View style={styles.logHeaderRight}>
-                      <Text style={styles.logCalories}>{log.calories || 0}</Text>
-                      <Text style={styles.logCaloriesSub}>kcal</Text>
+                    {/* Actions: Edit, Repeat, Delete */}
+                    <View style={styles.mealCardHeaderRight}>
                       <TouchableOpacity
+                        style={styles.mealActionIconBtn}
+                        onPress={() => handleEditMeal(log)}
+                        activeOpacity={0.7}
+                      >
+                        <SlidersHorizontal size={14} color="#A1A1AA" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.mealActionIconBtn}
+                        onPress={() => handleRepeatMeal(log)}
+                        activeOpacity={0.7}
+                      >
+                        <Copy size={14} color="#A78BFA" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.mealActionIconBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
                         onPress={() => deleteFoodLog(log.id)}
-                        style={styles.deleteLogBtn}
                         activeOpacity={0.7}
                       >
                         <Trash2 size={14} color="#EF4444" />
@@ -988,63 +894,33 @@ export default function NutritionScreen() {
                     </View>
                   </View>
 
-                  {/* Foods Breakdown */}
-                  {foods.length > 0 && (
-                    <View style={styles.foodsList}>
-                      {foods.map((f, i) => (
-                        <View key={i} style={styles.foodRow}>
-                          <View style={{ flex: 1, marginRight: 8 }}>
-                            <Text style={styles.foodName}>{f.name}</Text>
-                            {/* Badges de salud si existen */}
-                            {(f.sugars_g || f.fiber_g || f.salt_g || (f.micronutrients && f.micronutrients.length > 0)) && (
-                              <View style={styles.foodSubNutrientRow}>
-                                {typeof f.fiber_g === 'number' && f.fiber_g > 0 && (
-                                  <Text style={styles.foodSubNutrientTag}>🌾 Fibra: {f.fiber_g}g</Text>
-                                )}
-                                {typeof f.sugars_g === 'number' && f.sugars_g > 0 && (
-                                  <Text style={styles.foodSubNutrientTag}>🍬 Azúcar: {f.sugars_g}g</Text>
-                                )}
-                                {typeof f.salt_g === 'number' && f.salt_g > 0 && (
-                                  <Text style={styles.foodSubNutrientTag}>🧂 Sal: {f.salt_g}g</Text>
-                                )}
-                              </View>
-                            )}
+                  {/* Food Items Rows (Imagen 2) */}
+                  <View style={styles.foodItemsContainer}>
+                    {foods.length > 0 ? (
+                      foods.map((f, i) => (
+                        <View key={i} style={[styles.foodItemRow, i > 0 && styles.foodItemRowBorder]}>
+                          <View style={styles.foodItemLeftCol}>
+                            <Text style={styles.foodItemTitle} numberOfLines={2}>
+                              {f.name}
+                            </Text>
+                            <Text style={styles.foodItemGramsSub}>
+                              {f.unit_or_portion ? `${f.unit_or_portion} (${f.quantity_g} g)` : `${f.quantity_g || 100} g`}
+                            </Text>
                           </View>
-                          <Text style={styles.foodGrams}>
-                            {f.unit_or_portion ? `${f.unit_or_portion} (${f.quantity_g}g)` : `${f.quantity_g}g`} · {f.calories}kcal
+                          <Text style={styles.foodItemCalories}>
+                            {f.calories || 0} kcal
                           </Text>
                         </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Footer Row: Macros + Edit / Repeat Actions */}
-                  <View style={styles.logFooterRow}>
-                    <View style={styles.logMacrosRow}>
-                      <Text style={styles.logMacroTag}>P: {Math.round(log.protein_g || 0)}g</Text>
-                      <Text style={styles.logMacroTag}>C: {Math.round(log.carbs_g || 0)}g</Text>
-                      <Text style={styles.logMacroTag}>G: {Math.round(log.fat_g || 0)}g</Text>
-                    </View>
-
-                    <View style={styles.logActionsBtnGroup}>
-                      <TouchableOpacity
-                        style={styles.editMealBtn}
-                        onPress={() => handleEditMeal(log)}
-                        activeOpacity={0.8}
-                      >
-                        <SlidersHorizontal size={12} color="#38BDF8" />
-                        <Text style={styles.editMealBtnText}>Editar</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.repeatMealBtn}
-                        onPress={() => handleRepeatMeal(log)}
-                        activeOpacity={0.8}
-                      >
-                        <Copy size={12} color="#A78BFA" />
-                        <Text style={[styles.repeatMealBtnText, { color: '#A78BFA' }]}>Repetir</Text>
-                      </TouchableOpacity>
-                    </View>
+                      ))
+                    ) : (
+                      <View style={styles.foodItemRow}>
+                        <View style={styles.foodItemLeftCol}>
+                          <Text style={styles.foodItemTitle}>{log.raw_input || 'Comida registrada'}</Text>
+                          <Text style={styles.foodItemGramsSub}>1 porción</Text>
+                        </View>
+                        <Text style={styles.foodItemCalories}>{log.calories || 0} kcal</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               )
@@ -1053,15 +929,22 @@ export default function NutritionScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Action Button "REGISTRAR" */}
+      {/* Floating Action Button (+) matching Image 2 */}
       <TouchableOpacity
-        style={styles.fabBtn}
+        style={styles.fabSquareBtn}
         onPress={() => setModalVisible(true)}
         activeOpacity={0.85}
       >
-        <Plus size={18} color="#FFFFFF" strokeWidth={2.5} />
-        <Text style={styles.fabBtnText}>REGISTRAR</Text>
+        <Plus size={24} color="#09090B" strokeWidth={2.5} />
       </TouchableOpacity>
+
+      {/* Modal Selector de Fecha (Días y Meses) */}
+      <NutritionDatePickerModal
+        visible={datePickerVisible}
+        selectedDate={selectedDate}
+        onClose={() => setDatePickerVisible(false)}
+        onSelectDate={(newDate) => setSelectedDate(newDate)}
+      />
 
       {/* Modal de Calendario & Evolución */}
       <NutritionEvolutionModal
@@ -1087,6 +970,7 @@ export default function NutritionScreen() {
         visible={smartScannerVisible}
         onClose={() => setSmartScannerVisible(false)}
         mealType={modalMealType}
+        initialMode={smartScannerInitialMode}
         onSaveToMeal={handleSaveFromSmartScanner}
       />
 
@@ -1107,28 +991,40 @@ export default function NutritionScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   {getMealIcon(modalMealType, 16, '#38BDF8')}
                   <Text style={styles.modalTitle}>
-                    {editingFoodLogId ? `Editar ${mealLabel[modalMealType]}` : mealLabel[modalMealType]}
-                    {results.length > 0 ? ` (${results.length})` : ''}
+                    {editingFoodLogId
+                      ? `Editar ${mealLabel[modalMealType]}`
+                      : modalTab === 'basic'
+                      ? 'Alimentos Básicos'
+                      : modalTab === 'frequent'
+                      ? 'Tupper & Frecuentes'
+                      : modalTab === 'plate'
+                      ? `Mi Plato (${results.length})`
+                      : mealLabel[modalMealType]}
                   </Text>
                 </View>
-                <Text style={styles.modalHeaderSubtitle}>
-                  {editingFoodLogId
-                    ? 'Modifica gramos, quita o añade ingredientes a esta comida'
-                    : results.length > 0
-                    ? `${results.reduce((s, r) => s + (r.calories || 0), 0)} kcal acumuladas en tu plato`
-                    : 'Añade alimentos a tu plato del día'}
-                </Text>
+                {modalTab !== 'ai' && (
+                  <TouchableOpacity
+                    onPress={() => setModalTab('ai')}
+                    style={styles.backToAiHeaderBtn}
+                    activeOpacity={0.7}
+                  >
+                    <ChevronLeft size={14} color="#A1A1AA" />
+                    <Text style={styles.backToAiHeaderText}>Volver a Entrada IA</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.modalHeaderActions}>
-                <TouchableOpacity
-                  onPress={handleMinimizeModal}
-                  style={styles.minimizeBtn}
-                  activeOpacity={0.7}
-                >
-                  <ChevronDown size={18} color="#38BDF8" />
-                  <Text style={styles.minimizeBtnText}>Minimizar</Text>
-                </TouchableOpacity>
+                {!editingFoodLogId && (
+                  <TouchableOpacity
+                    onPress={handleMinimizeModal}
+                    style={styles.minimizeBtn}
+                    activeOpacity={0.7}
+                  >
+                    <ChevronDown size={18} color="#38BDF8" />
+                    <Text style={styles.minimizeBtnText}>Minimizar</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   onPress={handleConfirmDiscardDraft}
@@ -1140,46 +1036,37 @@ export default function NutritionScreen() {
               </View>
             </View>
 
-            {/* Meal Type Quick Selector */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.modalMealTypeRow}
-            >
-              {(['breakfast', 'lunch', 'dinner', 'snack'] as MealType[]).map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  onPress={() => setModalMealType(t)}
-                  style={[styles.modalMealPill, modalMealType === t && styles.modalMealPillActive]}
-                  activeOpacity={0.8}
-                >
-                  {getMealIcon(t, 14, modalMealType === t ? '#FFFFFF' : 'rgba(255,255,255,0.4)')}
-                  <Text
-                    style={[
-                      styles.modalMealPillText,
-                      modalMealType === t && styles.modalMealPillTextActive,
-                    ]}
-                  >
-                    {mealLabel[t]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Sub Tabs: Básicos vs Frecuentes vs Escáner vs Mi Plato */}
+            {/* Sub Tabs: IA & Visión vs Básicos vs Tupper vs Mi Plato */}
             <View style={styles.modalSubTabRow}>
+              <TouchableOpacity
+                style={[styles.modalSubTab, modalTab === 'ai' && styles.modalSubTabActive]}
+                onPress={() => setModalTab('ai')}
+                activeOpacity={0.8}
+              >
+                <Sparkles size={12} color={modalTab === 'ai' ? '#FAFAFA' : '#71717A'} />
+                <Text
+                  style={[
+                    styles.modalSubTabTitle,
+                    modalTab === 'ai' && styles.modalSubTabTitleActive,
+                  ]}
+                >
+                  IA & Visión
+                </Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.modalSubTab, modalTab === 'basic' && styles.modalSubTabActive]}
                 onPress={() => setModalTab('basic')}
                 activeOpacity={0.8}
               >
+                <Apple size={12} color={modalTab === 'basic' ? '#FAFAFA' : '#71717A'} />
                 <Text
                   style={[
                     styles.modalSubTabTitle,
                     modalTab === 'basic' && styles.modalSubTabTitleActive,
                   ]}
                 >
-                  🍎 Básicos
+                  Básicos
                 </Text>
               </TouchableOpacity>
 
@@ -1188,28 +1075,14 @@ export default function NutritionScreen() {
                 onPress={() => setModalTab('frequent')}
                 activeOpacity={0.8}
               >
+                <Utensils size={12} color={modalTab === 'frequent' ? '#FAFAFA' : '#71717A'} />
                 <Text
                   style={[
                     styles.modalSubTabTitle,
                     modalTab === 'frequent' && styles.modalSubTabTitleActive,
                   ]}
                 >
-                  🍱 Tupper ({frequentMeals.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalSubTab, modalTab === 'scanner' && styles.modalSubTabActive]}
-                onPress={() => setModalTab('scanner')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.modalSubTabTitle,
-                    modalTab === 'scanner' && styles.modalSubTabTitleActive,
-                  ]}
-                >
-                  📸 Escáner & IA
+                  Tupper ({frequentMeals.length})
                 </Text>
               </TouchableOpacity>
 
@@ -1233,6 +1106,140 @@ export default function NutritionScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* ── TAB 0: Entrada Principal por IA & Visión (Diseño Exacto del Mockup) ── */}
+            {modalTab === 'ai' && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* 1. Selector de Tipo de Comida (Estilo Cápsula Dark del Mockup) */}
+                <View style={styles.mealCapsuleRow}>
+                  {(['breakfast', 'lunch', 'dinner', 'snack'] as MealType[]).map((t) => {
+                    const active = modalMealType === t
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        onPress={() => setModalMealType(t)}
+                        style={[styles.mealCapsulePill, active && styles.mealCapsulePillActive]}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.mealCapsuleText, active && styles.mealCapsuleTextActive]}>
+                          {mealLabel[t]}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+
+                {/* 2. Campo de Entrada de Texto con Micrófono */}
+                <View style={styles.aiInputBox}>
+                  <TextInput
+                    style={styles.aiInputField}
+                    placeholder="Describe tu comida o ingredientes..."
+                    placeholderTextColor="#71717A"
+                    value={foodText}
+                    onChangeText={setFoodText}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                  <TouchableOpacity
+                    style={styles.micIconBox}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (!foodText.trim()) {
+                        setFoodText('1 plato de arroz con pechuga de pollo y verduras')
+                      }
+                    }}
+                  >
+                    <Mic size={22} color="#FFFFFF" strokeWidth={1.8} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* 3. Tres Tarjetas de Captura con IA y Borde Violeta Neón */}
+                <View style={styles.visionCardsRow}>
+                  {/* Card 1: Escanear Plato */}
+                  <TouchableOpacity
+                    style={styles.visionCard}
+                    onPress={() => handleOpenSmartScannerMode('plate')}
+                    activeOpacity={0.85}
+                  >
+                    <Camera size={22} color="#FFFFFF" strokeWidth={1.8} />
+                    <Text style={styles.visionCardTitle}>Escanear{'\n'}Plato</Text>
+                  </TouchableOpacity>
+
+                  {/* Card 2: Tabla Nutricional */}
+                  <TouchableOpacity
+                    style={styles.visionCard}
+                    onPress={() => handleOpenSmartScannerMode('label')}
+                    activeOpacity={0.85}
+                  >
+                    <FileText size={22} color="#FFFFFF" strokeWidth={1.8} />
+                    <Text style={styles.visionCardTitle}>Tabla{'\n'}Nutricional</Text>
+                  </TouchableOpacity>
+
+                  {/* Card 3: Código de Barras */}
+                  <TouchableOpacity
+                    style={styles.visionCard}
+                    onPress={() => handleOpenSmartScannerMode('barcode')}
+                    activeOpacity={0.85}
+                  >
+                    <Barcode size={22} color="#FFFFFF" strokeWidth={1.8} />
+                    <Text style={styles.visionCardTitle}>Código{'\n'}de Barras</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 4. Acceso Rápido a Básicos y Tupper */}
+                <View style={styles.modalExtraNavRow}>
+                  <TouchableOpacity
+                    style={styles.modalExtraNavBtn}
+                    onPress={() => setModalTab('basic')}
+                    activeOpacity={0.8}
+                  >
+                    <Apple size={14} color="#A1A1AA" />
+                    <Text style={styles.modalExtraNavText}>🍎 Alimentos Básicos</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.modalExtraNavBtn}
+                    onPress={() => setModalTab('frequent')}
+                    activeOpacity={0.8}
+                  >
+                    <Utensils size={14} color="#A1A1AA" />
+                    <Text style={styles.modalExtraNavText}>🍱 Tupper ({frequentMeals.length})</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 5. Botón de Acción Principal (Blanco según el mockup) */}
+                {analysisState === 'loading' ? (
+                  <View style={styles.whiteCtaBtn}>
+                    <ActivityIndicator size="small" color="#09090B" />
+                    <Text style={styles.whiteCtaBtnText}>ANALIZANDO CON IA...</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.whiteCtaBtn,
+                      !foodText.trim() && results.length === 0 && styles.whiteCtaBtnDisabled,
+                    ]}
+                    onPress={() => {
+                      if (foodText.trim()) {
+                        handleAnalyzeText()
+                      } else if (results.length > 0) {
+                        setModalTab('plate')
+                      }
+                    }}
+                    disabled={!foodText.trim() && results.length === 0}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.whiteCtaBtnText}>
+                      {foodText.trim()
+                        ? 'ANALIZAR CON IA'
+                        : results.length > 0
+                        ? `VER PLATO (${results.length} ALIMENTOS)`
+                        : 'ANALIZAR CON IA'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            )}
 
             {/* ── TAB 1: Alimentos Básicos / Frutas / Proteínas / Carbos ── */}
             {modalTab === 'basic' && (
@@ -1405,80 +1412,7 @@ export default function NutritionScreen() {
               </ScrollView>
             )}
 
-            {/* ── TAB 3: Escáner y Descripción Libre con IA ── */}
-            {modalTab === 'scanner' && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                {/* Primary: Camera Button */}
-                <TouchableOpacity
-                  style={styles.cameraBtn}
-                  onPress={handleLaunchCamera}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.cameraIconBox}>
-                    <Camera size={22} color="#38BDF8" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cameraBtnTitle}>Fotografiar alimento o tabla</Text>
-                    <Text style={styles.cameraBtnSub}>Abre la cámara del escáner inteligente</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Gallery Option */}
-                <TouchableOpacity
-                  style={styles.galleryBtn}
-                  onPress={handleLaunchGallery}
-                  activeOpacity={0.85}
-                >
-                  <GalleryIcon size={18} color="rgba(255,255,255,0.5)" />
-                  <Text style={styles.galleryBtnText}>Seleccionar de galería</Text>
-                </TouchableOpacity>
-
-                {/* Amber Warning Box */}
-                <View style={styles.amberWarning}>
-                  <AlertTriangle size={16} color="#F59E0B" />
-                  <Text style={styles.amberWarningText}>
-                    Para mayor precisión en micronutrientes,{' '}
-                    <Text style={{ fontWeight: 'bold' }}>fotografía la tabla nutricional</Text> del producto.
-                  </Text>
-                </View>
-
-                {/* Divider */}
-                <View style={styles.modalDivider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>o describe con texto libre</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {/* Textarea Input */}
-                <TextInput
-                  style={styles.foodTextInput}
-                  placeholder="Describe lo que comiste... ej: 200g de pechuga de pollo con 150g arroz y ensalada"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  value={foodText}
-                  onChangeText={setFoodText}
-                  multiline
-                  numberOfLines={3}
-                />
-
-                {analysisState === 'loading' ? (
-                  <View style={styles.loadingStateBox}>
-                    <ActivityIndicator size="large" color="#38BDF8" />
-                    <Text style={styles.loadingText}>Analizando alimentos con IA...</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.analyzeBtn, !foodText.trim() && styles.analyzeBtnDisabled]}
-                    onPress={handleAnalyzeText}
-                    disabled={!foodText.trim()}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.analyzeBtnText}>ANALIZAR Y SUMAR AL PLATO</Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-            )}
-
-            {/* ── TAB 4: Revisión del Plato Actual (Mi Plato con Edición Libre de Gramos) ── */}
+            {/* ── TAB 3: Revisión del Plato Actual (Mi Plato con Edición Libre de Gramos) ── */}
             {modalTab === 'plate' && (
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 {results.length === 0 ? (
@@ -1670,7 +1604,7 @@ export default function NutritionScreen() {
       </Modal>
 
       {/* ── Persistent Floating Draft Dock (Minimizable Meal Bar) ── */}
-      {results.length > 0 && !modalVisible && (
+      {results.length > 0 && !modalVisible && !editingFoodLogId && (
         <View style={styles.floatingDraftDock}>
           <TouchableOpacity
             style={styles.floatingDraftTouch}
@@ -1868,7 +1802,7 @@ export default function NutritionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#09090B',
   },
   content: {
     padding: 16,
@@ -1877,206 +1811,100 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 8 : 4,
-    gap: 12,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerSub: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    gap: 4,
+    paddingBottom: 2,
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 30,
+    color: '#FAFAFA',
+    fontSize: 28,
     fontWeight: '900',
-    marginTop: 1,
+    letterSpacing: -0.5,
   },
-  headerIconsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  headerIconBtn: {
+  dateSelectorBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#111827',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.25)',
-  },
-  headerIconBtnHealth: {
-    borderColor: 'rgba(16,185,129,0.25)',
-  },
-  headerIconBtnText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  dateNavigatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#121212',
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  dateNavArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateDisplayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dateDisplayText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-    textTransform: 'capitalize',
-  },
-  returnTodayPill: {
-    backgroundColor: 'rgba(56,189,248,0.15)',
-    paddingHorizontal: 8,
+    gap: 6,
+    alignSelf: 'flex-start',
     paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 4,
   },
-  returnTodayText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '800',
+  dateSubtitle: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  summaryCard: {
-    backgroundColor: '#121212',
-    borderRadius: 22,
-    padding: 18,
+  analysisCardsContainer: {
+    gap: 12,
+  },
+  evolutionMiniCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 10,
   },
-  summaryHeaderRow: {
+  evolutionMiniHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  evolutionMiniTitle: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  evolutionStatsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  summaryCardSub: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  statusBadge: {
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  statusBadgeOptimal: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-  },
-  statusBadgeSurplus: {
-    backgroundColor: 'rgba(239,68,68,0.12)',
-  },
-  statusBadgeDeficit: {
-    backgroundColor: 'rgba(56,189,248,0.12)',
-  },
-  statusBadgeText: {
+  evolutionStatsBadgeText: {
+    color: '#38BDF8',
     fontSize: 10.5,
-    fontWeight: '800',
-  },
-  calorieRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  caloriesMain: {
-    color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '900',
-    lineHeight: 44,
-  },
-  caloriesTarget: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 16,
     fontWeight: '700',
   },
-  caloriesSubNotice: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: -4,
-  },
-  calProgressBarBg: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginVertical: 2,
-  },
-  calProgressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  macroGrid: {
-    gap: 8,
-    marginTop: 4,
-  },
-  macroBox: {
-    backgroundColor: '#181818',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  macroTopRow: {
+  evolutionPillsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
+  },
+  evolutionMiniPill: {
+    flex: 1,
+    backgroundColor: '#27272A',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     alignItems: 'center',
   },
-  macroLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  macroVal: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  macroBarBg: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginVertical: 2,
-  },
-  macroBarFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  macroDifferenceText: {
-    fontSize: 10.5,
+  evolutionMiniPillLabel: {
+    color: '#A1A1AA',
+    fontSize: 9.5,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  evolutionMiniPillVal: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FAFAFA',
+    fontVariant: ['tabular-nums'],
+  },
+  evolutionMiniPillUnit: {
+    fontSize: 9,
+    fontWeight: '500',
+    color: '#71717A',
   },
   healthMiniCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#18181B',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.25)',
+    borderColor: '#27272A',
     gap: 10,
   },
   healthMiniHeader: {
@@ -2086,13 +1914,24 @@ const styles = StyleSheet.create({
   },
   healthMiniTitle: {
     color: '#10B981',
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
   },
-  healthMiniActionText: {
-    color: '#38BDF8',
-    fontSize: 11,
+  healthAiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  healthAiBadgeText: {
+    color: '#C4B5FD',
+    fontSize: 10.5,
     fontWeight: '700',
   },
   healthPillsRow: {
@@ -2101,14 +1940,14 @@ const styles = StyleSheet.create({
   },
   healthMiniPill: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#27272A',
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 6,
     alignItems: 'center',
   },
   healthMiniPillLabel: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 9.5,
     fontWeight: '600',
     marginBottom: 2,
@@ -2116,227 +1955,208 @@ const styles = StyleSheet.create({
   healthMiniPillVal: {
     fontSize: 11,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
-  aiActionRow: {
+  aiSectionCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    gap: 12,
+  },
+  aiSectionTitle: {
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  aiPillsRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  aiActionBtnPrimary: {
-    flex: 1.2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#38BDF8',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-  },
-  aiActionBtnPrimaryText: {
-    color: '#0F172A',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  aiActionBtnSecondary: {
+  aiGlowingPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0F172A',
+    gap: 8,
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#0284C7',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: '#8B5CF6',
   },
-  aiActionBtnSecondaryText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
+  aiGlowingPillText: {
+    color: '#FAFAFA',
+    fontSize: 13,
+    fontWeight: '600',
   },
   filterScroll: {
     gap: 8,
+    paddingVertical: 2,
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
+    borderColor: '#27272A',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 20,
   },
   filterPillActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#27272A',
+    borderColor: '#3F3F46',
   },
   filterPillText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#A1A1AA',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
+    fontWeight: '800',
   },
   logsList: {
-    gap: 12,
+    gap: 14,
   },
   emptyBox: {
-    backgroundColor: '#111111',
+    backgroundColor: '#18181B',
     borderRadius: 20,
     padding: 30,
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#27272A',
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 13,
   },
   emptyAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(56,189,248,0.1)',
+    backgroundColor: '#27272A',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.3)',
+    borderColor: '#3F3F46',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
   },
   emptyAddBtnText: {
-    color: '#38BDF8',
+    color: '#FAFAFA',
     fontSize: 12,
     fontWeight: '700',
   },
-  logCard: {
-    backgroundColor: '#121212',
-    borderRadius: 18,
+  mealCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: '#27272A',
     gap: 12,
   },
-  logHeader: {
+  mealCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  logHeaderLeft: {
+  mealCardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  mealIconThumb: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(56,189,248,0.1)',
+  mealIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
+  mealTypeName: {
+    color: '#FAFAFA',
+    fontSize: 16,
     fontWeight: '700',
   },
-  logTime: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 11,
+  mealMacrosSummary: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
   },
-  logHeaderRight: {
+  mealCardHeaderRight: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  logCalories: {
-    color: '#38BDF8',
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  logCaloriesSub: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 11,
-    marginRight: 6,
-  },
-  deleteLogBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239,68,68,0.1)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  foodsList: {
     gap: 6,
   },
-  foodRow: {
+  mealActionIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foodItemsContainer: {
+    backgroundColor: '#141417',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  foodItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  foodName: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  foodSubNutrientRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 2,
-  },
-  foodSubNutrientTag: {
-    color: '#94A3B8',
-    fontSize: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  foodGrams: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  logMacrosRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 8,
+  foodItemRowBorder: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.04)',
+    borderTopColor: '#27272A',
   },
-  logMacroTag: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
+  foodItemLeftCol: {
+    flex: 1,
+    marginRight: 12,
+    gap: 3,
+  },
+  foodItemTitle: {
+    color: '#FAFAFA',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  foodItemGramsSub: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  foodItemCalories: {
+    color: '#FAFAFA',
+    fontSize: 15,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  fabBtn: {
+  fabSquareBtn: {
     position: 'absolute',
     bottom: 24,
     right: 20,
-    flexDirection: 'row',
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 18,
-    gap: 6,
-    shadowColor: '#0284C7',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 6,
-  },
-  fabBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 1.5,
   },
   modalOverlay: {
     flex: 1,
@@ -2405,6 +2225,150 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C1C1C',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backToAiHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  backToAiHeaderText: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  mealCapsuleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 30,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    marginBottom: 14,
+  },
+  mealCapsulePill: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  mealCapsulePillActive: {
+    borderWidth: 1.5,
+    borderColor: '#FAFAFA',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  mealCapsuleText: {
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  mealCapsuleTextActive: {
+    color: '#FAFAFA',
+    fontWeight: '800',
+  },
+  aiInputBox: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    padding: 16,
+    minHeight: 140,
+    position: 'relative',
+    marginBottom: 14,
+  },
+  aiInputField: {
+    color: '#FAFAFA',
+    fontSize: 15,
+    lineHeight: 22,
+    minHeight: 75,
+    paddingBottom: 28,
+  },
+  micIconBox: {
+    position: 'absolute',
+    bottom: 12,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visionCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  visionCard: {
+    flex: 1,
+    backgroundColor: '#13111C',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.45)',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    minHeight: 96,
+    justifyContent: 'space-between',
+  },
+  visionCardTitle: {
+    color: '#FAFAFA',
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 16,
+    marginTop: 8,
+  },
+  modalExtraNavRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  modalExtraNavBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#18181B',
+    borderRadius: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  modalExtraNavText: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  whiteCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 22,
+    paddingVertical: 16,
+    marginTop: 2,
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  whiteCtaBtnDisabled: {
+    opacity: 0.35,
+  },
+  whiteCtaBtnText: {
+    color: '#09090B',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 1.2,
   },
   modalMealTypeRow: {
     gap: 8,
