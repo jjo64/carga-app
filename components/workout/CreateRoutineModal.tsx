@@ -13,7 +13,20 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { Plus, Trash2, Dumbbell, Clock, Layers, Flame, Calendar, Sparkles, ChevronRight } from 'lucide-react-native'
+import {
+  Plus,
+  Trash2,
+  Dumbbell,
+  Clock,
+  Layers,
+  Sparkles,
+  ChevronUp,
+  ChevronDown,
+  Info,
+  Check,
+  X,
+  Zap,
+} from 'lucide-react-native'
 import { ExerciseDefinition, getExerciseById } from '@/constants/exerciseDatabase'
 import ExerciseIllustration from '@/components/visuals/ExerciseIllustration'
 import AddExerciseModal from '@/components/workout/AddExerciseModal'
@@ -44,13 +57,29 @@ interface SelectedRoutineExercise {
 }
 
 const DAYS_OF_WEEK = [
-  'Lunes',
-  'Martes',
-  'Miércoles',
-  'Jueves',
-  'Viernes',
-  'Sábado',
-  'Domingo',
+  { key: 'Lunes', label: 'L' },
+  { key: 'Martes', label: 'M' },
+  { key: 'Miércoles', label: 'X' },
+  { key: 'Jueves', label: 'J' },
+  { key: 'Viernes', label: 'V' },
+  { key: 'Sábado', label: 'S' },
+  { key: 'Domingo', label: 'D' },
+]
+
+const REST_PRESETS = [
+  { label: 'Sin descanso (0s)', value: 0 },
+  { label: '15 segundos', value: 15 },
+  { label: '30 segundos', value: 30 },
+  { label: '45 segundos', value: 45 },
+  { label: '60 segundos (1 min)', value: 60 },
+  { label: '75 segundos', value: 75 },
+  { label: '90 segundos (1.5 min)', value: 90 },
+  { label: '105 segundos', value: 105 },
+  { label: '120 segundos (2 min)', value: 120 },
+  { label: '150 segundos (2.5 min)', value: 150 },
+  { label: '180 segundos (3 min)', value: 180 },
+  { label: '240 segundos (4 min)', value: 240 },
+  { label: '300 segundos (5 min)', value: 300 },
 ]
 
 export default function CreateRoutineModal({
@@ -73,6 +102,10 @@ export default function CreateRoutineModal({
   const [showAiGenerator, setShowAiGenerator] = useState(false)
   const [infoModalExercise, setInfoModalExercise] = useState<ExerciseDefinition | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Rest Picker State
+  const [restPickerExerciseId, setRestPickerExerciseId] = useState<string | null>(null)
+  const [selectedRestSecs, setSelectedRestSecs] = useState<number>(90)
 
   // Populate data when entering edit mode or reset when creating
   useEffect(() => {
@@ -100,9 +133,9 @@ export default function CreateRoutineModal({
               tips: '',
               allSteps: [],
             },
-            defaultSets: e.target_sets || 3,
-            defaultReps: e.target_reps || '8-10',
-            defaultRestSec: e.rest_seconds || 90,
+            defaultSets: e.target_sets || 4,
+            defaultReps: e.target_reps || '8',
+            defaultRestSec: e.rest_seconds !== undefined ? e.rest_seconds : 90,
             records: {
               maxWeight: 0,
               maxWeightPrev: 0,
@@ -117,9 +150,9 @@ export default function CreateRoutineModal({
           return {
             id: e.id || `ex-${Date.now()}-${idx}`,
             exercise: dbEx || fallbackEx,
-            targetSets: e.target_sets || 3,
-            targetReps: e.target_reps || '8-10',
-            restSeconds: e.rest_seconds || 90,
+            targetSets: e.target_sets || 4,
+            targetReps: e.target_reps || '8',
+            restSeconds: e.rest_seconds !== undefined ? e.rest_seconds : 90,
           }
         })
         setRoutineExercises(mapped)
@@ -134,19 +167,18 @@ export default function CreateRoutineModal({
     }
   }, [routineToEdit, visible])
 
-  const toggleDay = (day: string) => {
-    setAssignedDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    )
+  // Single-day selection logic: toggle on or off (max 1 day)
+  const handleSelectDay = (dayKey: string) => {
+    setAssignedDays((prev) => (prev.includes(dayKey) ? [] : [dayKey]))
   }
 
   const handleAddExercise = (ex: ExerciseDefinition) => {
     const newEntry: SelectedRoutineExercise = {
       id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       exercise: ex,
-      targetSets: ex.defaultSets || 3,
-      targetReps: ex.defaultReps || '8-10',
-      restSeconds: ex.defaultRestSec || 90,
+      targetSets: ex.defaultSets || 4,
+      targetReps: ex.defaultReps ? String(ex.defaultReps) : '8',
+      restSeconds: ex.defaultRestSec !== undefined ? ex.defaultRestSec : 90,
     }
     setRoutineExercises((prev) => [...prev, newEntry])
     setShowAddExerciseSearch(false)
@@ -156,9 +188,9 @@ export default function CreateRoutineModal({
     const newEntries: SelectedRoutineExercise[] = exercisesList.map((ex, i) => ({
       id: `ex-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
       exercise: ex,
-      targetSets: ex.defaultSets || 3,
-      targetReps: ex.defaultReps || '8-10',
-      restSeconds: ex.defaultRestSec || 90,
+      targetSets: ex.defaultSets || 4,
+      targetReps: ex.defaultReps ? String(ex.defaultReps) : '8',
+      restSeconds: ex.defaultRestSec !== undefined ? ex.defaultRestSec : 90,
     }))
     setRoutineExercises((prev) => [...prev, ...newEntries])
     setShowAddExerciseSearch(false)
@@ -182,7 +214,7 @@ export default function CreateRoutineModal({
     setRoutineExercises((prev) =>
       prev.map((item) => {
         if (item.id === id) {
-          const newSets = Math.max(1, Math.min(10, item.targetSets + delta))
+          const newSets = Math.max(1, Math.min(12, item.targetSets + delta))
           return { ...item, targetSets: newSets }
         }
         return item
@@ -196,10 +228,20 @@ export default function CreateRoutineModal({
     )
   }
 
-  const updateExerciseRest = (id: string, restSecs: number) => {
-    setRoutineExercises((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, restSeconds: Math.max(0, restSecs) } : item))
-    )
+  const openRestPicker = (id: string, currentSecs: number) => {
+    setRestPickerExerciseId(id)
+    setSelectedRestSecs(currentSecs)
+  }
+
+  const applyRestPicker = () => {
+    if (restPickerExerciseId) {
+      setRoutineExercises((prev) =>
+        prev.map((item) =>
+          item.id === restPickerExerciseId ? { ...item, restSeconds: selectedRestSecs } : item
+        )
+      )
+    }
+    setRestPickerExerciseId(null)
   }
 
   const handleSaveRoutine = async () => {
@@ -217,10 +259,10 @@ export default function CreateRoutineModal({
 
     try {
       const exercisePayload = routineExercises.map((item) => ({
-        id: (item.id.startsWith('ex-') || item.id.startsWith('starter-')) ? undefined : item.id,
+        id: item.id.startsWith('ex-') || item.id.startsWith('starter-') ? undefined : item.id,
         name: item.exercise.name,
         target_sets: item.targetSets,
-        target_reps: item.targetReps,
+        target_reps: item.targetReps || '8',
         rest_seconds: item.restSeconds,
       }))
 
@@ -252,10 +294,6 @@ export default function CreateRoutineModal({
     }
   }
 
-  const handleClose = () => {
-    onClose()
-  }
-
   const totalEstimatedSets = routineExercises.reduce((sum, e) => sum + e.targetSets, 0)
   const totalEstimatedMins = Math.max(
     15,
@@ -263,114 +301,76 @@ export default function CreateRoutineModal({
   )
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.container}>
-        {/* ── Top Bar Header ── */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={handleClose} activeOpacity={0.7} style={styles.topBarBtn}>
-            <Text style={styles.topBarCancelText}>{t('cancel')}</Text>
-          </TouchableOpacity>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* ── Top Header ── */}
+        <View style={styles.header}>
+          <View style={styles.headerTitleCol}>
+            <View style={styles.headerBadge}>
+              <Zap size={11} color="#A1A1AA" />
+              <Text style={styles.headerBadgeText}>RUTINAS & ENTRENAMIENTO</Text>
+            </View>
+            <Text style={styles.headerTitle}>
+              {isEditMode ? 'Editar Rutina' : 'Crear Rutina'}
+            </Text>
+          </View>
 
-          <Text style={styles.topBarTitle}>
-            {isEditMode ? 'Editar Rutina' : 'Nueva Rutina'}
-          </Text>
-
-          <TouchableOpacity
-            onPress={handleSaveRoutine}
-            activeOpacity={0.8}
-            style={styles.topBarSaveBtn}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#38BDF8" size="small" />
-            ) : (
-              <Text style={styles.topBarSaveText}>Guardar</Text>
+          <View style={styles.headerActions}>
+            {!isEditMode && (
+              <TouchableOpacity
+                style={styles.aiHeaderBtn}
+                onPress={() => setShowAiGenerator(true)}
+                activeOpacity={0.8}
+              >
+                <Sparkles size={14} color="#FAFAFA" />
+                <Text style={styles.aiHeaderBtnText}>Generar con IA</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <X size={18} color="#A1A1AA" />
+            </TouchableOpacity>
+          </View>
         </View>
 
+        {/* ── Scrollable Body ── */}
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 48 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* AI Routine Generator Banner */}
-          {!isEditMode && (
-            <TouchableOpacity
-              style={styles.aiBannerBtn}
-              onPress={() => setShowAiGenerator(true)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.aiBannerIconBox}>
-                <Sparkles size={18} color="#0F172A" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.aiBannerTitle}>Generar Rutina con IA</Text>
-                <Text style={styles.aiBannerSub}>
-                  Crea una rutina personalizada por objetivo, días y equipamiento.
-                </Text>
-              </View>
-              <ChevronRight size={18} color="#38BDF8" />
-            </TouchableOpacity>
-          )}
-
-          {/* ── Routine Details Card ── */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>DETALLES DE LA RUTINA</Text>
-
-            {/* Name Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Nombre de la rutina *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Ej. Pecho & Tríceps Hipertrofia"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={name}
-                onChangeText={setName}
-                autoFocus={!isEditMode}
-              />
-            </View>
-
-            {/* Description Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Descripción / Enfoque (opcional)</Text>
-              <TextInput
-                style={[styles.textInput, { height: 44 }]}
-                placeholder="Ej. Énfasis en empuje, fuerza y congestión muscular"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                value={description}
-                onChangeText={setDescription}
-              />
-            </View>
+          {/* Routine Name Input Card */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>NOMBRE DE LA RUTINA</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ej. Torso - Hipertrofia & Fuerza"
+              placeholderTextColor="#52525B"
+              value={name}
+              onChangeText={setName}
+              autoFocus={!isEditMode && name.length === 0}
+            />
           </View>
 
-          {/* ── Days of the Week Assignment ── */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Calendar color="#38BDF8" size={16} strokeWidth={2} />
-              <Text style={styles.cardLabel}>DÍAS DE ENTRENAMIENTO PROGRAMADOS</Text>
+          {/* Single Day Selection Card */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionLabel}>DÍA ASIGNADO</Text>
+              <Text style={styles.sectionOptionalText}>1 día por rutina</Text>
             </View>
-            <Text style={styles.daysSubtitle}>
-              Selecciona qué días de la semana realizarás esta rutina para que aparezca en tu Inicio:
-            </Text>
 
-            <View style={styles.daysPillGrid}>
-              {DAYS_OF_WEEK.map((day) => {
-                const isSelected = assignedDays.includes(day)
+            <View style={styles.daysRow}>
+              {DAYS_OF_WEEK.map((item) => {
+                const isSelected = assignedDays.includes(item.key)
                 return (
                   <TouchableOpacity
-                    key={day}
-                    style={[styles.dayPill, isSelected && styles.dayPillActive]}
-                    onPress={() => toggleDay(day)}
+                    key={item.key}
+                    style={[styles.dayCircle, isSelected && styles.dayCircleActive]}
+                    onPress={() => handleSelectDay(item.key)}
                     activeOpacity={0.75}
                   >
-                    <Text
-                      style={[
-                        styles.dayPillText,
-                        isSelected && styles.dayPillTextActive,
-                      ]}
-                    >
-                      {day}
+                    <Text style={[styles.dayCircleText, isSelected && styles.dayCircleTextActive]}>
+                      {item.label}
                     </Text>
                   </TouchableOpacity>
                 )
@@ -378,214 +378,317 @@ export default function CreateRoutineModal({
             </View>
           </View>
 
-          {/* ── Summary Stats Pill ── */}
+          {/* Stats Bar if Exercises exist */}
           {routineExercises.length > 0 && (
             <View style={styles.summaryBar}>
               <View style={styles.summaryItem}>
-                <Dumbbell color="#38BDF8" size={16} strokeWidth={2} />
+                <Dumbbell color="#FAFAFA" size={14} />
                 <Text style={styles.summaryText}>
                   {routineExercises.length} {routineExercises.length === 1 ? 'ejercicio' : 'ejercicios'}
                 </Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Layers color="#38BDF8" size={16} strokeWidth={2} />
+                <Layers color="#FAFAFA" size={14} />
                 <Text style={styles.summaryText}>{totalEstimatedSets} series</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Clock color="#38BDF8" size={16} strokeWidth={2} />
+                <Clock color="#FAFAFA" size={14} />
                 <Text style={styles.summaryText}>~{totalEstimatedMins} min</Text>
               </View>
             </View>
           )}
 
-          {/* ── Exercises Section Header & Add Button ── */}
-          <View style={styles.exercisesSectionHeader}>
-            <Text style={styles.sectionTitle}>EJERCICIOS DE LA RUTINA</Text>
-            <TouchableOpacity
-              style={styles.addExerciseHeaderBtn}
-              onPress={() => setShowAddExerciseSearch(true)}
-              activeOpacity={0.8}
-            >
-              <Plus color="#38BDF8" size={16} strokeWidth={2.5} />
-              <Text style={styles.addExerciseHeaderText}>Añadir</Text>
-            </TouchableOpacity>
+          {/* ── Exercises Section ── */}
+          <View style={styles.exercisesHeaderRow}>
+            <Text style={styles.sectionLabel}>EJERCICIOS ({routineExercises.length})</Text>
+            {routineExercises.length > 0 && (
+              <TouchableOpacity
+                style={styles.addMiniBtn}
+                onPress={() => setShowAddExerciseSearch(true)}
+                activeOpacity={0.8}
+              >
+                <Plus size={14} color="#FAFAFA" />
+                <Text style={styles.addMiniBtnText}>Añadir</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* ── Empty State ── */}
+          {/* ── Empty State if no exercises ── */}
           {routineExercises.length === 0 && (
-            <View style={styles.emptyStateBox}>
-              <View style={styles.emptyIconCircle}>
-                <Dumbbell color="rgba(255,255,255,0.4)" size={32} strokeWidth={1.5} />
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconBox}>
+                <Dumbbell size={30} color="#71717A" strokeWidth={1.5} />
               </View>
-              <Text style={styles.emptyTitle}>Todavía no hay ejercicios agregados</Text>
-              <Text style={styles.emptySubtitle}>
-                Añade los ejercicios que formarán parte de esta rutina para poder registrar tus series y progresos.
+              <Text style={styles.emptyTitle}>Rutina sin ejercicios aún</Text>
+              <Text style={styles.emptySub}>
+                Añade los ejercicios que formarán parte de este entrenamiento o genera una estructura completa con IA.
               </Text>
+
               <TouchableOpacity
-                style={styles.emptyAddBtn}
+                style={styles.emptyActionBtn}
                 onPress={() => setShowAddExerciseSearch(true)}
                 activeOpacity={0.85}
               >
-                <Plus color="#FFFFFF" size={18} strokeWidth={2.5} />
-                <Text style={styles.emptyAddBtnText}>AÑADIR EJERCICIOS</Text>
+                <Plus size={18} color="#09090B" strokeWidth={2.5} />
+                <Text style={styles.emptyActionBtnText}>Añadir Primer Ejercicio</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* ── List of Exercises in Routine ── */}
-          {routineExercises.map((item, index) => (
-            <View key={item.id} style={styles.exerciseCard}>
-              <View style={styles.exerciseCardTop}>
-                {/* Reorder Arrows & Index */}
-                <View style={styles.exerciseReorderCol}>
-                  <TouchableOpacity
-                    onPress={() => handleMoveExercise(index, 'up')}
-                    disabled={index === 0}
-                    style={[styles.miniReorderBtn, index === 0 && { opacity: 0.2 }]}
-                  >
-                    <Ionicons name="chevron-up" size={14} color="#38BDF8" />
-                  </TouchableOpacity>
-                  <View style={styles.exerciseIndexBadge}>
-                    <Text style={styles.exerciseIndexText}>{index + 1}</Text>
+          {/* ── Exercises List ── */}
+          {routineExercises.map((item, index) => {
+            const record = getExerciseRecordData(item.exercise.name)
+            return (
+              <View key={item.id} style={styles.exerciseCard}>
+                {/* Exercise Header Row */}
+                <View style={styles.exerciseCardTop}>
+                  {/* Left Thumbnail Illustration */}
+                  <View style={styles.exerciseThumbContainer}>
+                    <ExerciseIllustration
+                      exerciseId={item.exercise.id}
+                      exerciseName={item.exercise.name}
+                      imageUrl={item.exercise.imageUrl}
+                      gifUrl={item.exercise.gifUrl}
+                      size={46}
+                      variant="circle-thumb"
+                    />
                   </View>
-                  <TouchableOpacity
-                    onPress={() => handleMoveExercise(index, 'down')}
-                    disabled={index === routineExercises.length - 1}
-                    style={[styles.miniReorderBtn, index === routineExercises.length - 1 && { opacity: 0.2 }]}
-                  >
-                    <Ionicons name="chevron-down" size={14} color="#38BDF8" />
-                  </TouchableOpacity>
-                </View>
 
-                <ExerciseIllustration
-                  exerciseId={item.exercise.id}
-                  exerciseName={item.exercise.name}
-                  imageUrl={item.exercise.imageUrl}
-                  gifUrl={item.exercise.gifUrl}
-                  size={42}
-                  variant="circle-thumb"
-                />
-
-                {/* Title and Category */}
-                <View style={styles.exerciseCardInfo}>
-                  <Text style={styles.exerciseCardName} numberOfLines={1}>
-                    {item.exercise.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Text style={styles.exerciseCardMeta} numberOfLines={1}>
-                      {item.exercise.category || item.exercise.muscleGroup} · {item.exercise.equipment}
+                  {/* Title & Muscle Tag */}
+                  <View style={styles.exerciseMetaCol}>
+                    <Text style={styles.exerciseName} numberOfLines={1}>
+                      {item.exercise.name}
                     </Text>
-                    {(() => {
-                      const record = getExerciseRecordData(item.exercise.name)
-                      if (record.maxWeightOverall > 0) {
-                        return (
-                          <View style={styles.prMiniBadge}>
-                            <Text style={styles.prMiniBadgeText}>PR: {record.maxWeightOverall}kg</Text>
-                          </View>
-                        )
-                      }
-                      return null
-                    })()}
-                  </View>
-                </View>
-
-                {/* Info & Delete Buttons */}
-                <View style={styles.exerciseActionBtns}>
-                  <TouchableOpacity
-                    onPress={() => setInfoModalExercise(item.exercise)}
-                    style={styles.exerciseIconBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="information-circle-outline" size={20} color="rgba(255,255,255,0.5)" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveExercise(item.id)}
-                    style={styles.exerciseIconBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Trash2 color="#EF4444" size={18} strokeWidth={2} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Controls Row: Sets, Reps, Rest */}
-              <View style={styles.controlsRow}>
-                {/* Sets Stepper */}
-                <View style={styles.controlBox}>
-                  <Text style={styles.controlLabel}>Series</Text>
-                  <View style={styles.stepper}>
-                    <TouchableOpacity
-                      onPress={() => updateExerciseSets(item.id, -1)}
-                      style={styles.stepperBtn}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.stepperBtnText}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.stepperVal}>{item.targetSets}</Text>
-                    <TouchableOpacity
-                      onPress={() => updateExerciseSets(item.id, 1)}
-                      style={styles.stepperBtn}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.stepperBtnText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Target Reps */}
-                <View style={styles.controlBox}>
-                  <Text style={styles.controlLabel}>Reps Objetivo</Text>
-                  <TextInput
-                    style={styles.repsInput}
-                    value={item.targetReps}
-                    onChangeText={(val) => updateExerciseReps(item.id, val)}
-                    placeholder="8-10"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                  />
-                </View>
-
-                {/* Rest Seconds (Optional & Custom in seconds) */}
-                <View style={styles.controlBox}>
-                  <Text style={styles.controlLabel}>Descanso</Text>
-                  <View style={styles.restStepper}>
-                    <TouchableOpacity
-                      onPress={() => updateExerciseRest(item.id, Math.max(0, item.restSeconds - 15))}
-                      style={styles.restAdjustSmallBtn}
-                    >
-                      <Text style={styles.restAdjustText}>-15</Text>
-                    </TouchableOpacity>
-                    <View style={styles.restBadge}>
-                      <Clock color="rgba(255,255,255,0.4)" size={11} strokeWidth={2} />
-                      <Text style={styles.restBadgeText}>
-                        {item.restSeconds > 0 ? `${item.restSeconds}s` : 'Sin desc.'}
+                    <View style={styles.exerciseSubRow}>
+                      <Text style={styles.exerciseCategory} numberOfLines={1}>
+                        {item.exercise.muscleGroup || item.exercise.category || 'General'}
+                        {item.exercise.equipment ? ` · ${item.exercise.equipment}` : ''}
                       </Text>
+                      {record.maxWeightOverall > 0 && (
+                        <View style={styles.prBadge}>
+                          <Text style={styles.prBadgeText}>PR: {record.maxWeightOverall}kg</Text>
+                        </View>
+                      )}
                     </View>
+                  </View>
+
+                  {/* Actions: Info, Up/Down, Delete */}
+                  <View style={styles.exerciseActionsRow}>
                     <TouchableOpacity
-                      onPress={() => updateExerciseRest(item.id, item.restSeconds + 15)}
-                      style={styles.restAdjustSmallBtn}
+                      onPress={() => setInfoModalExercise(item.exercise)}
+                      style={styles.iconBtn}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.restAdjustText}>+15</Text>
+                      <Info size={16} color="#71717A" />
+                    </TouchableOpacity>
+
+                    <View style={styles.reorderCol}>
+                      <TouchableOpacity
+                        onPress={() => handleMoveExercise(index, 'up')}
+                        disabled={index === 0}
+                        style={[styles.microReorderBtn, index === 0 && { opacity: 0.2 }]}
+                      >
+                        <ChevronUp size={14} color="#A1A1AA" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleMoveExercise(index, 'down')}
+                        disabled={index === routineExercises.length - 1}
+                        style={[
+                          styles.microReorderBtn,
+                          index === routineExercises.length - 1 && { opacity: 0.2 },
+                        ]}
+                      >
+                        <ChevronDown size={14} color="#A1A1AA" />
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleRemoveExercise(item.id)}
+                      style={styles.deleteBtn}
+                      activeOpacity={0.7}
+                    >
+                      <Trash2 size={16} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Controls Bar: SERIES | REPS OBJETIVO | DESCANSO */}
+                <View style={styles.controlsBar}>
+                  {/* SERIES */}
+                  <View style={styles.controlBlock}>
+                    <Text style={styles.controlHeader}>SERIES</Text>
+                    <View style={styles.stepperContainer}>
+                      <TouchableOpacity
+                        onPress={() => updateExerciseSets(item.id, -1)}
+                        style={styles.stepperBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.stepperBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.stepperValue}>{item.targetSets}</Text>
+                      <TouchableOpacity
+                        onPress={() => updateExerciseSets(item.id, 1)}
+                        style={styles.stepperBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.stepperBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* REPS OBJETIVO (Default 8, fully editable) */}
+                  <View style={styles.controlBlock}>
+                    <Text style={styles.controlHeader}>REPS OBJETIVO</Text>
+                    <TextInput
+                      style={styles.repsPillInput}
+                      value={item.targetReps}
+                      onChangeText={(val) => updateExerciseReps(item.id, val)}
+                      placeholder="8"
+                      placeholderTextColor="#71717A"
+                      keyboardType="default"
+                    />
+                  </View>
+
+                  {/* DESCANSO (Selector modal) */}
+                  <View style={styles.controlBlock}>
+                    <Text style={styles.controlHeader}>DESCANSO</Text>
+                    <TouchableOpacity
+                      style={styles.restPickerBtn}
+                      onPress={() => openRestPicker(item.id, item.restSeconds)}
+                      activeOpacity={0.75}
+                    >
+                      <Clock size={12} color="#A1A1AA" />
+                      <Text style={styles.restPickerBtnText}>
+                        {item.restSeconds > 0 ? `${item.restSeconds}s` : '0s'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </View>
-            </View>
-          ))}
+            )
+          })}
 
-          {/* Bottom Button if Exercises exist */}
+          {/* Add Another Exercise Button */}
           {routineExercises.length > 0 && (
             <TouchableOpacity
-              style={styles.bottomAddExerciseBtn}
+              style={styles.bottomAddBtn}
               onPress={() => setShowAddExerciseSearch(true)}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
             >
-              <Plus color="#38BDF8" size={18} strokeWidth={2.5} />
-              <Text style={styles.bottomAddExerciseBtnText}>AÑADIR OTRO EJERCICIO</Text>
+              <Plus size={16} color="#FAFAFA" />
+              <Text style={styles.bottomAddBtnText}>Añadir Ejercicio</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {/* ── Sticky Bottom CTA Button ── */}
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <TouchableOpacity
+            style={styles.primarySaveBtn}
+            onPress={handleSaveRoutine}
+            activeOpacity={0.85}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#09090B" size="small" />
+            ) : (
+              <>
+                <Check size={18} color="#09090B" strokeWidth={2.5} />
+                <Text style={styles.primarySaveBtnText}>
+                  {isEditMode ? 'GUARDAR CAMBIOS' : 'GUARDAR RUTINA'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Rest Time Selector Modal ── */}
+        <Modal
+          visible={restPickerExerciseId !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setRestPickerExerciseId(null)}
+        >
+          <View style={styles.pickerOverlay}>
+            <View style={[styles.pickerSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+              {/* Header */}
+              <View style={styles.pickerHeader}>
+                <View>
+                  <Text style={styles.pickerTitle}>Tiempo de Descanso</Text>
+                  <Text style={styles.pickerSub}>
+                    Selecciona el intervalo entre cada serie de este ejercicio
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setRestPickerExerciseId(null)}
+                  style={styles.pickerCloseBtn}
+                >
+                  <X size={18} color="#A1A1AA" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Current Rest Display & Quick Steppers */}
+              <View style={styles.pickerCurrentRow}>
+                <TouchableOpacity
+                  onPress={() => setSelectedRestSecs((prev) => Math.max(0, prev - 15))}
+                  style={styles.pickerQuickBtn}
+                >
+                  <Text style={styles.pickerQuickBtnText}>-15s</Text>
+                </TouchableOpacity>
+
+                <View style={styles.pickerDisplayBadge}>
+                  <Clock size={20} color="#FAFAFA" />
+                  <Text style={styles.pickerDisplayText}>
+                    {selectedRestSecs > 0 ? `${selectedRestSecs} seg` : 'Sin Descanso (0s)'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setSelectedRestSecs((prev) => Math.min(360, prev + 15))}
+                  style={styles.pickerQuickBtn}
+                >
+                  <Text style={styles.pickerQuickBtnText}>+15s</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Presets List */}
+              <ScrollView
+                style={styles.presetsList}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingVertical: 8 }}
+              >
+                {REST_PRESETS.map((p) => {
+                  const isCur = selectedRestSecs === p.value
+                  return (
+                    <TouchableOpacity
+                      key={p.value}
+                      style={[styles.presetRow, isCur && styles.presetRowActive]}
+                      onPress={() => setSelectedRestSecs(p.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.presetRowText, isCur && styles.presetRowTextActive]}>
+                        {p.label}
+                      </Text>
+                      {isCur && <Check size={16} color="#FAFAFA" strokeWidth={2.5} />}
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+
+              {/* Confirm Selection */}
+              <TouchableOpacity
+                style={styles.pickerConfirmBtn}
+                onPress={applyRestPicker}
+                activeOpacity={0.85}
+              >
+                <Check size={18} color="#09090B" strokeWidth={2.5} />
+                <Text style={styles.pickerConfirmBtnText}>APLICAR DESCANSO</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* ── Search Modal to Add Exercises to this Routine ── */}
         <AddExerciseModal
@@ -605,7 +708,7 @@ export default function CreateRoutineModal({
           />
         )}
 
-        {/* ── AI Routine Generator Modal (Modulo 3) ── */}
+        {/* ── AI Routine Generator Modal ── */}
         <AiRoutineGeneratorModal
           visible={showAiGenerator}
           onClose={() => setShowAiGenerator(false)}
@@ -622,131 +725,148 @@ export default function CreateRoutineModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#09090B',
   },
-  topBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 52 : 36,
-    paddingBottom: 14,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0E1017',
+    borderBottomColor: '#18181B',
   },
-  topBarBtn: {
-    padding: 6,
+  headerTitleCol: {
+    gap: 4,
   },
-  topBarCancelText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-    fontWeight: '600',
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  topBarTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  headerBadgeText: {
+    color: '#71717A',
+    fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 1.2,
   },
-  topBarSaveBtn: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
+  headerTitle: {
+    color: '#FAFAFA',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  aiHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderColor: '#27272A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
-  topBarSaveText: {
-    color: '#38BDF8',
-    fontSize: 14,
-    fontWeight: '800',
+  aiHeaderBtnText: {
+    color: '#FAFAFA',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: 16,
     gap: 16,
-    paddingBottom: 60,
   },
-  card: {
-    backgroundColor: '#12141C',
+  sectionCard: {
+    backgroundColor: '#121214',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    gap: 12,
+    borderColor: '#27272A',
+    gap: 10,
   },
-  cardHeaderRow: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
   },
-  cardLabel: {
-    color: 'rgba(255,255,255,0.4)',
+  sectionLabel: {
+    color: '#71717A',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  daysSubtitle: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  daysPillGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  dayPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#181C26',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  dayPillActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    borderColor: '#38BDF8',
-  },
-  dayPillText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  dayPillTextActive: {
-    color: '#38BDF8',
-    fontWeight: '800',
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  inputLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+  sectionOptionalText: {
+    color: '#52525B',
+    fontSize: 11,
     fontWeight: '600',
   },
   textInput: {
-    backgroundColor: '#181C26',
+    backgroundColor: '#18181B',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#FAFAFA',
+    fontSize: 15,
+    fontWeight: '600',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 4,
+  },
+  dayCircle: {
+    flex: 1,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircleActive: {
+    backgroundColor: '#FAFAFA',
+    borderColor: '#FAFAFA',
+  },
+  dayCircleText: {
+    color: '#71717A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dayCircleTextActive: {
+    color: '#09090B',
+    fontWeight: '900',
   },
   summaryBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#12141C',
-    borderRadius: 14,
+    backgroundColor: '#121214',
+    borderRadius: 12,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: '#27272A',
   },
   summaryItem: {
     flexDirection: 'row',
@@ -755,286 +875,393 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     width: 1,
-    height: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    height: 14,
+    backgroundColor: '#27272A',
   },
   summaryText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: '#D4D4D8',
+    fontSize: 12,
     fontWeight: '700',
   },
-  exercisesSectionHeader: {
+  exercisesHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    paddingHorizontal: 4,
   },
-  sectionTitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  addExerciseHeaderBtn: {
+  addMiniBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
-  addExerciseHeaderText: {
-    color: '#38BDF8',
-    fontSize: 13,
+  addMiniBtnText: {
+    color: '#FAFAFA',
+    fontSize: 12,
     fontWeight: '700',
   },
-  emptyStateBox: {
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#12141C',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#121214',
+    borderRadius: 18,
+    padding: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
+    borderStyle: 'dashed',
     gap: 12,
-    marginVertical: 8,
+    marginVertical: 4,
   },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+  emptyIconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'center',
   },
-  emptySubtitle: {
-    color: 'rgba(255,255,255,0.4)',
+  emptySub: {
+    color: '#71717A',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
-    paddingHorizontal: 12,
+    maxWidth: 280,
   },
-  emptyAddBtn: {
+  emptyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#FAFAFA',
     borderRadius: 14,
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
     marginTop: 6,
   },
-  emptyAddBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  emptyActionBtnText: {
+    color: '#09090B',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   exerciseCard: {
-    backgroundColor: '#12141C',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#121214',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 12,
   },
   exerciseCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  exerciseIndexBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  exerciseThumbContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  exerciseIndexText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  exerciseCardInfo: {
+  exerciseMetaCol: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
-  exerciseCardName: {
-    color: '#FFFFFF',
+  exerciseName: {
+    color: '#FAFAFA',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  exerciseCardMeta: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
+  exerciseSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  prMiniBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    borderRadius: 6,
+  exerciseCategory: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  prBadge: {
+    backgroundColor: '#27272A',
+    borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  prMiniBadgeText: {
-    color: '#38BDF8',
+  prBadgeText: {
+    color: '#A1A1AA',
     fontSize: 9,
     fontWeight: '800',
   },
-  exerciseActionBtns: {
+  exerciseActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
-  exerciseIconBtn: {
+  iconBtn: {
     padding: 6,
   },
-  controlsRow: {
+  reorderCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  microReorderBtn: {
+    padding: 1,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  controlsBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#181C26',
+    backgroundColor: '#18181B',
     borderRadius: 12,
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
-  controlBox: {
+  controlBlock: {
     flex: 1,
     alignItems: 'center',
     gap: 4,
   },
-  controlLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
-    fontWeight: '700',
+  controlHeader: {
+    color: '#71717A',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  stepper: {
+  stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   stepperBtn: {
     width: 26,
     height: 26,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 7,
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#FAFAFA',
+    fontSize: 15,
     fontWeight: '700',
   },
-  stepperVal: {
-    color: '#38BDF8',
-    fontSize: 15,
-    fontWeight: '800',
+  stepperValue: {
+    color: '#FAFAFA',
+    fontSize: 14,
+    fontWeight: '900',
     minWidth: 16,
     textAlign: 'center',
   },
-  repsInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    color: '#FFFFFF',
+  repsPillInput: {
+    backgroundColor: '#27272A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    color: '#FAFAFA',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     textAlign: 'center',
-    minWidth: 55,
+    minWidth: 52,
   },
-  exerciseReorderCol: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 2,
-    gap: 1,
-  },
-  miniReorderBtn: {
-    padding: 1,
-  },
-  restStepper: {
+  restPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
+    backgroundColor: '#27272A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  restAdjustSmallBtn: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 5,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  restAdjustText: {
-    color: '#38BDF8',
-    fontSize: 10,
+  restPickerBtnText: {
+    color: '#FAFAFA',
+    fontSize: 12,
     fontWeight: '800',
   },
-  restBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  restBadgeText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bottomAddExerciseBtn: {
+  bottomAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
-    borderRadius: 14,
-    paddingVertical: 12,
     gap: 8,
+    backgroundColor: '#121214',
+    borderWidth: 1,
+    borderColor: '#27272A',
     borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 4,
   },
-  bottomAddExerciseBtnText: {
-    color: '#38BDF8',
+  bottomAddBtnText: {
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '800',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#09090B',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#18181B',
+  },
+  primarySaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 16,
+    paddingVertical: 16,
+    width: '100%',
+  },
+  primarySaveBtnText: {
+    color: '#09090B',
+    fontSize: 14,
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
-  aiBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#0284C7',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
   },
-  aiBannerIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#38BDF8',
+  pickerSheet: {
+    backgroundColor: '#121214',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    gap: 16,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  pickerTitle: {
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  pickerSub: {
+    color: '#71717A',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  pickerCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  aiBannerTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
+  pickerCurrentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: '#18181B',
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  pickerQuickBtn: {
+    backgroundColor: '#27272A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  pickerQuickBtnText: {
+    color: '#FAFAFA',
+    fontSize: 12,
     fontWeight: '800',
   },
-  aiBannerSub: {
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 2,
+  pickerDisplayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pickerDisplayText: {
+    color: '#FAFAFA',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  presetsList: {
+    maxHeight: 220,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#18181B',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  presetRowActive: {
+    backgroundColor: '#27272A',
+    borderColor: '#FAFAFA',
+  },
+  presetRowText: {
+    color: '#A1A1AA',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  presetRowTextActive: {
+    color: '#FAFAFA',
+    fontWeight: '800',
+  },
+  pickerConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  pickerConfirmBtnText: {
+    color: '#09090B',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 })
