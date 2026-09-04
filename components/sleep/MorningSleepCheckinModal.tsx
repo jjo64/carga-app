@@ -255,8 +255,6 @@ export default function MorningSleepCheckinModal({
 
             {/* Save Confirmation Button */}
             <TouchableOpacity style={styles.saveBtn} onPress={handleConfirm} activeOpacity={0.88}>
-              <Text style={styles.saveBtnPoints}>15/15</Text>
-              <View style={styles.saveBtnDivider} />
               <Check size={17} color="#09090B" strokeWidth={2.5} />
               <Text style={styles.saveBtnText}>CONFIRMAR CHECK-IN DE SUEÑO</Text>
             </TouchableOpacity>
@@ -514,21 +512,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 12,
   },
-  saveBtnPoints: {
-    color: '#09090B',
-    fontSize: 13.5,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  saveBtnDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    marginHorizontal: 2,
-  },
   saveBtnText: {
     color: '#09090B',
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
