@@ -892,9 +892,10 @@ const styles = StyleSheet.create({
   },
   volumeLegendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    alignItems: 'flex-start',
+    gap: 18,
+    marginTop: 2,
+    marginBottom: 4,
   },
   legendColumn: {
     alignItems: 'flex-start',
@@ -911,14 +912,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendTitle: {
-    color: '#E4E4E7',
-    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 12.5,
     fontWeight: '600',
   },
   legendSub: {
-    color: '#71717A',
-    fontSize: 11,
-    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 11.5,
+    fontWeight: '400',
     paddingLeft: 13,
   },
   bodyMapCenter: {
