@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native'
+import { Image } from 'expo-image'
 import {
   TrendingUp,
   BarChart3,
@@ -18,7 +19,9 @@ import {
   Activity,
   Award,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
+  ArrowLeft,
   Sparkles,
   Dumbbell,
   Plus,
@@ -129,6 +132,8 @@ export default function ProgressScreen() {
   const { measurements, addMeasurement } = useBodyMeasurements()
   const { history } = useWorkoutHistory()
 
+  // Navigation mode between Overview (Image 1) and Muscle Detail (Image 2)
+  const [viewMode, setViewMode] = useState<'overview' | 'muscleDetail'>('overview')
   const [selectedMuscle, setSelectedMuscle] = useState<string>('Pecho')
   const [exerciseTab, setExerciseTab] = useState<'completed' | 'all'>('completed')
   const [activeExerciseForPR, setActiveExerciseForPR] = useState<ExerciseDefinition | null>(null)
@@ -255,6 +260,11 @@ export default function ProgressScreen() {
 
   const currentMuscleStats = userMuscleVolumeSets[selectedMuscle] || { sets: 0, status: 'none' }
 
+  const handleSelectMuscle = (muscle: string) => {
+    setSelectedMuscle(muscle)
+    setViewMode('muscleDetail')
+  }
+
   const handleSaveWeight = async () => {
     const wVal = parseFloat(weightInput.replace(',', '.'))
     if (isNaN(wVal) || wVal <= 20 || wVal >= 350) {
@@ -284,363 +294,426 @@ export default function ProgressScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerSub}>ANALÍTICA DE RENDIMIENTO</Text>
-          <Text style={styles.headerTitle}>Progreso</Text>
-        </View>
-
-        {/* ── Anatomical Body Map Card (Frente / Espalda) ── */}
-        <View style={styles.bodyMapCard}>
-          <View style={styles.bodyMapCardHeader}>
-            <Text style={styles.bodyMapTitle}>VOLUMEN MUSCULAR SEMANAL</Text>
-            <Text style={styles.bodyMapSub}>
-              Toca un músculo en el mapa o en las etiquetas para analizar su rendimiento
-            </Text>
+      {viewMode === 'overview' ? (
+        /* ══════════════════════════════════════════════════════════
+           VIEW 1: OVERVIEW & ANATOMICAL BODY MAP (IMAGE 1)
+        ══════════════════════════════════════════════════════════ */
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerSub}>ANALÍTICA DE RENDIMIENTO</Text>
+            <Text style={styles.headerTitle}>Progreso</Text>
           </View>
 
-          {/* Interactive Muscle Pills Selector Row */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.musclePillsScroll}
-          >
-            {MUSCLE_LIST.map((m) => {
-              const isSelected = selectedMuscle === m
-              const setsCount = userMuscleVolumeSets[m]?.sets || 0
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.musclePill, isSelected && styles.musclePillActive]}
-                  onPress={() => setSelectedMuscle(m)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.musclePillText, isSelected && styles.musclePillTextActive]}>
-                    {m}
-                  </Text>
-                  {setsCount > 0 && (
-                    <View
-                      style={[
-                        styles.musclePillBadge,
-                        isSelected && { backgroundColor: '#38BDF8' },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.musclePillBadgeText,
-                          isSelected && { color: '#0F172A' },
-                        ]}
-                      >
-                        {setsCount}s
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )
-            })}
-          </ScrollView>
-
-          {/* Volume Status Legend */}
-          <View style={styles.volumeLegendRow}>
-            {[
-              { label: 'Óptimo (≥12 series)', color: '#EF4444' },
-              { label: 'Moderado (6-11)', color: '#F59E0B' },
-              { label: 'Bajo (1-5)', color: '#6B7280' },
-            ].map(({ label, color }) => (
-              <View key={label} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: color }]} />
-                <Text style={styles.legendLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Body Map SVG Dual: Frente y Espalda Side-by-Side */}
-          <View style={styles.bodyMapCenter}>
-            <AnatomicalBodyMap
-              selectedMuscle={selectedMuscle}
-              onMuscleSelect={(m) => setSelectedMuscle(m)}
-              userVolumeSets={userMuscleVolumeSets}
-            />
-          </View>
-
-          {/* Selected Muscle Header & Sets info */}
-          <View style={styles.selectedMuscleBanner}>
-            <View>
-              <Text style={styles.selectedMuscleTitle}>{selectedMuscle}</Text>
-              <Text style={styles.selectedMuscleSub}>
-                {currentMuscleStats.sets} series efectivas esta semana
+          {/* ── Anatomical Body Map Card (Frente / Espalda) ── */}
+          <View style={styles.bodyMapCard}>
+            <View style={styles.bodyMapCardHeader}>
+              <Text style={styles.bodyMapTitle}>VOLUMEN MUSCULAR SEMANAL</Text>
+              <Text style={styles.bodyMapSub}>
+                Toca un músculo en el mapa o en las etiquetas para analizar su rendimiento
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.optimalPill,
-                currentMuscleStats.status === 'optimal'
-                  ? { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.3)' }
-                  : currentMuscleStats.status === 'moderate'
-                  ? { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)' }
-                  : currentMuscleStats.status === 'low'
-                  ? { backgroundColor: 'rgba(107,114,128,0.12)', borderColor: 'rgba(107,114,128,0.3)' }
-                  : { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
-              ]}
+            {/* Interactive Muscle Pills Selector Row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.musclePillsScroll}
             >
-              <Text
-                style={[
-                  styles.optimalPillText,
-                  currentMuscleStats.status === 'optimal'
-                    ? { color: '#EF4444' }
-                    : currentMuscleStats.status === 'moderate'
-                    ? { color: '#F59E0B' }
-                    : currentMuscleStats.status === 'low'
-                    ? { color: '#9CA3AF' }
-                    : { color: 'rgba(255,255,255,0.4)' },
-                ]}
-              >
-                {currentMuscleStats.status === 'optimal'
-                  ? 'Óptimo'
-                  : currentMuscleStats.status === 'moderate'
-                  ? 'Moderado'
-                  : currentMuscleStats.status === 'low'
-                  ? 'Bajo'
-                  : '0 series'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Tab Selector: Realizados vs Catálogo Completo */}
-          <View style={styles.exSubTabRow}>
-            <TouchableOpacity
-              style={[styles.exSubTab, exerciseTab === 'completed' && styles.exSubTabActive]}
-              onPress={() => setExerciseTab('completed')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.exSubTabText, exerciseTab === 'completed' && styles.exSubTabTextActive]}>
-                Mis Ejercicios ({userCompletedExercisesForMuscle.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.exSubTab, exerciseTab === 'all' && styles.exSubTabActive]}
-              onPress={() => setExerciseTab('all')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.exSubTabText, exerciseTab === 'all' && styles.exSubTabTextActive]}>
-                Todos ({allExercisesForMuscle.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Exercises for the selected muscle */}
-          <View style={styles.muscleExercisesList}>
-            {exerciseTab === 'completed' ? (
-              userCompletedExercisesForMuscle.length === 0 ? (
-                <View style={styles.emptyMuscleBox}>
-                  <View style={styles.emptyMuscleIconBox}>
-                    <Dumbbell size={22} color="#38BDF8" />
-                  </View>
-                  <Text style={styles.emptyMuscleTitle}>Sin ejercicios registrados</Text>
-                  <Text style={styles.emptyMuscleSub}>
-                    Los récords de {selectedMuscle.toLowerCase()} aparecerán aquí una vez que completes un entrenamiento. Puedes ver las variantes en la pestaña "Todos".
-                  </Text>
-                </View>
-              ) : (
-                userCompletedExercisesForMuscle.map((ex) => (
+              {MUSCLE_LIST.map((m) => {
+                const isSelected = selectedMuscle === m
+                const setsCount = userMuscleVolumeSets[m]?.sets || 0
+                return (
                   <TouchableOpacity
-                    key={ex.id}
-                    style={styles.muscleExCard}
-                    onPress={() => setActiveExerciseForPR(ex)}
+                    key={m}
+                    style={[styles.musclePill, isSelected && styles.musclePillActive]}
+                    onPress={() => handleSelectMuscle(m)}
                     activeOpacity={0.8}
                   >
-                    <ExerciseIllustration
-                      exerciseId={ex.id}
-                      exerciseName={ex.name}
-                      imageUrl={ex.imageUrl}
-                      size={42}
-                      variant="circle-thumb"
-                    />
-
-                    <View style={styles.muscleExLeft}>
-                      <Text style={styles.muscleExName}>{ex.name}</Text>
-                      <Text style={styles.muscleExMeta}>
-                        {ex.equipment} · Toca para ver marcas reales
-                      </Text>
-                    </View>
-
-                    <View style={styles.muscleExRight}>
-                      <View style={styles.viewPRBadge}>
-                        <Text style={styles.viewPRBadgeText}>Ver Progreso</Text>
-                        <ArrowRight size={13} color="#38BDF8" />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )
-            ) : (
-              allExercisesForMuscle.map((ex) => (
-                <TouchableOpacity
-                  key={ex.id}
-                  style={styles.muscleExCard}
-                  onPress={() => setActiveExerciseForPR(ex)}
-                  activeOpacity={0.8}
-                >
-                  <ExerciseIllustration
-                    exerciseId={ex.id}
-                    exerciseName={ex.name}
-                    imageUrl={ex.imageUrl}
-                    size={42}
-                    variant="circle-thumb"
-                  />
-
-                  <View style={styles.muscleExLeft}>
-                    <Text style={styles.muscleExName}>{ex.name}</Text>
-                    <Text style={styles.muscleExMeta}>
-                      {ex.category} · {ex.equipment}
+                    <Text style={[styles.musclePillText, isSelected && styles.musclePillTextActive]}>
+                      {m}
                     </Text>
-                  </View>
-
-                  <View style={styles.muscleExRight}>
-                    <View style={styles.viewPRBadge}>
-                      <Text style={styles.viewPRBadgeText}>Detalles</Text>
-                      <ArrowRight size={13} color="#38BDF8" />
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* ── Weight Progression Card ── */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartCardHeader}>
-            <View>
-              <Text style={styles.chartTitle}>PESO CORPORAL & COMPOSICIÓN</Text>
-              <Text
-                style={[
-                  styles.chartBadge,
-                  { color: weeklyChange >= 0 ? '#38BDF8' : '#10B981' },
-                ]}
-              >
-                {weeklyChange >= 0 ? '+' : ''}
-                {weeklyChange.toFixed(1)} kg evolución
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.logWeightBtn}
-              onPress={() => {
-                setWeightInput(latestWeight > 0 ? latestWeight.toString() : '')
-                setFatInput(latestMeasurement?.bodyFatPct ? latestMeasurement.bodyFatPct.toString() : '')
-                setMuscleInput(latestMeasurement?.muscleMassPct ? latestMeasurement.muscleMassPct.toString() : '')
-                setShowLogWeightModal(true)
-              }}
-              activeOpacity={0.8}
-            >
-              <Plus size={14} color="#0F172A" strokeWidth={2.5} />
-              <Text style={styles.logWeightBtnText}>Registrar Peso</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Metric Stats Highlights */}
-          <View style={styles.weightHighlightsRow}>
-            <View style={styles.weightHighlightBox}>
-              <Text style={styles.weightNumber}>
-                {latestWeight > 0 ? latestWeight : '—'}
-                {latestWeight > 0 && <Text style={styles.weightUnit}> kg</Text>}
-              </Text>
-              <Text style={styles.weightHighlightLabel}>Peso Actual</Text>
-            </View>
-
-            {latestMeasurement?.bodyFatPct ? (
-              <View style={styles.weightHighlightBox}>
-                <Text style={[styles.weightNumber, { color: '#F59E0B' }]}>
-                  {latestMeasurement.bodyFatPct}%
-                </Text>
-                <Text style={styles.weightHighlightLabel}>Grasa Corporal</Text>
-              </View>
-            ) : null}
-
-            {latestMeasurement?.muscleMassPct ? (
-              <View style={styles.weightHighlightBox}>
-                <Text style={[styles.weightNumber, { color: '#10B981' }]}>
-                  {latestMeasurement.muscleMassPct}%
-                </Text>
-                <Text style={styles.weightHighlightLabel}>Masa Muscular</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {weightList.length >= 2 ? (
-            <>
-              <WeightLineChart data={weightList} height={85} />
-              <View style={styles.chartFooter}>
-                <Text style={styles.chartFooterText}>Primer registro ({weightList[0]} kg)</Text>
-                <Text style={styles.chartFooterText}>Actual ({latestWeight} kg)</Text>
-              </View>
-            </>
-          ) : (
-            <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>
-                {latestWeight > 0
-                  ? 'Registra un 2º peso para visualizar tu gráfica de evolución temporal'
-                  : 'Sin registros de peso corporal aún. Toca "+ Registrar Peso"'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── Weekly Volume Bars ── */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartCardHeader}>
-            <Text style={styles.chartTitle}>VOLUMEN SEMANAL</Text>
-            <Text style={styles.volumeBadge}>
-              {(weeklyVolume[3].value / 1000).toFixed(1)}t
-            </Text>
-          </View>
-
-          <View style={styles.volumeBarContainer}>
-            <Svg width="100%" height="80" viewBox="0 0 280 80">
-              {weeklyVolume.map((d, i) => {
-                const max = Math.max(...weeklyVolume.map((v) => v.value)) * 1.15 || 1
-                const bh = (d.value / max) * 70
-                const bw = 46
-                const gap = (280 - bw * weeklyVolume.length) / (weeklyVolume.length + 1)
-                const x = gap + i * (bw + gap)
-                const isLast = i === weeklyVolume.length - 1
-
-                return (
-                  <Rect
-                    key={i}
-                    x={x}
-                    y={80 - bh}
-                    width={bw}
-                    height={bh}
-                    rx="8"
-                    fill={isLast ? '#2563EB' : 'rgba(37,99,235,0.25)'}
-                  />
+                    {setsCount > 0 && (
+                      <View
+                        style={[
+                          styles.musclePillBadge,
+                          isSelected && styles.musclePillBadgeActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.musclePillBadgeText,
+                            isSelected && styles.musclePillBadgeTextActive,
+                          ]}
+                        >
+                          {setsCount}s
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 )
               })}
-            </Svg>
+            </ScrollView>
 
-            <View style={styles.volumeLabelsRow}>
-              {weeklyVolume.map((d, i) => (
-                <View key={i} style={{ alignItems: 'center' }}>
-                  <Text style={styles.volumeLabelText}>{d.label}</Text>
-                  <Text
-                    style={[
-                      styles.volumeValText,
-                      i === weeklyVolume.length - 1 && { color: '#38BDF8' },
-                    ]}
-                  >
-                    {(d.value / 1000).toFixed(1)}t
-                  </Text>
+            {/* Volume Status Legend */}
+            <View style={styles.volumeLegendRow}>
+              {[
+                { label: 'Óptimo (≥12 series)', color: '#38BDF8' },
+                { label: 'Moderado (6-11)', color: '#F59E0B' },
+                { label: 'Bajo (1-5)', color: '#71717A' },
+              ].map(({ label, color }) => (
+                <View key={label} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: color }]} />
+                  <Text style={styles.legendLabel}>{label}</Text>
                 </View>
               ))}
             </View>
+
+            {/* Body Map SVG Dual: Frente y Espalda Side-by-Side */}
+            <View style={styles.bodyMapCenter}>
+              <AnatomicalBodyMap
+                selectedMuscle={selectedMuscle}
+                onMuscleSelect={handleSelectMuscle}
+                userVolumeSets={userMuscleVolumeSets}
+              />
+            </View>
           </View>
+
+          {/* ── Weight Progression Card ── */}
+          <View style={styles.chartCard}>
+            <View style={styles.chartCardHeader}>
+              <View>
+                <Text style={styles.chartTitle}>PESO CORPORAL & COMPOSICIÓN</Text>
+                <Text
+                  style={[
+                    styles.chartBadge,
+                    { color: weeklyChange >= 0 ? '#38BDF8' : '#10B981' },
+                  ]}
+                >
+                  {weeklyChange >= 0 ? '+' : ''}
+                  {weeklyChange.toFixed(1)} kg evolución
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.logWeightBtn}
+                onPress={() => {
+                  setWeightInput(latestWeight > 0 ? latestWeight.toString() : '')
+                  setFatInput(latestMeasurement?.bodyFatPct ? latestMeasurement.bodyFatPct.toString() : '')
+                  setMuscleInput(latestMeasurement?.muscleMassPct ? latestMeasurement.muscleMassPct.toString() : '')
+                  setShowLogWeightModal(true)
+                }}
+                activeOpacity={0.8}
+              >
+                <Plus size={14} color="#000000" strokeWidth={2.5} />
+                <Text style={styles.logWeightBtnText}>Registrar Peso</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Metric Stats Highlights */}
+            <View style={styles.weightHighlightsRow}>
+              <View style={styles.weightHighlightBox}>
+                <Text style={styles.weightNumber}>
+                  {latestWeight > 0 ? latestWeight : '—'}
+                  {latestWeight > 0 && <Text style={styles.weightUnit}> kg</Text>}
+                </Text>
+                <Text style={styles.weightHighlightLabel}>Peso Actual</Text>
+              </View>
+
+              {latestMeasurement?.bodyFatPct ? (
+                <View style={styles.weightHighlightBox}>
+                  <Text style={[styles.weightNumber, { color: '#F59E0B' }]}>
+                    {latestMeasurement.bodyFatPct}%
+                  </Text>
+                  <Text style={styles.weightHighlightLabel}>Grasa Corporal</Text>
+                </View>
+              ) : null}
+
+              {latestMeasurement?.muscleMassPct ? (
+                <View style={styles.weightHighlightBox}>
+                  <Text style={[styles.weightNumber, { color: '#10B981' }]}>
+                    {latestMeasurement.muscleMassPct}%
+                  </Text>
+                  <Text style={styles.weightHighlightLabel}>Masa Muscular</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {weightList.length >= 2 ? (
+              <>
+                <WeightLineChart data={weightList} height={85} />
+                <View style={styles.chartFooter}>
+                  <Text style={styles.chartFooterText}>Primer registro ({weightList[0]} kg)</Text>
+                  <Text style={styles.chartFooterText}>Actual ({latestWeight} kg)</Text>
+                </View>
+              </>
+            ) : (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>
+                  {latestWeight > 0
+                    ? 'Registra un 2º peso para visualizar tu gráfica de evolución temporal'
+                    : 'Sin registros de peso corporal aún. Toca "+ Registrar Peso"'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* ── Weekly Volume Bars ── */}
+          <View style={styles.chartCard}>
+            <View style={styles.chartCardHeader}>
+              <Text style={styles.chartTitle}>VOLUMEN SEMANAL</Text>
+              <Text style={styles.volumeBadge}>
+                {(weeklyVolume[3].value / 1000).toFixed(1)}t
+              </Text>
+            </View>
+
+            <View style={styles.volumeBarContainer}>
+              <Svg width="100%" height="80" viewBox="0 0 280 80">
+                {weeklyVolume.map((d, i) => {
+                  const max = Math.max(...weeklyVolume.map((v) => v.value)) * 1.15 || 1
+                  const bh = (d.value / max) * 70
+                  const bw = 46
+                  const gap = (280 - bw * weeklyVolume.length) / (weeklyVolume.length + 1)
+                  const x = gap + i * (bw + gap)
+                  const isLast = i === weeklyVolume.length - 1
+
+                  return (
+                    <Rect
+                      key={i}
+                      x={x}
+                      y={80 - bh}
+                      width={bw}
+                      height={bh}
+                      rx="8"
+                      fill={isLast ? '#38BDF8' : 'rgba(56,189,248,0.25)'}
+                    />
+                  )
+                })}
+              </Svg>
+
+              <View style={styles.volumeLabelsRow}>
+                {weeklyVolume.map((d, i) => (
+                  <View key={i} style={{ alignItems: 'center' }}>
+                    <Text style={styles.volumeLabelText}>{d.label}</Text>
+                    <Text
+                      style={[
+                        styles.volumeValText,
+                        i === weeklyVolume.length - 1 && { color: '#38BDF8' },
+                      ]}
+                    >
+                      {(d.value / 1000).toFixed(1)}t
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        /* ══════════════════════════════════════════════════════════
+           VIEW 2: MUSCLE DETAIL & EXERCISE CATALOG (IMAGE 2)
+        ══════════════════════════════════════════════════════════ */
+        <View style={styles.detailContainer}>
+          {/* Top Navigation Bar with Back Button and Centered Muscle Name */}
+          <View style={styles.detailTopNav}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setViewMode('overview')}
+              activeOpacity={0.8}
+            >
+              <ChevronLeft size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.detailNavTitle}>{selectedMuscle}</Text>
+
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+            {/* Muscle Header Card */}
+            <View style={styles.detailSummaryCard}>
+              <View style={styles.detailSummaryTop}>
+                <Text style={styles.detailMuscleName}>{selectedMuscle}</Text>
+                <View
+                  style={[
+                    styles.optimalPill,
+                    currentMuscleStats.status === 'optimal'
+                      ? { backgroundColor: 'rgba(56,189,248,0.12)', borderColor: 'rgba(56,189,248,0.35)' }
+                      : currentMuscleStats.status === 'moderate'
+                      ? { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.35)' }
+                      : currentMuscleStats.status === 'low'
+                      ? { backgroundColor: 'rgba(113,113,122,0.15)', borderColor: 'rgba(113,113,122,0.35)' }
+                      : { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optimalPillText,
+                      currentMuscleStats.status === 'optimal'
+                        ? { color: '#38BDF8' }
+                        : currentMuscleStats.status === 'moderate'
+                        ? { color: '#F59E0B' }
+                        : currentMuscleStats.status === 'low'
+                        ? { color: '#A1A1AA' }
+                        : { color: 'rgba(255,255,255,0.4)' },
+                    ]}
+                  >
+                    {currentMuscleStats.status === 'optimal'
+                      ? 'Óptimo (≥12)'
+                      : currentMuscleStats.status === 'moderate'
+                      ? 'Moderado (6-11)'
+                      : currentMuscleStats.status === 'low'
+                      ? 'Bajo (1-5)'
+                      : '0 series'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.detailSetsText}>
+                <Text style={styles.detailSetsBold}>{currentMuscleStats.sets}</Text> series efectivas esta semana
+              </Text>
+            </View>
+
+            {/* Segmented Control Tabs (Mis Ejercicios vs Todos) */}
+            <View style={styles.segmentedTabsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentedTab,
+                  exerciseTab === 'completed' && styles.segmentedTabActive,
+                ]}
+                onPress={() => setExerciseTab('completed')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentedTabText,
+                    exerciseTab === 'completed' && styles.segmentedTabTextActive,
+                  ]}
+                >
+                  Mis Ejercicios ({userCompletedExercisesForMuscle.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentedTab,
+                  exerciseTab === 'all' && styles.segmentedTabActive,
+                ]}
+                onPress={() => setExerciseTab('all')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentedTabText,
+                    exerciseTab === 'all' && styles.segmentedTabTextActive,
+                  ]}
+                >
+                  Todos ({allExercisesForMuscle.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Exercise List */}
+            <View style={styles.muscleExercisesList}>
+              {exerciseTab === 'completed' ? (
+                userCompletedExercisesForMuscle.length === 0 ? (
+                  <View style={styles.emptyMuscleBox}>
+                    <View style={styles.emptyMuscleIconBox}>
+                      <Dumbbell size={24} color="#38BDF8" />
+                    </View>
+                    <Text style={styles.emptyMuscleTitle}>Sin ejercicios registrados</Text>
+                    <Text style={styles.emptyMuscleSub}>
+                      Los ejercicios de {selectedMuscle.toLowerCase()} aparecerán aquí en cuanto registres un entrenamiento. Explora las variantes en la pestaña "Todos".
+                    </Text>
+                  </View>
+                ) : (
+                  userCompletedExercisesForMuscle.map((ex) => {
+                    const thumbUri =
+                      ex.imageUrl ||
+                      'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/images/0001-2gPfomN.jpg'
+
+                    return (
+                      <TouchableOpacity
+                        key={ex.id}
+                        style={styles.exerciseCard}
+                        onPress={() => setActiveExerciseForPR(ex)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.exerciseThumbBox}>
+                          <Image
+                            source={{ uri: thumbUri }}
+                            style={styles.exerciseThumbImage}
+                            contentFit="contain"
+                            transition={150}
+                            cachePolicy="memory-disk"
+                          />
+                        </View>
+
+                        <View style={styles.exerciseCardContent}>
+                          <Text style={styles.exerciseCardTitle} numberOfLines={1}>
+                            {ex.name}
+                          </Text>
+                          <Text style={styles.exerciseCardSubtitle} numberOfLines={1}>
+                            {ex.equipment || 'Mancuerna'} · Ver marcas y PRs
+                          </Text>
+                        </View>
+
+                        <View style={styles.exerciseCardRight}>
+                          <View style={styles.viewProgressPill}>
+                            <Text style={styles.viewProgressText}>Ver Progreso</Text>
+                            <ChevronRight size={14} color="#38BDF8" />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    )
+                  })
+                )
+              ) : (
+                allExercisesForMuscle.map((ex) => {
+                  const thumbUri =
+                    ex.imageUrl ||
+                    'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/images/0001-2gPfomN.jpg'
+
+                  return (
+                    <TouchableOpacity
+                      key={ex.id}
+                      style={styles.exerciseCard}
+                      onPress={() => setActiveExerciseForPR(ex)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.exerciseThumbBox}>
+                        <Image
+                          source={{ uri: thumbUri }}
+                          style={styles.exerciseThumbImage}
+                          contentFit="contain"
+                          transition={150}
+                          cachePolicy="memory-disk"
+                        />
+                      </View>
+
+                      <View style={styles.exerciseCardContent}>
+                        <Text style={styles.exerciseCardTitle} numberOfLines={1}>
+                          {ex.name}
+                        </Text>
+                        <Text style={styles.exerciseCardSubtitle} numberOfLines={1}>
+                          {ex.category} · {ex.equipment || 'General'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.exerciseCardRight}>
+                        <View style={styles.viewProgressPill}>
+                          <Text style={styles.viewProgressText}>Ver Progreso</Text>
+                          <ChevronRight size={14} color="#38BDF8" />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  )
+                })
+              )}
+            </View>
+          </ScrollView>
         </View>
-      </ScrollView>
+      )}
 
       {/* ── Modal: Registrar Peso Corporal y Composición ── */}
       <Modal
@@ -727,10 +800,10 @@ export default function ProgressScreen() {
                 activeOpacity={0.85}
               >
                 {isSavingWeight ? (
-                  <ActivityIndicator color="#0F172A" />
+                  <ActivityIndicator color="#000000" />
                 ) : (
                   <>
-                    <Check size={18} color="#0F172A" strokeWidth={3} />
+                    <Check size={18} color="#000000" strokeWidth={3} />
                     <Text style={styles.saveWeightBtnText}>GUARDAR REGISTRO</Text>
                   </>
                 )}
@@ -756,11 +829,10 @@ export default function ProgressScreen() {
     </View>
   )
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080A10',
+    backgroundColor: '#09090B',
   },
   content: {
     padding: 16,
@@ -779,32 +851,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
+    color: '#FAFAFA',
+    fontSize: 32,
     fontWeight: '900',
     marginTop: 2,
   },
   bodyMapCard: {
-    backgroundColor: '#10131E',
+    backgroundColor: '#18181B',
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 14,
   },
   bodyMapCardHeader: {
     gap: 2,
   },
   bodyMapTitle: {
-    color: 'rgba(255,255,255,0.35)',
+    color: '#A1A1AA',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1.5,
   },
   bodyMapSub: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#FAFAFA',
     fontSize: 13,
     fontWeight: '600',
+    marginTop: 2,
   },
   musclePillsScroll: {
     gap: 8,
@@ -813,37 +886,43 @@ const styles = StyleSheet.create({
   musclePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    backgroundColor: '#27272A',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.06)',
     gap: 6,
   },
   musclePillActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   musclePillText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 12.5,
-    fontWeight: '600',
+    color: '#A1A1AA',
+    fontSize: 13,
+    fontWeight: '700',
   },
   musclePillTextActive: {
-    color: '#38BDF8',
-    fontWeight: '800',
+    color: '#000000',
+    fontWeight: '900',
   },
   musclePillBadge: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 6,
   },
+  musclePillBadgeActive: {
+    backgroundColor: '#000000',
+  },
   musclePillBadgeText: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 10,
     fontWeight: '800',
+  },
+  musclePillBadgeTextActive: {
+    color: '#FFFFFF',
   },
   volumeLegendRow: {
     flexDirection: 'row',
@@ -861,150 +940,210 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendLabel: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 10.5,
+    color: '#71717A',
+    fontSize: 11,
     fontWeight: '600',
   },
   bodyMapCenter: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
-  selectedMuscleBanner: {
+
+  /* ── Detail View (Image 2) ── */
+  detailContainer: {
+    flex: 1,
+    backgroundColor: '#09090B',
+  },
+  detailTopNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 12 : 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#18181B',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailNavTitle: {
+    color: '#FAFAFA',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  detailContent: {
+    padding: 16,
+    gap: 16,
+    paddingBottom: 60,
+  },
+  detailSummaryCard: {
+    backgroundColor: '#18181B',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    gap: 10,
+  },
+  detailSummaryTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#161B28',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 6,
   },
-  selectedMuscleTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  detailMuscleName: {
+    color: '#FAFAFA',
+    fontSize: 24,
     fontWeight: '900',
   },
-  selectedMuscleSub: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    marginTop: 2,
-  },
   optimalPill: {
-    backgroundColor: 'rgba(56,189,248,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.3)',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   optimalPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  detailSetsText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+  },
+  detailSetsBold: {
+    color: '#FAFAFA',
+    fontWeight: '800',
+  },
+  segmentedTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#18181B',
+    borderRadius: 14,
+    padding: 4,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#27272A',
+  },
+  segmentedTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  segmentedTabActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  segmentedTabText: {
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  segmentedTabTextActive: {
+    color: '#000000',
+    fontWeight: '900',
+  },
+  muscleExercisesList: {
+    gap: 10,
+  },
+  exerciseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181B',
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    gap: 12,
+  },
+  exerciseThumbBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  exerciseCardContent: {
+    flex: 1,
+    gap: 3,
+  },
+  exerciseCardTitle: {
+    color: '#FAFAFA',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  exerciseCardSubtitle: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  exerciseCardRight: {},
+  viewProgressPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  viewProgressText: {
     color: '#38BDF8',
     fontSize: 11,
     fontWeight: '800',
   },
-  exSubTabRow: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 12,
-    padding: 3,
-    gap: 4,
-  },
-  exSubTab: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 9,
-  },
-  exSubTabActive: {
-    backgroundColor: '#262A36',
-  },
-  exSubTabText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  exSubTabTextActive: {
-    color: '#38BDF8',
-    fontWeight: '800',
-  },
-  muscleExercisesList: {
-    gap: 8,
-  },
   emptyMuscleBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 18,
+    backgroundColor: '#18181B',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 24,
+    borderColor: '#27272A',
+    padding: 28,
     alignItems: 'center',
     gap: 8,
     marginTop: 4,
   },
   emptyMuscleIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   emptyMuscleTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: '#FAFAFA',
+    fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
   },
   emptyMuscleSub: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 12.5,
+    color: '#71717A',
+    fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 290,
   },
-  muscleExCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#141824',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
-  },
-  muscleExLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  muscleExName: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  muscleExMeta: {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 11,
-  },
-  muscleExRight: {},
-  viewPRBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(56,189,248,0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  viewPRBadgeText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '700',
-  },
+
+  /* ── Weight & Volume Cards ── */
   chartCard: {
-    backgroundColor: '#10131E',
+    backgroundColor: '#18181B',
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#27272A',
     gap: 12,
   },
   chartCardHeader: {
@@ -1013,9 +1152,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chartTitle: {
-    color: 'rgba(255,255,255,0.35)',
+    color: '#A1A1AA',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1.5,
   },
   chartBadge: {
@@ -1028,12 +1167,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#38BDF8',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 10,
   },
   logWeightBtnText: {
-    color: '#0F172A',
+    color: '#000000',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1043,22 +1182,22 @@ const styles = StyleSheet.create({
   },
   weightHighlightBox: {
     flex: 1,
-    backgroundColor: '#161B28',
+    backgroundColor: '#27272A',
     borderRadius: 14,
     padding: 10,
     alignItems: 'center',
   },
   weightNumber: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 22,
     fontWeight: '900',
   },
   weightUnit: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#71717A',
     fontSize: 13,
   },
   weightHighlightLabel: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#A1A1AA',
     fontSize: 10.5,
     fontWeight: '600',
     marginTop: 2,
@@ -1069,7 +1208,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   chartFooterText: {
-    color: 'rgba(255,255,255,0.3)',
+    color: '#71717A',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1087,34 +1226,36 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   volumeLabelText: {
-    color: 'rgba(255,255,255,0.25)',
+    color: '#71717A',
     fontSize: 10,
   },
   volumeValText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: '#A1A1AA',
     fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
   },
+
+  /* ── Modal: Registrar Peso ── */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#121520',
+    backgroundColor: '#18181B',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 22,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#27272A',
     maxHeight: '90%',
   },
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#27272A',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -1126,7 +1267,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -1134,7 +1275,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#1C1C1C',
+    backgroundColor: '#27272A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1147,16 +1288,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   inputLabel: {
-    color: 'rgba(255,255,255,0.6)',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
   },
   textInput: {
-    backgroundColor: '#181D2B',
+    backgroundColor: '#27272A',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    color: '#FFFFFF',
+    borderColor: 'rgba(255,255,255,0.06)',
+    color: '#FAFAFA',
     fontSize: 15,
     fontWeight: '600',
     paddingHorizontal: 14,
@@ -1174,7 +1315,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   saveWeightBtnText: {
-    color: '#0F172A',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1,

@@ -38,19 +38,17 @@ export default function AnatomicalBodyMap({
 }: Props) {
   const activeVolumeMap = userVolumeSets || muscleVolumeSets
   const isSelected = (muscle: string) => selectedMuscle?.toLowerCase() === muscle.toLowerCase()
-
   const getFill = (muscle: string) => {
-    if (isSelected(muscle)) return '#38BDF8' // Seleccionado: Azul celeste brillante
     const data = activeVolumeMap[muscle]
-    if (!data) return '#27272A'
-    if (data.status === 'optimal') return '#DC2626' // Óptimo: Rojo
-    if (data.status === 'moderate') return '#F59E0B' // Moderado: Amarillo
-    if (data.status === 'low') return '#6B7280' // Bajo: Gris
+    if (data?.status === 'optimal') return '#38BDF8' // Óptimo: Cyan / Sky
+    if (data?.status === 'moderate') return '#F59E0B' // Moderado: Ámbar
+    if (data?.status === 'low') return '#71717A' // Bajo: Gris
+    if (isSelected(muscle)) return '#38BDF8' // Seleccionado
     return '#27272A'
   }
 
   const getStroke = (muscle: string) => {
-    if (isSelected(muscle)) return '#0284C7'
+    if (isSelected(muscle)) return '#FFFFFF'
     return 'rgba(0, 0, 0, 0.4)'
   }
 
